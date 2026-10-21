@@ -5,7 +5,7 @@
         "beforeBuildCommand": "npm run build && npm run build:mcp-adapter",
         "frontendDist": "../dist"
     },
-    "productName": "MTV Open",
+    "productName": "MTV 导演画布",
     "version": "0.1.0",
     "identifier": "io.github.mtvopen.desktop",
     "plugins": {
