@@ -120,6 +120,12 @@ npm run tauri build
 
 版本以 `package.json` 为源。`npm run sync-version` 当前只同步 `README.md` 版本徽章和 `src-tauri/Cargo.toml`；Tauri 配置、其他语言 README、站点与说明书需分别核对，见[打包与发版流程](doc/打包与发版流程.md)。
 
+### 已知限制
+
+- **测试套件**：`tests/` 继承了上游的用例，其中一部分与当前类型定义已经漂移（`npm run test:typecheck` 会报既有类型错误），另有若干组件测试失败。
+  因此本仓的 CI 与发版流水线**目前只跑 `lint` + `typecheck` + `build`**，`npm run test` 保留给本地使用。欢迎 PR 逐条修掉。
+- **界面素材**：见下方[素材与第三方声明](#素材与第三方声明)。
+
 ## 项目文档
 
 - [操作说明书](site/manual.html)
