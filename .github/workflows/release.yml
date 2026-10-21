@@ -6,6 +6,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+# 打 tag 触发时要创建 Release / 上传产物（默认 GITHUB_TOKEN 只有只读权限）
+permissions:
+  contents: write
+
 jobs:
   quality:
     name: Quality gate
