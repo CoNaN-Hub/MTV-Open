@@ -1,0 +1,120 @@
+/**
+ * Agent 任务持久化服务。
+ *
+ * 只保存可序列化的任务快照；AbortController、活动 Promise 等运行时对象不得写入 IndexedDB。
+ */
+import {
+  deleteAgentTask,
+  deleteConversationAgentTasks,
+  deleteProjectAgentTasks,
+  getAgentTask,
+  getProjectAgentTasks,
+  putAgentTask,
+} from '../indexedDbService';
+import {
+  AGENT_RESTART_INTERRUPT_STATUSES,
+  DEFAULT_AGENT_TASK_BUDGET,
+  DEFAULT_AGENT_TASK_METRICS,
+  type AgentStep,
+  type AgentTask,
+} from '../../types/agent';
+
+function normalizeTask(task: AgentTask): AgentTask {
+  return {
+    ...task,
+    steps: task.steps ?? [],
+    modelRounds: task.modelRounds ?? 0,
+    toolCallCount: task.toolCallCount ?? 0,
+    budget: {
+      ...DEFAULT_AGENT_TASK_BUDGET,
+      ...task.budget,
+    },
+    skillBindings: Array.isArray(task.skillBindings)
+      ? task.skillBindings.map((binding) => ({
+        ...binding,
+        allowedTools: binding.allowedTools ? [...binding.allowedTools] : undefined,
+      }))
+      : undefined,
+    events: task.events ?? [],
+    metrics: {
+      ...DEFAULT_AGENT_TASK_METRICS,
+      ...task.metrics,
+    },
+  };
+}
+
+function sortNewestFirst(tasks: AgentTask[]): AgentTask[] {
+  return tasks.map(normalizeTask).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+/** 重启后把「进行中」的步骤收敛为失败（官方没有 paused 状态，也不再提供「继续」）。 */
+function failStepAfterRestart(step: AgentStep, now: number): AgentStep {
+  if (step.status !== 'running' && step.status !== 'waiting_approval') {
+    return step;
+  }
+
+  return {
+    ...step,
+    status: 'failed',
+    updatedAt: now,
+    errorCode: 'AGENT_INTERRUPTED_BY_RESTART',
+    errorMessage: '应用已重启，该步骤被中断',
+    approval: step.approval?.status === 'pending'
+      ? { ...step.approval, status: 'expired', resolvedAt: now }
+      : step.approval,
+  };
+}
+
+export async function saveAgentTask(task: AgentTask): Promise<void> {
+  await putAgentTask(normalizeTask(task));
+}
+
+export async function loadAgentTask(taskId: string): Promise<AgentTask | null> {
+  const task = await getAgentTask(taskId);
+  return task ? normalizeTask(task) : null;
+}
+
+export async function loadProjectAgentTasks(projectId: string): Promise<AgentTask[]> {
+  return sortNewestFirst(await getProjectAgentTasks(projectId));
+}
+
+export async function removeAgentTask(taskId: string): Promise<void> {
+  await deleteAgentTask(taskId);
+}
+
+export async function removeConversationAgentTasks(conversationId: string): Promise<void> {
+  await deleteConversationAgentTasks(conversationId);
+}
+
+export async function removeProjectAgentTasks(projectId: string): Promise<void> {
+  await deleteProjectAgentTasks(projectId);
+}
+
+/**
+ * 应用启动后不自动续跑旧任务。
+ * 所有被中断的非终态任务收敛为 `failed`（官方没有 `paused` 状态，也没有「继续」入口），
+ * 活动步骤同样标失败并附错误码，旧审批失效并等待重新校验。
+ */
+export async function repairInterruptedAgentTasks(projectId: string): Promise<string[]> {
+  const tasks = await getProjectAgentTasks(projectId);
+  const repairedIds: string[] = [];
+
+  await Promise.all(tasks.map(async (rawTask) => {
+    const task = normalizeTask(rawTask);
+    if (!AGENT_RESTART_INTERRUPT_STATUSES.has(task.status)) return;
+
+    const now = Date.now();
+    const repaired: AgentTask = {
+      ...task,
+      status: 'failed',
+      steps: task.steps.map((step) => failStepAfterRestart(step, now)),
+      updatedAt: now,
+      errorCode: 'AGENT_INTERRUPTED_BY_RESTART',
+      errorMessage: '应用重启中断了该任务，可重新发起',
+    };
+    await putAgentTask(repaired);
+    repairedIds.push(repaired.id);
+  }));
+
+  return repairedIds;
+}

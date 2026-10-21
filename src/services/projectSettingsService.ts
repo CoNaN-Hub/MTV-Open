@@ -1,0 +1,322 @@
+/**
+ * projectSettingsService — 项目创作基线的纯解析规则。
+ * 不读取 Store，便于节点创建、生成执行和设置 UI 复用同一优先级。
+ */
+import type {
+  BaseNodeData,
+  CustomStyle,
+  NodeType,
+  ProjectModelKind,
+  ProjectSettings,
+} from '../types';
+
+export interface ProjectStyleOption {
+  id: string;
+  name: string;
+  description: string;
+  prompt: string;
+}
+
+export const PROJECT_STYLE_OPTIONS: ProjectStyleOption[] = [
+  { id: 'realistic', name: '写实摄影', description: '真实质感，光影自然', prompt: '写实摄影风格，真实材质，自然光影，细节清晰' },
+  { id: 'anime', name: '动漫风格', description: '日系二次元绘画', prompt: '日系动漫风格，干净线稿，统一角色设计，细腻上色' },
+  { id: 'watercolor', name: '水彩画', description: '柔和通透的晕染', prompt: '水彩画风格，柔和通透的晕染，自然纸张纹理' },
+  { id: 'oil-painting', name: '油画', description: '厚重肌理与笔触', prompt: '油画风格，厚重颜料肌理，清晰笔触，层次丰富' },
+  { id: 'sketch', name: '素描', description: '黑白线条速写', prompt: '素描风格，黑白线条，细腻排线，结构准确' },
+  { id: 'cyberpunk', name: '赛博朋克', description: '霓虹都市科技感', prompt: '赛博朋克风格，霓虹光影，未来都市，高对比氛围' },
+  { id: 'ink-wash', name: '水墨画', description: '水墨留白与写意笔触', prompt: '中国水墨画风格，墨色层次，留白构图，写意笔触' },
+  { id: 'pixel-art', name: '像素艺术', description: '统一色板与像素质感', prompt: '像素艺术风格，清晰像素边缘，统一色板，复古游戏质感' },
+  { id: '3d-render', name: '3D 渲染', description: '立体材质与精细灯光', prompt: '高品质 3D 渲染风格，立体材质，精细灯光，空间层次清晰' },
+  { id: 'flat-illustration', name: '扁平插画', description: '简洁干净的矢量风', prompt: '扁平插画风格，简洁几何造型，统一配色，干净轮廓' },
+  { id: 'cinematic', name: '电影质感', description: '电影级调色与光影', prompt: '电影级画面风格，叙事构图，电影调色，富有层次的光影' },
+  { id: 'vintage', name: '复古胶片', description: '胶片颗粒与怀旧影调', prompt: '复古胶片风格，自然颗粒，柔和色偏，怀旧影调' },
+];
+
+export const PROJECT_IMAGE_ASPECT_RATIOS = [
+  '自适应', '1:1', '9:16', '16:9', '3:4', '4:3', '3:2', '2:3', '5:4', '4:5',
+  '21:9', '1:4', '4:1', '1:6', '6:1', '1:8', '8:1',
+] as const;
+export const PROJECT_IMAGE_SIZES = ['720p', '1K', '2K', '4K'] as const;
+/** 视频画面比例：与 Seedance / APIMart 文档一致，'adaptive' 表示由模型自行决定。 */
+export const PROJECT_VIDEO_ASPECT_RATIOS = [
+  '16:9', '9:16', '1:1', '4:3', '3:4', '21:9', 'adaptive',
+] as const;
+export const PROJECT_VIDEO_RESOLUTIONS = ['480p', '720p', '1080p', '4k'] as const;
+
+const NODE_MODEL_KIND: Partial<Record<NodeType, ProjectModelKind>> = {
+  'ai-text': 'text',
+  'ai-shotlist': 'text',
+  'ai-image': 'image',
+  'ai-animation': 'image',
+  'ai-panorama': 'image',
+  'ai-video': 'video',
+  'ai-audio': 'audio',
+};
+
+export function getProjectModelKind(nodeType: string | undefined): ProjectModelKind | null {
+  if (!nodeType) return null;
+  return NODE_MODEL_KIND[nodeType as NodeType] ?? null;
+}
+
+export function parseProjectModelRef(modelRef: string | undefined): {
+  model: string;
+  provider: string;
+} | null {
+  if (!modelRef) return null;
+  const slashIndex = modelRef.indexOf('/');
+  if (slashIndex <= 0) return null;
+  return { model: modelRef, provider: modelRef.slice(0, slashIndex) };
+}
+
+/** 项目默认优先、应用默认兜底的助手文本模型候选。 */
+export function getAssistantTextModelCandidates(
+  settings: ProjectSettings | undefined,
+  applicationModelId: string | undefined,
+): string[] {
+  const candidates = [settings?.defaultModels?.text, applicationModelId]
+    .map((value) => value?.trim())
+    .filter((value): value is string => !!value);
+  return [...new Set(candidates)];
+}
+
+function clean(value: string | undefined): string | undefined {
+  const next = value?.trim();
+  return next || undefined;
+}
+
+export function normalizeProjectSettings(settings: ProjectSettings): ProjectSettings {
+  const styleId = clean(settings.visualStyle?.styleId);
+  const rawRef = settings.visualStyle?.styleReference;
+  const refUrl = clean(rawRef?.imageUrl);
+  const refPath = clean(rawRef?.filePath);
+  const styleReference = (refUrl || refPath)
+    ? {
+        imageUrl: refUrl,
+        filePath: refPath,
+        fileName: clean(rawRef?.fileName),
+        // 有图时默认启用；显式 false 才关闭
+        enabled: rawRef?.enabled !== false,
+      }
+    : undefined;
+  const visualStyle = (styleId || styleReference)
+    ? {
+        ...(styleId
+          ? {
+              styleId,
+              styleName: clean(settings.visualStyle?.styleName),
+              prompt: clean(settings.visualStyle?.prompt),
+              locked: settings.visualStyle?.locked === true,
+            }
+          : {
+              locked: settings.visualStyle?.locked === true,
+            }),
+        ...(styleReference ? { styleReference } : {}),
+      }
+    : undefined;
+
+  const defaultModels = Object.fromEntries(
+    Object.entries(settings.defaultModels ?? {})
+      .map(([kind, model]) => [kind, clean(model)])
+      .filter((entry): entry is [string, string] => !!entry[1]),
+  ) as ProjectSettings['defaultModels'];
+  const visionModelId = clean(settings.visionModelId);
+  const hasTypedPromptSuffixes = settings.promptSuffixes !== undefined;
+  const promptSuffixes = Object.fromEntries(
+    Object.entries(settings.promptSuffixes ?? {})
+      .map(([kind, suffix]) => [kind, clean(suffix)])
+      .filter((entry): entry is [string, string] => !!entry[1]),
+  ) as ProjectSettings['promptSuffixes'];
+
+  const generation = settings.generation;
+  const imageAspectRatio = PROJECT_IMAGE_ASPECT_RATIOS.includes(
+    generation?.imageAspectRatio as (typeof PROJECT_IMAGE_ASPECT_RATIOS)[number],
+  ) ? generation?.imageAspectRatio : undefined;
+  const imageSize = PROJECT_IMAGE_SIZES.includes(
+    generation?.imageSize as (typeof PROJECT_IMAGE_SIZES)[number],
+  ) ? generation?.imageSize : undefined;
+  const videoAspectRatio = PROJECT_VIDEO_ASPECT_RATIOS.includes(
+    generation?.videoAspectRatio as (typeof PROJECT_VIDEO_ASPECT_RATIOS)[number],
+  ) ? generation?.videoAspectRatio : undefined;
+  const videoResolution = PROJECT_VIDEO_RESOLUTIONS.includes(
+    generation?.videoResolution as (typeof PROJECT_VIDEO_RESOLUTIONS)[number],
+  ) ? generation?.videoResolution : undefined;
+  const videoDuration = Number.isInteger(generation?.videoDuration)
+    && (generation?.videoDuration ?? 0) >= 2
+    && (generation?.videoDuration ?? 0) <= 15
+    ? generation?.videoDuration
+    : undefined;
+
+  return {
+    ...(visualStyle ? { visualStyle } : {}),
+    ...(hasTypedPromptSuffixes && promptSuffixes && Object.keys(promptSuffixes).length > 0
+      ? { promptSuffixes }
+      : {}),
+    ...(!hasTypedPromptSuffixes && clean(settings.promptSuffix)
+      ? { promptSuffix: clean(settings.promptSuffix) }
+      : {}),
+    ...(defaultModels && Object.keys(defaultModels).length > 0 ? { defaultModels } : {}),
+    ...(visionModelId ? { visionModelId } : {}),
+    ...(settings.modelAutoRouting === true ? { modelAutoRouting: true } : {}),
+    ...(imageAspectRatio || imageSize || videoAspectRatio || videoResolution || videoDuration
+      ? {
+          generation: {
+            imageAspectRatio,
+            imageSize,
+            videoAspectRatio,
+            videoResolution,
+            videoDuration,
+          },
+        }
+      : {}),
+  };
+}
+
+export function resolveStylePrompt(
+  styleId: string | undefined,
+  customStyles: CustomStyle[] = [],
+): string | undefined {
+  if (!styleId) return undefined;
+  const custom = customStyles.find((style) => style.id === styleId);
+  if (custom?.prompt.trim()) return custom.prompt.trim();
+  return PROJECT_STYLE_OPTIONS.find((style) => style.id === styleId)?.prompt;
+}
+
+export function getImageNodeDimensionsForAspectRatio(
+  aspectRatio: string,
+  /** 卡片当前宽度；官方实测改比例时**宽度保持不变**，只按比例改高度 */
+  baseWidth = 280,
+): { nodeWidth: number; nodeHeight: number } | null {
+  if (aspectRatio === '自适应') {
+    return { nodeWidth: baseWidth, nodeHeight: baseWidth };
+  }
+
+  const parts = aspectRatio.split(':');
+  if (parts.length !== 2) return null;
+  const width = Number(parts[0]);
+  const height = Number(parts[1]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return null;
+  }
+
+  // 官方实测：9:16 → 325×577；选 3:4 → 325×433（宽度不变，高度 = 宽度 × h/w）
+  return { nodeWidth: baseWidth, nodeHeight: Math.round(baseWidth * (height / width)) };
+}
+
+export function applyProjectDefaultsToNodeData(
+  data: BaseNodeData,
+  settings: ProjectSettings | undefined,
+): BaseNodeData {
+  if (!settings || data.role === 'source' || data.displayId !== undefined) return data;
+
+  const kind = getProjectModelKind(data.type);
+  if (!kind) return data;
+
+  const next: BaseNodeData = { ...data };
+  const projectModel = parseProjectModelRef(settings.defaultModels?.[kind]);
+  const hasPrompt = !!data.prompt?.trim();
+  const hasPromptedModel = !!data.model && hasPrompt;
+  if (projectModel && !hasPromptedModel) {
+    next.model = projectModel.model;
+    next.provider = projectModel.provider;
+  }
+
+  const projectStyle = settings.visualStyle;
+  if (
+    (data.type === 'ai-image' || data.type === 'ai-panorama' || data.type === 'ai-video')
+    && projectStyle?.styleId
+    && (projectStyle.locked || !data.style)
+  ) {
+    next.style = projectStyle.styleId;
+  }
+
+  if (data.type === 'ai-image') {
+    if (settings.generation?.imageAspectRatio && (!hasPrompt || !data.aspectRatio)) {
+      next.aspectRatio = settings.generation.imageAspectRatio;
+      const dimensions = getImageNodeDimensionsForAspectRatio(next.aspectRatio);
+      if (dimensions) Object.assign(next, dimensions);
+    }
+    if (settings.generation?.imageSize && (!hasPrompt || !data.imageSize)) {
+      next.imageSize = settings.generation.imageSize;
+    }
+  }
+  if (data.type === 'ai-video') {
+    const directGeneralProtocol = next.provider === 'general' && !data.workflowId;
+    if (!directGeneralProtocol && settings.generation?.videoAspectRatio && (!hasPrompt || !data.seedanceRatio)) {
+      next.seedanceRatio = settings.generation.videoAspectRatio;
+    }
+    if (!directGeneralProtocol && settings.generation?.videoResolution && (!hasPrompt || !data.seedanceResolution)) {
+      next.seedanceResolution = settings.generation.videoResolution;
+    }
+    if (!directGeneralProtocol && settings.generation?.videoDuration && (!hasPrompt || !data.seedanceDuration)) {
+      next.seedanceDuration = settings.generation.videoDuration;
+    }
+  }
+
+  return next;
+}
+
+export function resolveProjectGenerationPrompt({
+  prompt,
+  data,
+  settings,
+  customStyles,
+}: {
+  prompt: string;
+  data: BaseNodeData;
+  settings?: ProjectSettings;
+  customStyles?: CustomStyle[];
+}): string {
+  const parts = [prompt.trim()];
+  const projectStyle = settings?.visualStyle;
+  /**
+   * ⚠️ **只有图片类节点吃项目级画风**（第 65 轮按官方源码收窄，此前还包含 `ai-video`）。
+   *
+   * 官方证据（`live-assets-new/vendor-pkg-canvas-CvbAwZyy.js`，charIdx）：
+   *   · 画风母图 `style_images` **只出现在图片路径**：@1352581 / @1354978 逐字
+   *     `cameraControlImage({prompt, scene:"generation", ...be.images && {images:be.images},
+   *      ...be.style_images && {style_images:be.style_images}, times:ye, …})`；
+   *     且它列在**图片**参数白名单 `p3e` 里（@1076948 邻域：`images, image_normal, image_srefs,
+   *     image_oref, …, style_images, …`）。
+   *   · **视频**参数白名单是另一张 `m3e`（@1076948 邻域结尾起）：
+   *     `["generateMode","enableWebSearch","elementList","style","pe_fast_mode","loop","soundEffect",…]`
+   *     —— 里面的 `style` 是**按模型的选项**（Pixverse `pixverseStyleLabel` / Vidu `viduStyleLabel`
+   *     那个 `style` 参数），**不是**项目级画风。
+   *   · 官方产物里也没有「把项目画风拼进视频提示词」的生产者（`visualStyle` 这个键名只出现在
+   *     灵感提取的展示字段里，见 @3587591 等的 `"visualStyle":"Visual Style"`）。
+   *
+   * ⇒ 视频节点不再吃项目级画风；图片/全景保持原样。
+   */
+  const supportsVisualStyle = data.type === 'ai-image'
+    || data.type === 'ai-panorama';
+  const styleId = supportsVisualStyle
+    ? projectStyle?.locked
+      ? projectStyle.styleId
+      : data.style || projectStyle?.styleId
+    : undefined;
+  const stylePrompt = styleId
+    ? projectStyle?.locked
+      ? projectStyle.prompt || resolveStylePrompt(styleId, customStyles)
+      : resolveStylePrompt(styleId, customStyles) || projectStyle?.prompt
+    : undefined;
+
+  if (stylePrompt?.trim()) parts.push(stylePrompt.trim());
+  const promptKind = getProjectModelKind(data.type);
+  const promptSuffix = settings?.promptSuffixes !== undefined
+    ? promptKind ? settings.promptSuffixes[promptKind] : undefined
+    : settings?.promptSuffix;
+  if (promptSuffix?.trim()) parts.push(promptSuffix.trim());
+  return [...new Set(parts.filter(Boolean))].join('\n\n');
+}
+
+/**
+ * 读取当前项目启用的风格母图 URL（无则 null）。
+ * 仅返回可用于 image 输入的 URL，不负责上传。
+ */
+export function getEnabledProjectStyleReferenceUrl(
+  settings: ProjectSettings | undefined,
+): string | null {
+  const ref = settings?.visualStyle?.styleReference;
+  if (!ref || ref.enabled === false) return null;
+  const url = clean(ref.imageUrl);
+  return url || null;
+}

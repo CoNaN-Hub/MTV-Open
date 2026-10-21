@@ -1,0 +1,796 @@
+/**
+ * ProjectSettingsPopover — 当前项目的创作基线设置弹层。
+ */
+import { Icon } from '@iconify/react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+  type RefObject,
+} from 'react';
+import { createPortal } from 'react-dom';
+import { useShallow } from 'zustand/react/shallow';
+import type {
+  AppConfig,
+  CanvasProject,
+  NodeType,
+  ProjectModelKind,
+  ProjectSettings,
+} from '../types';
+import { useAppStore } from '../store/useAppStore';
+import {
+  getConfiguredModelGroups,
+  hasVisionInputCapability,
+  isProviderCategoryVisible,
+} from './nodes/shared/defaultModels';
+import QualityRatioSelector from './nodes/shared/QualityRatioSelector';
+import StyleSelector from './nodes/shared/StyleSelector';
+import VideoParamSelector from './nodes/shared/VideoParamSelector';
+import PopupCloseButton from './shared/PopupCloseButton';
+import Select from './shared/Select';
+import { OfficialSwitch } from './settings/official/OfficialControls';
+/* ★ 模型名的唯一出口：界面只显示 displayName，不显示平台调用 id */
+import { displayNameOfModelRef } from '../services/models/display';
+import {
+  PROJECT_STYLE_OPTIONS,
+} from '../services/projectSettingsService';
+import { uploadSourceFileToProject } from '../services/fileService';
+import { useT } from '../i18n';
+
+interface ProjectSettingsPopoverProps {
+  isOpen: boolean;
+  project: CanvasProject | null;
+  anchorRef: RefObject<HTMLButtonElement | null>;
+  onClose: () => void;
+}
+
+interface ModelRowDefinition {
+  kind: ProjectModelKind;
+  label: string;
+  nodeType: NodeType;
+  icon: string;
+  colorClass: string;
+  tabActiveClass: string;
+}
+
+interface ModelOptionGroup {
+  id: string;
+  name: string;
+  options: Array<{
+    value: string;
+    label: string;
+    /** 同名模型的区分信息（自定义连接名）；原生 select 只能拼进选项文字。 */
+    hint?: string;
+    inputModalities?: Array<'text' | 'image'>;
+  }>;
+}
+
+const MODEL_ROWS: ModelRowDefinition[] = [
+  {
+    kind: 'text', label: '文本', nodeType: 'ai-text', icon: 'lucide:type',
+    colorClass: 'text-accent-primary',
+    tabActiveClass: 'bg-node-text/15 text-node-text-light ring-1 ring-inset ring-node-text/25',
+  },
+  {
+    kind: 'image', label: '图像', nodeType: 'ai-image', icon: 'lucide:image',
+    colorClass: 'text-green-400',
+    tabActiveClass: 'bg-node-image/15 text-node-image-light ring-1 ring-inset ring-node-image/25',
+  },
+  {
+    kind: 'video', label: '视频', nodeType: 'ai-video', icon: 'lucide:clapperboard',
+    colorClass: 'text-blue-400',
+    tabActiveClass: 'bg-node-video/15 text-node-video-light ring-1 ring-inset ring-node-video/25',
+  },
+  {
+    kind: 'audio', label: '音频', nodeType: 'ai-audio', icon: 'lucide:audio-lines',
+    colorClass: 'text-orange-400',
+    tabActiveClass: 'bg-node-audio/15 text-node-audio-light ring-1 ring-inset ring-node-audio/25',
+  },
+];
+
+function cloneSettings(settings: ProjectSettings | undefined): ProjectSettings {
+  const legacyPromptSuffix = settings?.promptSuffix ?? '';
+  const vs = settings?.visualStyle;
+  return {
+    visualStyle: vs
+      ? {
+          ...vs,
+          styleReference: vs.styleReference ? { ...vs.styleReference } : undefined,
+        }
+      : undefined,
+    promptSuffixes: Object.fromEntries(MODEL_ROWS.map((row) => [
+      row.kind,
+      settings?.promptSuffixes?.[row.kind] ?? legacyPromptSuffix,
+    ])),
+    defaultModels: { ...settings?.defaultModels },
+    visionModelId: settings?.visionModelId,
+    modelAutoRouting: settings?.modelAutoRouting,
+    generation: { ...settings?.generation },
+  };
+}
+
+function buildModelGroups(
+  row: ModelRowDefinition,
+  config: AppConfig,
+): ModelOptionGroup[] {
+  const seen = new Set<string>();
+  const groups = getConfiguredModelGroups(config, row.nodeType).flatMap((group) => {
+    const options = group.models.flatMap((model) => {
+      if (
+        model.provider === 'runninghubwf'
+        || !model.nodeTypes.includes(row.nodeType)
+        || seen.has(model.value)
+      ) return [];
+      seen.add(model.value);
+      return [{ value: model.value, label: model.label, inputModalities: model.inputModalities }];
+    });
+    return options.length > 0 ? [{ id: group.id, name: group.name, options }] : [];
+  });
+
+  const generalOptions = (config.generalModels ?? []).flatMap((model) => {
+    if (
+      model.category !== row.kind
+      || !isProviderCategoryVisible(config, model.providerConfigId, model.category)
+    ) return [];
+    const value = `general/${model.id}`;
+    if (seen.has(value)) return [];
+    seen.add(value);
+    // 多个自定义连接的模型同在「通用模型」分组里，用连接名区分同名模型
+    const connectionName = config.providers[model.providerConfigId]?.name?.trim();
+    return [{
+      value,
+      label: model.name,
+      hint: connectionName,
+      inputModalities: model.inputModalities,
+    }];
+  });
+  if (generalOptions.length > 0) {
+    groups.push({ id: 'general-models', name: '通用模型', options: generalOptions });
+  }
+  return groups;
+}
+
+function SectionTitle({ icon, children }: { icon: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 text-xs font-semibold text-text-text-secondary">
+      <Icon icon={icon} className="h-3.5 w-3.5" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+export default function ProjectSettingsPopover({
+  isOpen,
+  project,
+  anchorRef,
+  onClose,
+}: ProjectSettingsPopoverProps) {
+  const t = useT();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+  const [draft, setDraft] = useState<ProjectSettings>(() => cloneSettings(project?.settings));
+  const [activePromptKind, setActivePromptKind] = useState<ProjectModelKind>('image');
+  const [saving, setSaving] = useState(false);
+  const [position, setPosition] = useState({ top: 44, left: 12 });
+  const nestedModalOpenRef = useRef(false);
+  const { config, customStyles, updateProjectSettings } = useAppStore(
+    useShallow((state) => ({
+      config: state.config,
+      customStyles: state.customStyles,
+      updateProjectSettings: state.updateProjectSettings,
+    })),
+  );
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const updatePosition = () => {
+      const anchor = anchorRef.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const panelWidth = Math.min(420, window.innerWidth - 24);
+      setPosition({
+        top: anchor.bottom + 8,
+        left: Math.max(12, Math.min(anchor.right - panelWidth, window.innerWidth - panelWidth - 12)),
+      });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [anchorRef, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    const focusFrame = requestAnimationFrame(() => panelRef.current?.focus());
+    const handlePointerDown = (event: PointerEvent) => {
+      if (nestedModalOpenRef.current) return;
+      const target = event.target as Node;
+      if (
+        panelRef.current?.contains(target)
+        || anchorRef.current?.contains(target)
+        || (event.target instanceof Element && event.target.closest('[data-ui-select-portal]'))
+      ) return;
+      onClose();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (nestedModalOpenRef.current) return;
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+      document.removeEventListener('keydown', handleKeyDown, true);
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [anchorRef, isOpen, onClose]);
+
+  const handleStyleModalOpenChange = useCallback((open: boolean) => {
+    nestedModalOpenRef.current = open;
+  }, []);
+
+  const styleOptions = useMemo(() => {
+    const options = new Map(PROJECT_STYLE_OPTIONS.map((style) => [style.id, style]));
+    for (const style of customStyles) {
+      if (!options.has(style.id)) {
+        options.set(style.id, {
+          id: style.id,
+          name: style.name,
+          description: style.prompt,
+          prompt: style.prompt,
+        });
+      }
+    }
+    return [...options.values()];
+  }, [customStyles]);
+
+  const modelGroups = useMemo(() => {
+    const groups = Object.fromEntries(
+      MODEL_ROWS.map((row) => [row.kind, buildModelGroups(row, config)]),
+    ) as Record<ProjectModelKind, ModelOptionGroup[]>;
+    // 翻译 buildModelGroups 内模块级无法访问 t 的固定 group name
+    (Object.keys(groups) as ProjectModelKind[]).forEach((kind) => {
+      groups[kind] = groups[kind].map((group) => group.id === 'general-models'
+        ? { ...group, name: t('通用模型') }
+        : group);
+    });
+    return groups;
+  }, [config, t]);
+  const visionModelGroups = useMemo(() => modelGroups.text.map((group) => ({
+    ...group,
+    options: group.options.filter((option) => {
+      const generalId = option.value.replace(/^general\//, '');
+      const general = config.generalModels?.find((model) => model.id === generalId);
+      return general
+        ? hasVisionInputCapability(general)
+        : hasVisionInputCapability({
+            modelId: option.value,
+            inputModalities: option.inputModalities,
+          });
+    }),
+  })).filter((group) => group.options.length > 0), [config.generalModels, modelGroups.text]);
+  const activePromptRow = MODEL_ROWS.find((row) => row.kind === activePromptKind) ?? MODEL_ROWS[0];
+
+  const handleStyleChange = (styleId: string) => {
+    const style = styleOptions.find((option) => option.id === styleId);
+    setDraft((current) => ({
+      ...current,
+      visualStyle: style
+        ? {
+            styleId: style.id,
+            styleName: style.name,
+            prompt: style.prompt,
+            locked: current.visualStyle?.locked ?? false,
+            // 保留已上传的风格母图
+            styleReference: current.visualStyle?.styleReference,
+          }
+        : current.visualStyle?.styleReference
+          ? {
+              styleReference: current.visualStyle.styleReference,
+              locked: current.visualStyle.locked,
+            }
+          : undefined,
+    }));
+  };
+
+  const [styleRefBusy, setStyleRefBusy] = useState(false);
+
+  const handleUploadStyleReference = async () => {
+    if (!project || styleRefBusy) return;
+    setStyleRefBusy(true);
+    try {
+      const uploaded = await uploadSourceFileToProject(
+        'png,jpg,jpeg,webp,gif,bmp',
+        project.id,
+      );
+      if (!uploaded) return;
+      setDraft((current) => ({
+        ...current,
+        visualStyle: {
+          ...current.visualStyle,
+          styleReference: {
+            imageUrl: uploaded.dataUrl,
+            filePath: uploaded.filePath,
+            fileName: uploaded.fileName,
+            enabled: true,
+          },
+        },
+      }));
+    } catch (err) {
+      console.error('[项目设置] 上传风格母图失败:', err);
+      useAppStore.getState().showToast?.(
+        err instanceof Error ? err.message : t('上传风格母图失败'),
+        'error',
+      );
+    } finally {
+      setStyleRefBusy(false);
+    }
+  };
+
+  const handleClearStyleReference = () => {
+    setDraft((current) => {
+      if (!current.visualStyle) return current;
+      const nextVs = { ...current.visualStyle };
+      delete nextVs.styleReference;
+      // 若既无枚举画风也无母图，清空 visualStyle
+      if (!nextVs.styleId && !nextVs.prompt) {
+        return { ...current, visualStyle: undefined };
+      }
+      return { ...current, visualStyle: nextVs };
+    });
+  };
+
+  const handleToggleStyleReference = () => {
+    setDraft((current) => {
+      const ref = current.visualStyle?.styleReference;
+      if (!ref?.imageUrl && !ref?.filePath) return current;
+      return {
+        ...current,
+        visualStyle: {
+          ...current.visualStyle,
+          styleReference: {
+            ...ref,
+            enabled: ref.enabled === false,
+          },
+        },
+      };
+    });
+  };
+
+  const handleModelChange = (kind: ProjectModelKind, model: string) => {
+    setDraft((current) => ({
+      ...current,
+      defaultModels: { ...current.defaultModels, [kind]: model || undefined },
+    }));
+  };
+
+  const handleGenerationChange = (
+    key: 'imageAspectRatio' | 'imageSize' | 'videoAspectRatio' | 'videoResolution' | 'videoDuration',
+    value: string | number | undefined,
+  ) => {
+    setDraft((current) => ({
+      ...current,
+      generation: { ...current.generation, [key]: value },
+    }));
+  };
+
+  const handleGenerationDefaultsToggle = (kind: 'image' | 'video', enabled: boolean) => {
+    setDraft((current) => ({
+      ...current,
+      generation: kind === 'image'
+        ? {
+            ...current.generation,
+            imageAspectRatio: enabled
+              ? current.generation?.imageAspectRatio ?? '16:9'
+              : undefined,
+            imageSize: enabled ? current.generation?.imageSize ?? '1K' : undefined,
+          }
+        : {
+            ...current.generation,
+            videoAspectRatio: enabled
+              ? current.generation?.videoAspectRatio ?? '16:9'
+              : undefined,
+            videoResolution: enabled
+              ? current.generation?.videoResolution ?? '720p'
+              : undefined,
+            videoDuration: enabled ? current.generation?.videoDuration ?? 5 : undefined,
+          },
+    }));
+  };
+
+  const imageDefaultsEnabled = Boolean(
+    draft.generation?.imageAspectRatio || draft.generation?.imageSize,
+  );
+  const videoDefaultsEnabled = Boolean(
+    draft.generation?.videoAspectRatio
+    || draft.generation?.videoResolution
+    || draft.generation?.videoDuration,
+  );
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (saving || !project) return;
+    setSaving(true);
+    const saved = await updateProjectSettings(draft);
+    setSaving(false);
+    if (saved) onClose();
+  };
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <AnimatePresence>
+      {isOpen && project ? (
+        <motion.div
+          id="project-settings-popover"
+          ref={panelRef}
+          role="dialog"
+          aria-label={t('{name} 项目设置', { name: project.name })}
+          tabIndex={-1}
+          style={{ top: position.top, left: position.left }}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: -8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: -6 }}
+          transition={reduceMotion
+            ? { duration: 0.12 }
+            : { type: 'spring', bounce: 0, duration: 0.32 }}
+          className="glass-bevel glass-bevel--panel fixed z-[200] flex max-h-[min(78vh,680px)] w-[min(420px,calc(100vw-24px))]
+                     origin-top-right flex-col overflow-hidden rounded-lg border border-[var(--glass-ring)]
+                     bg-[var(--glass-bg)] text-foreground shadow-2xl shadow-black/40
+                     outline-none backdrop-blur-2xl backdrop-saturate-150"
+        >
+          <form onSubmit={(event) => { void handleSubmit(event); }} className="flex min-h-0 flex-col">
+            <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border-subtle px-4">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/15 text-accent-primary">
+                <Icon icon="lucide:sliders-horizontal" className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-sm font-semibold leading-5">{t('项目设置')}</h2>
+                <p className="truncate text-[11px] leading-4 text-text-text-tertiary">{project.name}</p>
+              </div>
+              <PopupCloseButton ariaLabel={t('关闭项目设置')} onClick={onClose} />
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+              <section className="grid gap-3 px-3 py-3">
+                <SectionTitle icon="lucide:palette">{t('创作基线')}</SectionTitle>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+                  <div className="grid gap-1.5">
+                    <span className="text-[11px] font-medium text-text-text-tertiary">{t('整体画风（文字预设）')}</span>
+                    <StyleSelector
+                      nodeType="ai-image"
+                      selectedStyle={draft.visualStyle?.styleId}
+                      selectedStyleName={draft.visualStyle?.styleName}
+                      onChange={handleStyleChange}
+                      triggerVariant="field"
+                      respectProjectLock={false}
+                      onModalOpenChange={handleStyleModalOpenChange}
+                    />
+                  </div>
+                  <div className="grid h-9 grid-cols-[auto_auto] items-center gap-2 text-[11px] text-text-text-secondary">
+                    <span>{t('锁定')}</span>
+                    <OfficialSwitch
+                      label={t('锁定')}
+                      checked={draft.visualStyle?.locked === true}
+                      disabled={!draft.visualStyle?.styleId}
+                      onChange={(next) => setDraft((current) => ({
+                        ...current,
+                        visualStyle: current.visualStyle
+                          ? { ...current.visualStyle, locked: next }
+                          : undefined,
+                      }))}
+                    />
+                  </div>
+                </div>
+
+                {/* 风格母图：上传后本项目图像生成自动跟随，无需每次 @ */}
+                <div className="grid gap-2 rounded-lg border border-border bg-card p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[11px] font-medium text-foreground">{t('风格母图')}</span>
+                      <p className="mt-0.5 text-[10px] leading-relaxed text-text-text-tertiary">
+                        {t('上传卡通/电影截图等。本项目所有图像生成会自动参考此风格，无需每次 @。')}
+                      </p>
+                    </div>
+                    {draft.visualStyle?.styleReference?.imageUrl ? (
+                      <div className="grid h-9 shrink-0 grid-cols-[auto_auto] items-center gap-2 text-[11px] text-text-text-secondary">
+                        <span>{t('启用')}</span>
+                        <OfficialSwitch
+                          label={t('启用')}
+                          checked={draft.visualStyle.styleReference.enabled !== false}
+                          onChange={() => handleToggleStyleReference()}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {draft.visualStyle?.styleReference?.imageUrl ? (
+                    <div className="flex items-center gap-3">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md border border-border bg-background">
+                        <img
+                          src={draft.visualStyle.styleReference.imageUrl}
+                          alt={t('风格母图')}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[11px] text-text-text-secondary">
+                          {draft.visualStyle.styleReference.fileName || t('已设置风格母图')}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-text-text-tertiary">
+                          {draft.visualStyle.styleReference.enabled === false
+                            ? t('已关闭：生成时不注入')
+                            : t('已启用：生图自动带上')}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            disabled={styleRefBusy}
+                            onClick={() => { void handleUploadStyleReference(); }}
+                            className="rounded-md px-2 py-1 text-[11px] text-accent-primary hover:bg-primary/15 disabled:opacity-50"
+                          >
+                            {t('更换')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleClearStyleReference}
+                            className="rounded-md px-2 py-1 text-[11px] text-red-400/80 hover:bg-red-500/10"
+                          >
+                            {t('清除')}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={styleRefBusy || !project}
+                      onClick={() => { void handleUploadStyleReference(); }}
+                      className="flex h-11 items-center justify-center gap-2 rounded-md border border-dashed
+                                 border-border-secondary bg-secondary text-[12px] text-text-text-secondary
+                                 transition-colors hover:border-primary/40 hover:bg-primary/5
+                                 hover:text-accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Icon icon="lucide:image-plus" className="h-4 w-4" />
+                      {styleRefBusy ? t('上传中…') : t('上传风格母图')}
+                    </button>
+                  )}
+                </div>
+                <div className="grid gap-1.5">
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-medium text-text-text-tertiary">{t('项目提示词后缀')}</span>
+                    <span
+                      role="tablist"
+                      aria-label={t('提示词后缀节点类型')}
+                      className="flex h-7 items-center gap-0.5 rounded-md bg-card p-0.5"
+                    >
+                      {MODEL_ROWS.map((row) => (
+                        <button
+                          key={row.kind}
+                          type="button"
+                          role="tab"
+                          aria-selected={activePromptKind === row.kind}
+                          onClick={() => setActivePromptKind(row.kind)}
+                          className={`h-6 min-w-10 rounded px-2 text-[10px] font-medium
+                                      transition-[color,background-color,box-shadow] ${
+                            activePromptKind === row.kind
+                              ? row.tabActiveClass
+                              : 'text-text-text-tertiary hover:text-text-text-secondary'
+                          }`}
+                        >
+                          {row.label}
+                        </button>
+                      ))}
+                    </span>
+                  </span>
+                  <textarea
+                    value={draft.promptSuffixes?.[activePromptKind] ?? ''}
+                    maxLength={2000}
+                    rows={3}
+                    aria-label={t('{label}节点提示词后缀', { label: t(activePromptRow.label) })}
+                    onChange={(event) => setDraft((current) => ({
+                      ...current,
+                      promptSuffixes: {
+                        ...current.promptSuffixes,
+                        [activePromptKind]: event.target.value,
+                      },
+                    }))}
+                    className="min-h-20 resize-y rounded-md border border-border bg-card px-3 py-2
+                               text-xs leading-5 text-foreground outline-none transition-colors
+                               placeholder:text-text-text-tertiary/60 hover:border-border-secondary
+                               focus:border-primary"
+                    placeholder={t('{label}节点的一致性约束', { label: t(activePromptRow.label) })}
+                  />
+                </div>
+              </section>
+
+              <section className="grid gap-3 border-t border-border-subtle px-3 py-3">
+                <SectionTitle icon="lucide:cpu">{t('默认模型')}</SectionTitle>
+                <div className="grid gap-2">
+                  {MODEL_ROWS.map((row) => {
+                    const selectedModel = draft.defaultModels?.[row.kind] ?? '';
+                    const selectedModelVisible = !selectedModel || modelGroups[row.kind].some((group) =>
+                      group.options.some((option) => option.value === selectedModel),
+                    );
+                    return (
+                      <label key={row.kind} className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-3">
+                        <span className="flex items-center gap-2 text-xs text-text-text-secondary">
+                          <Icon icon={row.icon} className={`h-3.5 w-3.5 ${row.colorClass}`} />
+                          {row.label}
+                        </span>
+                        <Select
+                          value={selectedModel}
+                          onChange={(value) => handleModelChange(row.kind, value)}
+                          className="w-full"
+                          triggerStyle={{ height: 36 }}
+                          fixedMenu
+                          options={[
+                            { value: '', label: t('跟随应用默认') },
+                            ...(!selectedModelVisible
+                              /* ★ 只显示**展示名**（`services/models/display` 产出），
+                                 绝不把 `apimart/xxx` / `general/<cfgId>` 这种调用引用印给用户 */
+                              ? [{ value: selectedModel, label: `${t('已隐藏')} · ${displayNameOfModelRef(selectedModel, {
+                                  generalModels: config.generalModels,
+                                  providers: config.providers,
+                                })}`, disabled: true }]
+                              : []),
+                            ...modelGroups[row.kind].map((group) => ({
+                              label: group.name,
+                              options: group.options.map((option) => ({
+                                value: option.value,
+                                label: option.hint ? `${option.label}（${option.hint}）` : option.label,
+                              })),
+                            })),
+                          ]}
+                        />
+                      </label>
+                    );
+                  })}
+                  <label className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-3">
+                    <span className="flex items-center gap-2 text-xs text-text-text-secondary">
+                      <Icon icon="lucide:scan-eye" className="h-3.5 w-3.5 text-cyan-400" />
+                      {t('视觉理解')}
+                    </span>
+                    <Select
+                      value={draft.visionModelId ?? ''}
+                      onChange={(value) => setDraft((current) => ({
+                        ...current,
+                        visionModelId: value || undefined,
+                      }))}
+                      className="w-full"
+                      triggerStyle={{ height: 36 }}
+                      fixedMenu
+                      options={[
+                        { value: '', label: t('自动选择可看图模型') },
+                        ...visionModelGroups.map((group) => ({
+                          label: group.name,
+                          options: group.options.map((option) => ({
+                            value: option.value,
+                            label: option.hint ? `${option.label}（${option.hint}）` : option.label,
+                          })),
+                        })),
+                      ]}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-3 py-2.5 text-xs text-text-text-secondary">
+                    <span>
+                      <span className="block text-foreground">{t('允许 Agent 自动选媒体模型')}</span>
+                      <span className="mt-0.5 block text-[10px] text-text-text-tertiary">{t('显式 @model 始终优先')}</span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={draft.modelAutoRouting === true}
+                      onChange={(event) => setDraft((current) => ({
+                        ...current,
+                        modelAutoRouting: event.target.checked,
+                      }))}
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="grid gap-3 border-t border-border-subtle px-3 py-3">
+                <SectionTitle icon="lucide:scan">{t('输出默认')}</SectionTitle>
+                <div className="grid gap-2">
+                  <div className="grid min-h-[68px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5">
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium text-foreground">{t('图片输出')}</div>
+                      <div className="mt-0.5 text-[11px] text-text-text-tertiary">{t('比例与画质')}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {imageDefaultsEnabled ? (
+                        <QualityRatioSelector
+                          imageSize={draft.generation?.imageSize ?? '1K'}
+                          aspectRatio={draft.generation?.imageAspectRatio ?? '16:9'}
+                          onChangeImageSize={(value) => handleGenerationChange('imageSize', value)}
+                          onChangeAspectRatio={(value) => handleGenerationChange('imageAspectRatio', value)}
+                          placement="top"
+                        />
+                      ) : (
+                        <span className="text-xs text-text-text-tertiary">{t('跟随节点')}</span>
+                      )}
+                      <span className="inline-flex shrink-0 items-center" title={t('切换图片项目默认')}>
+                        <OfficialSwitch
+                          label={t('启用图片项目默认')}
+                          checked={imageDefaultsEnabled}
+                          onChange={(next) => handleGenerationDefaultsToggle('image', next)}
+                        />
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid min-h-[68px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5">
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium text-foreground">{t('视频输出')}</div>
+                      <div className="mt-0.5 text-[11px] text-text-text-tertiary">{t('比例、分辨率与时长')}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {videoDefaultsEnabled ? (
+                        <VideoParamSelector
+                          provider="dreamina"
+                          seedanceResolution={draft.generation?.videoResolution ?? '720p'}
+                          seedanceRatio={draft.generation?.videoAspectRatio ?? '16:9'}
+                          seedanceDuration={draft.generation?.videoDuration ?? 5}
+                          onChangeSeedanceResolution={(value) => handleGenerationChange('videoResolution', value)}
+                          onChangeSeedanceRatio={(value) => handleGenerationChange('videoAspectRatio', value)}
+                          onChangeSeedanceDuration={(value) => handleGenerationChange('videoDuration', value)}
+                          showGenerateAudio={false}
+                        />
+                      ) : (
+                        <span className="text-xs text-text-text-tertiary">{t('跟随节点')}</span>
+                      )}
+                      <span className="inline-flex shrink-0 items-center" title={t('切换视频项目默认')}>
+                        <OfficialSwitch
+                          label={t('启用视频项目默认')}
+                          checked={videoDefaultsEnabled}
+                          onChange={(next) => handleGenerationDefaultsToggle('video', next)}
+                        />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <footer className="flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border-subtle px-4">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={saving}
+                className="h-8 rounded-md px-3 text-xs font-medium text-text-text-secondary
+                           transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+              >
+                {t('取消')}
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium
+                           text-white shadow-sm shadow-black/20 transition-[background-color,opacity,transform]
+                           hover:bg-primary/90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-60"
+              >
+                {saving ? <Icon icon="lucide:loader-circle" className="h-3.5 w-3.5 animate-spin" /> : null}
+                {t('保存')}
+              </button>
+            </footer>
+          </form>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
+  );
+}

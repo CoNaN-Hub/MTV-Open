@@ -1,0 +1,451 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ApiProviderConfig, GeneralModelConfig, WorkflowDefinition } from '../../src/types';
+
+const mocks = vi.hoisted(() => ({
+  generateImage: vi.fn(),
+  generateVideo: vi.fn(),
+  generateAudio: vi.fn(),
+  persistAudioGenerationResult: vi.fn(),
+  persistMediaUrlToProjectData: vi.fn(),
+  isTauriEnv: vi.fn(() => true),
+  tagGeneratedProjectAssetSafely: vi.fn(),
+  storeState: {
+    config: {
+      generalModels: [] as GeneralModelConfig[],
+      providers: {
+        openai: { name: 'OpenAI', apiKey: 'secret' },
+      } as Record<string, ApiProviderConfig>,
+    },
+    currentProjectId: 'project-1',
+    projects: [] as Array<Record<string, unknown>>,
+    customStyles: [] as Array<Record<string, unknown>>,
+    workflows: [] as WorkflowDefinition[],
+  },
+}));
+
+vi.mock('../../src/store/useAppStore', () => ({
+  useAppStore: {
+    getState: () => mocks.storeState,
+  },
+}));
+vi.mock('../../src/components/nodes/shared/defaultModels', () => ({
+  findMediaModelOption: (modelRef: string) => ({
+    value: modelRef,
+    label: modelRef,
+    mediaKind: modelRef.includes('video')
+      ? 'video'
+      : modelRef.includes('audio')
+        ? 'audio'
+        : 'image',
+    provider: modelRef.startsWith('runninghubwf/') ? 'runninghubwf' : modelRef.startsWith('runninghub/') ? 'runninghub' : modelRef.startsWith('general/') ? 'general' : 'openai',
+    ...(modelRef.startsWith('runninghubwf/') ? { workflowId: modelRef.slice('runninghubwf/'.length) } : {}),
+  }),
+}));
+vi.mock('../../src/services/ai/generateImage', () => ({ generateImage: mocks.generateImage }));
+vi.mock('../../src/services/ai/generateVideo', () => ({ generateVideo: mocks.generateVideo }));
+vi.mock('../../src/services/ai/generateAudio', () => ({
+  generateAudio: mocks.generateAudio,
+  persistAudioGenerationResult: mocks.persistAudioGenerationResult,
+}));
+vi.mock('../../src/services/fileService', () => ({
+  isTransientMediaUrl: (url?: string) => Boolean(url && (/^data:/i.test(url) || /^blob:/i.test(url))),
+  persistMediaUrlToProjectData: mocks.persistMediaUrlToProjectData,
+  isTauriEnv: mocks.isTauriEnv,
+}));
+vi.mock('../../src/services/fs/generatedAssetTags', () => ({
+  tagGeneratedProjectAssetSafely: mocks.tagGeneratedProjectAssetSafely,
+}));
+
+import {
+  MEDIA_PERSIST_FAILED_MESSAGE,
+  retryMediaArtifactPersist,
+  runMediaGeneration,
+} from '../../src/services/ai/generationRuntime';
+import type { MediaGenerationResult } from '../../src/types/media';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.storeState.currentProjectId = 'project-1';
+  mocks.storeState.projects = [];
+  mocks.storeState.customStyles = [];
+  mocks.storeState.workflows = [];
+  mocks.storeState.config.generalModels = [];
+  mocks.storeState.config.providers = { openai: { name: 'OpenAI', apiKey: 'secret' } };
+  mocks.generateImage.mockResolvedValue({ url: 'https://cdn.example/image.png', width: 1, height: 1 });
+  mocks.generateVideo.mockResolvedValue({ url: 'https://cdn.example/video.mp4' });
+  mocks.generateAudio.mockResolvedValue({ url: 'https://cdn.example/audio.mp3' });
+  mocks.persistAudioGenerationResult.mockResolvedValue({
+    mediaUrl: 'https://cdn.example/audio.mp3',
+    outputUrl: 'https://cdn.example/audio.mp3',
+    persistence: 'saved',
+  });
+  mocks.isTauriEnv.mockReturnValue(true);
+  mocks.persistMediaUrlToProjectData.mockResolvedValue({
+    filePath: '/projects/project-1/对话图片.png',
+    assetUrl: 'asset://对话图片.png',
+    mediaUrl: 'asset://对话图片.png',
+    sourceUrl: 'https://cdn.example/image.png',
+  });
+});
+
+describe('media generation cancellation', () => {
+  it('云工作流按指定连接执行并传递参数，已保存产物不重复下载', async () => {
+    mocks.storeState.workflows = [{ id: 'cloud-image', name: '云图像', category: 'ai-image', fileName: 'RH', fileContent: '', createdAt: 1, adapterType: 'runninghub', runninghub: { version: 1, kind: 'workflow', remoteId: '1904152026220003329', connectionId: 'runninghub', parameters: [] } }];
+    mocks.storeState.config.providers = { runninghub: { name: 'RH', apiKey: 'secret' } };
+    mocks.generateImage.mockResolvedValue({ url: 'asset://saved.png', width: 1, height: 1, runninghubOutputs: [{ url: 'asset://saved.png', filePath: 'project/saved.png', kind: 'image', sourceUrl: 'https://cdn.test/image.png' }] });
+    const result = await runMediaGeneration({ kind: 'image', prompt: '猫', modelRef: 'runninghubwf/cloud-image', workflowInputs: { '3::seed': '0' }, deliveryMode: 'chat' }, 'project-1');
+    expect(mocks.generateImage).toHaveBeenCalledWith(expect.objectContaining({ provider: 'runninghubwf', workflowId: 'cloud-image', workflowInputs: { '3::seed': '0' } }), undefined);
+    expect(result).toMatchObject({ url: 'asset://saved.png', persistence: 'saved', filePath: 'project/saved.png' });
+    expect(mocks.persistMediaUrlToProjectData).not.toHaveBeenCalled();
+    mocks.storeState.workflows[0].runninghub!.connectionId = 'runninghub-model';
+    await expect(runMediaGeneration({ kind: 'image', prompt: '猫', modelRef: 'runninghubwf/cloud-image', deliveryMode: 'chat' }, 'project-1')).rejects.toThrow('模型');
+  });
+  it.each([
+    ['image', 'openai/image-model', mocks.generateImage],
+    ['video', 'openai/video-model', mocks.generateVideo],
+    ['audio', 'openai/audio-model', mocks.generateAudio],
+  ] as const)('passes the task AbortSignal to %s generation', async (kind, modelRef, generate) => {
+    const controller = new AbortController();
+
+    await runMediaGeneration({
+      kind,
+      prompt: 'test prompt',
+      modelRef,
+      deliveryMode: 'chat',
+    }, null, controller.signal);
+
+    expect(generate).toHaveBeenCalledWith(expect.any(Object), controller.signal);
+  });
+});
+
+describe('media generation project settings', () => {
+  it('RunningHub 使用专属参数与原节点，不注入项目的其他视频默认值', async () => {
+    mocks.storeState.config.providers['runninghub-model'] = { name: 'RH', apiKey: 'fake' };
+    mocks.storeState.projects = [{ id: 'project-1', settings: { generation: { videoAspectRatio: '16:9', videoResolution: '1080p', videoDuration: 10 } } }];
+    const context = { projectId: 'project-1', conversationId: 'c1', messageId: 'm1', deliveryMode: 'both' as const };
+    await runMediaGeneration({ kind: 'video', prompt: '镜头移动', modelRef: 'runninghub/minimax/h3-max-turbo/image-to-video', deliveryMode: 'both', runninghubModelParameters: { duration: '15', firstFrameUrl: 'https://input.test/ref.png' } }, 'project-1', undefined, 'n1', context);
+    expect(mocks.generateVideo).toHaveBeenCalledWith(expect.objectContaining({ provider: 'runninghub', nodeId: 'n1', runninghubTaskContext: context, runninghubModelParameters: { duration: '15', firstFrameUrl: 'https://input.test/ref.png' }, seedanceDuration: undefined, seedanceResolution: undefined, seedanceRatio: undefined }), undefined);
+    await expect(runMediaGeneration({ kind: 'video', prompt: '镜头移动', modelRef: 'runninghub/minimax/h3-max-turbo/image-to-video', deliveryMode: 'chat', duration: 5, runninghubModelParameters: { duration: '15' } }, 'project-1')).rejects.toThrow('冲突');
+  });
+  it('applies image style, suffix, size, and aspect ratio without replacing the explicit model', async () => {
+    mocks.storeState.projects = [{
+      id: 'project-1',
+      settings: {
+        visualStyle: {
+          styleId: 'cinematic',
+          prompt: '项目电影画风',
+          locked: true,
+        },
+        promptSuffixes: { image: '图片质量后缀' },
+        defaultModels: { image: 'openai/project-default-image' },
+        generation: { imageSize: '4K', imageAspectRatio: '16:9' },
+      },
+    }];
+
+    const result = await runMediaGeneration({
+      kind: 'image',
+      prompt: '一座山',
+      modelRef: 'openai/image-model',
+      deliveryMode: 'canvas',
+    }, 'project-1');
+
+    expect(mocks.generateImage).toHaveBeenCalledWith({
+      prompt: '一座山\n\n项目电影画风\n\n图片质量后缀',
+      model: 'openai/image-model',
+      provider: 'openai',
+      imageSize: '4K',
+      aspectRatio: '16:9',
+    }, undefined);
+    expect(result.prompt).toBe('一座山');
+    expect(result.modelId).toBe('openai/image-model');
+  });
+
+  it('applies video suffix, resolution, and duration (项目级画风不进视频 —— 官方只有图片路径带 style_images)', async () => {
+    mocks.storeState.projects = [{
+      id: 'project-1',
+      settings: {
+        visualStyle: {
+          styleId: 'cinematic',
+          prompt: '统一电影画风',
+          locked: true,
+        },
+        promptSuffixes: { video: '稳定运镜' },
+        generation: { videoResolution: '1080p', videoDuration: 10 },
+      },
+    }];
+
+    await runMediaGeneration({
+      kind: 'video',
+      prompt: '镜头向前推进',
+      modelRef: 'openai/video-model',
+      deliveryMode: 'chat',
+    }, 'project-1');
+
+    /* 第 65 轮：`supportsVisualStyle` 去掉 `ai-video`（官方 `style_images` 只在图片路径；
+       视频参数白名单里的 `style` 是按模型选项）⇒ 视频提示词里**不再有**「统一电影画风」，
+       而**媒体提示词后缀照旧**。 */
+    expect(mocks.generateVideo).toHaveBeenCalledWith({
+      prompt: '镜头向前推进\n\n稳定运镜',
+      model: 'openai/video-model',
+      provider: 'openai',
+      seedanceResolution: '1080p',
+      seedanceDuration: 10,
+      // 本地工作流只认数字长边，1080p 换算成 1920
+      videoResolution: 1920,
+      workflowId: undefined,
+    }, undefined);
+  });
+
+  it('uses the video parameters locked in the intent ahead of changed project defaults', async () => {
+    mocks.storeState.projects = [{
+      id: 'project-1',
+      settings: {
+        generation: {
+          videoAspectRatio: '16:9',
+          videoResolution: '1080p',
+          videoDuration: 10,
+        },
+      },
+    }];
+
+    await runMediaGeneration({
+      kind: 'video',
+      prompt: '竖屏人物镜头',
+      modelRef: 'openai/video-model',
+      deliveryMode: 'chat',
+      aspectRatio: '9:16',
+      resolution: '720p',
+      duration: 6,
+    }, 'project-1');
+
+    expect(mocks.generateVideo).toHaveBeenCalledWith(expect.objectContaining({
+      seedanceRatio: '9:16',
+      seedanceResolution: '720p',
+      seedanceDuration: 6,
+      videoResolution: 1280,
+    }), undefined);
+  });
+
+  it('does not inject project video defaults or derived pixels into direct general protocols', async () => {
+    mocks.storeState.config.generalModels = [{
+      id: 'custom-video',
+      name: 'Custom Video',
+      modelId: 'upstream-video',
+      category: 'video',
+      providerConfigId: 'custom',
+    }];
+    mocks.storeState.config.providers = {
+      openai: { name: 'OpenAI', apiKey: 'secret' },
+      custom: { name: 'Custom', apiKey: '', baseUrl: 'https://gateway.example.com' },
+    };
+    mocks.storeState.projects = [{
+      id: 'project-1',
+      settings: {
+        generation: {
+          videoAspectRatio: '16:9',
+          videoResolution: '1080p',
+          videoDuration: 10,
+        },
+      },
+    }];
+
+    await runMediaGeneration({
+      kind: 'video',
+      prompt: '保持模型默认参数',
+      modelRef: 'general/custom-video',
+      deliveryMode: 'chat',
+    }, 'project-1');
+
+    expect(mocks.generateVideo).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'general/custom-video',
+      provider: 'general',
+      seedanceRatio: undefined,
+      seedanceResolution: undefined,
+      seedanceDuration: undefined,
+      videoResolution: undefined,
+      workflowId: undefined,
+    }), undefined);
+  });
+
+  it('applies the audio prompt suffix', async () => {
+    mocks.storeState.projects = [{
+      id: 'project-1',
+      settings: {
+        promptSuffixes: { audio: '录音棚品质' },
+      },
+    }];
+
+    await runMediaGeneration({
+      kind: 'audio',
+      prompt: '轻柔旁白',
+      modelRef: 'openai/audio-model',
+      deliveryMode: 'chat',
+    }, 'project-1');
+
+    expect(mocks.generateAudio).toHaveBeenCalledWith({
+      prompt: '轻柔旁白\n\n录音棚品质',
+      model: 'openai/audio-model',
+      provider: 'openai',
+    }, undefined);
+  });
+});
+
+describe('media artifact persistence', () => {
+  it('marks the artifact saved and points url at the local asset', async () => {
+    const result = await runMediaGeneration({
+      kind: 'image',
+      prompt: '一只猫',
+      modelRef: 'openai/image-model',
+      deliveryMode: 'chat',
+    }, 'project-1');
+
+    expect(result.persistence).toBe('saved');
+    expect(result.persistError).toBeUndefined();
+    expect(result.url).toBe('asset://对话图片.png');
+    expect(result.sourceUrl).toBe('https://cdn.example/image.png');
+    expect(result.filePath).toBe('/projects/project-1/对话图片.png');
+  });
+
+  it('reports failed persistence instead of silently returning the temporary url', async () => {
+    mocks.persistMediaUrlToProjectData.mockResolvedValue(null);
+
+    const result = await runMediaGeneration({
+      kind: 'video',
+      prompt: '一段风景',
+      modelRef: 'openai/video-model',
+      deliveryMode: 'chat',
+    }, 'project-1');
+
+    expect(result.persistence).toBe('failed');
+    expect(result.persistError).toBe(MEDIA_PERSIST_FAILED_MESSAGE);
+    expect(result.url).toBe('https://cdn.example/video.mp4');
+    expect(result.filePath).toBeUndefined();
+  });
+
+  it('surfaces the download error message when saving throws', async () => {
+    mocks.persistMediaUrlToProjectData.mockRejectedValue(new Error('磁盘空间不足'));
+
+    const result = await runMediaGeneration({
+      kind: 'image',
+      prompt: '一只猫',
+      modelRef: 'openai/image-model',
+      deliveryMode: 'chat',
+    }, 'project-1');
+
+    expect(result.persistence).toBe('failed');
+    expect(result.persistError).toBe('磁盘空间不足');
+  });
+
+  it('skips persistence without a project instead of reporting a failure', async () => {
+    const result = await runMediaGeneration({
+      kind: 'image',
+      prompt: '一只猫',
+      modelRef: 'openai/image-model',
+      deliveryMode: 'chat',
+    }, null);
+
+    expect(mocks.persistMediaUrlToProjectData).not.toHaveBeenCalled();
+    expect(result.persistence).toBe('skipped');
+    expect(result.url).toBe('https://cdn.example/image.png');
+  });
+
+  it('replaces an inline custom-provider result with local references only', async () => {
+    mocks.generateImage.mockResolvedValue({
+      url: 'data:image/png;base64,AQID',
+      width: 1,
+      height: 1,
+    });
+    mocks.persistMediaUrlToProjectData.mockResolvedValue({
+      filePath: '/projects/project-1/对话图片.png',
+      assetUrl: 'asset://对话图片.png',
+      mediaUrl: 'asset://对话图片.png',
+      sourceUrl: 'asset://对话图片.png',
+    });
+
+    const result = await runMediaGeneration({
+      kind: 'image',
+      prompt: '一只猫',
+      modelRef: 'openai/image-model',
+      deliveryMode: 'chat',
+    }, 'project-1');
+
+    expect(result.url).toBe('asset://对话图片.png');
+    expect(result.sourceUrl).toBe('asset://对话图片.png');
+    expect(JSON.stringify(result)).not.toContain('data:image');
+  });
+
+  it('fails closed when an inline result cannot be written to the project', async () => {
+    mocks.generateVideo.mockResolvedValue({ url: 'data:video/mp4;base64,AQID' });
+    mocks.persistMediaUrlToProjectData.mockRejectedValue(new Error('磁盘空间不足'));
+
+    await expect(runMediaGeneration({
+      kind: 'video',
+      prompt: '一段风景',
+      modelRef: 'openai/video-model',
+      deliveryMode: 'chat',
+    }, 'project-1')).rejects.toThrow('磁盘空间不足');
+  });
+
+  it('carries the audio persistence state through from the audio persister', async () => {
+    mocks.persistAudioGenerationResult.mockResolvedValue({
+      mediaUrl: 'blob:local/audio',
+      outputUrl: 'blob:local/audio',
+      persistence: 'failed',
+      persistError: '写盘失败',
+    });
+
+    const result = await runMediaGeneration({
+      kind: 'audio',
+      prompt: '旁白',
+      modelRef: 'openai/audio-model',
+      deliveryMode: 'chat',
+    }, 'project-1');
+
+    expect(result.persistence).toBe('failed');
+    expect(result.persistError).toBe('写盘失败');
+    expect(result.sourceUrl).toBe('blob:local/audio');
+  });
+});
+
+describe('retryMediaArtifactPersist', () => {
+  const unsaved: MediaGenerationResult = {
+    id: 'media-1',
+    kind: 'image',
+    deliveryMode: 'chat',
+    url: 'https://cdn.example/image.png',
+    sourceUrl: 'https://cdn.example/image.png',
+    persistence: 'failed',
+    persistError: MEDIA_PERSIST_FAILED_MESSAGE,
+    prompt: '一只猫',
+    modelId: 'openai/image-model',
+    provider: 'openai',
+    createdAt: 1,
+  };
+
+  it('re-downloads from the source url and returns a saved artifact', async () => {
+    const result = await retryMediaArtifactPersist(unsaved, 'project-1');
+
+    expect(mocks.persistMediaUrlToProjectData).toHaveBeenCalledWith(
+      'https://cdn.example/image.png',
+      'project-1',
+      'ai-image',
+      '对话图片-media-1',
+    );
+    expect(result.persistence).toBe('saved');
+    expect(result.persistError).toBeUndefined();
+    expect(result.url).toBe('asset://对话图片.png');
+    expect(result.filePath).toBe('/projects/project-1/对话图片.png');
+  });
+
+  it('throws with the underlying reason when the retry also fails', async () => {
+    mocks.persistMediaUrlToProjectData.mockRejectedValue(new Error('签名地址已过期'));
+
+    await expect(retryMediaArtifactPersist(unsaved, 'project-1')).rejects.toThrow('签名地址已过期');
+  });
+
+  it('refuses to retry outside the desktop app', async () => {
+    mocks.isTauriEnv.mockReturnValue(false);
+
+    await expect(retryMediaArtifactPersist(unsaved, 'project-1')).rejects.toThrow('浏览器模式');
+  });
+});

@@ -1,0 +1,1058 @@
+/* ============================================
+   Quality & Aspect Ratio Selector Styles
+   ============================================ */
+.ui-schema-renderer {
+  position: relative;
+  display: inline-block;
+}
+.ui-schema-quality-ratio-pill {
+  display: flex;
+  align-items: center;
+}
+.img-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: var(--transition-colors);
+  font-family: inherit;
+}
+.img-pill-btn:hover {
+  color: var(--theme-text);
+  background: var(--white-alpha-03);
+}
+/* 底行里的比例按钮 —— 官方实测（屏幕像素）：**88×36 · radius 12 · padding 4px 8px · gap 4 · 14px**
+   原先 r6 / 12px 都偏小（实测 77×27）。只作用于底行，比例弹窗等其它场景不受影响。 */
+.prompt-footer .img-pill-btn {
+  height: 36px;
+  border-radius: 12px;
+  font-size: 14px;
+  /* 官方源码（index-BiTZf8mJ.js）：`h-9 gap-1 px-2 py-1 text-sm rounded-lg font-medium`
+     → 高 36 · **gap 4**（原来 6 ✗）· pad 4/8 · r12 · 14px/**500** · 颜色 rgb(245,245,245) */
+  gap: 4px;
+  padding: 4px 8px;
+  font-weight: 500;
+  color: rgb(245, 245, 245);
+}
+.prompt-footer .img-pill-btn svg {
+  color: rgb(245, 245, 245);
+}
+.img-pill-btn svg {
+  color: var(--theme-text-secondary);
+}
+.img-ratio-popup {
+  /* ★★★★★ **portal 到 body 后改为 `fixed`** ✓✓（= 官方 Radix Portal 等价 ✓）
+     事故（用户："弹窗被什么东西裁断了，看不到上面部分" ✓）：
+       实测裁剪链 ✓ → **`.prompt-panel { overflow: hidden }`** ✗✓（框 T422..620）
+         弹窗框 T277..566 ✗ → **顶部 145px 被裁掉** ✓✓
+       ⚠️ 祖先 `.ai-dialog-float` 有 transform ✗ → 光加 `fixed` 也会被它当包含块 ✗
+         → **必须真 portal 到 body** ✓（组件已改 ✓）
+     `left/top` 由 JS 用**触发器的实时 rect** 给 ✓
+       （弹窗**底边** = 触发器**顶边** − 8 ✓ · 水平**居中** ✓ = 官方实测 ✓）*/
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translateX(-50%);
+  width: 320px;
+  background: rgba(51, 51, 51, 0.8);
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+  border: none;
+  border-radius: 20px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.16),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16);
+  z-index: 110;
+  /* ★★★★★ 官方实测（同一棵树 ✓）：弹窗 cls `w-[320px] **p-1** rounded-[20px]` → pad **4** ✗（我原来 12 ✗）
+     组块之间 **gap = 0** ✓（实测：画质块 y4..78 · 比例块 y78..261 · 精细度块 y261..335 **连续** ✓）
+        → 视觉上的 16px 间隔 = **两块各自的 pad 8 + 8** ✓（不是容器 gap ✓）*/
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  transform-origin: bottom center;
+  /* ★ 用**带居中**的专用关键帧 ✓（原来通用 `popoverIn` 不含 `translateX(-50%)` ✗
+       → 动画期间居中失效 ✗ → "先错位、再跳正" ✓ 用户实测 ✓）*/
+  animation: imgRatioPopIn var(--dur-normal) var(--ease-spring);
+}
+@keyframes imgRatioPopIn {
+  from { opacity: 0; transform: translateX(-50%) scale(0.92) translateY(6px); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
+}
+@keyframes imgRatioPopInDown {
+  from { opacity: 0; transform: translateX(-50%) scale(0.92) translateY(-6px); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
+}
+/* 向下弹出（适合顶部工具栏，如合成器）—— portal 后 left/top 都由 JS 给 ✓ 这里只管动画 ✓ */
+.img-ratio-popup.img-ratio-popup--down {
+  transform-origin: top center;
+  animation: imgRatioPopInDown var(--dur-normal) var(--ease-spring);
+}
+/* ★★★★★ §123 官方视频参数弹层的对齐方式：**`align:"start"`（左边缘对齐触发器）** ✓✓
+   官方 `Uoe` 逐字：`s.jsx(Ds,{side:"top",align:"start",sideOffset:8,…})`（canvas:@1871588 邻域）·
+   `Ds` = `PopoverContent`（`vendor-packages-CvEFn1fJ.js` 导出 `aI`／本地名 `xt`，默认 `align:"center"`，
+   这里被显式覆盖成 `start`）。
+   真机取证（CDP 9222 · Seedance 2.5）：面板 `left 765.3 == 触发器 left 765.6`；
+   若按居中（旧的 `translateX(-50%)`）应为 `765.6 + 238.1/2 − 200 = 684.65` ✗ ⇒ 差 81px（用户："飘到左边"）。
+   所以这个修饰类**必须去掉 `translateX(-50%)`**（`left` 由组件按触发器实时 rect 写入）。 */
+.img-ratio-popup.img-ratio-popup--start {
+  transform: none;
+  transform-origin: bottom left;
+  animation: imgRatioPopInStart var(--dur-normal) var(--ease-spring);
+}
+@keyframes imgRatioPopInStart {
+  from { opacity: 0; transform: scale(0.92) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+/* 分段控件超出宽度时横向滚动（官方 `ni` 的 `scrollable`：
+   `overflow-x-auto` + `scrollbar-width:none` + 左右 15%/85% 的 `mask-image` 渐变，
+   位置由组件按选中项写入）。MTV 的 `.img-rp-quality-segmented` 原本没有这条规则
+   ⇒ >8 档的时长（如 seedance-2.5 的 4–30）会被 `flex:1` 压扁。 */
+/* §123 官方「生成方式」项里的信息图标（官方 `NR` = lucide `info` size 12）：
+   官方类串逐字 `inline-flex items-center cursor-help text-muted-foreground hover:text-foreground transition-colors`
+   ⇒ 这里把 MTV 那颗 14×14 圆形 `!` 徽标改成**透明无底**的裸图标。 */
+.rh-tip.rh-tip-icon {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  font-size: inherit;
+  font-weight: inherit;
+  color: var(--muted-foreground, #7a7a7a);
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rh-tip.rh-tip-icon:hover {
+  color: var(--foreground, #f5f5f5);
+}
+/* §115 官方参数面板的**第二档宽度**：
+   `Eoe`（`live-assets-r100/vendor-pkg-canvas-DuoOicPr.js` @1868800 区）逐字
+   `${U?"w-[400px]":"w-[320px]"}`，其中 `U = O && durationControl==="slider"`
+   ⇒ 时长段用**滑杆**时面板宽 400px，否则 320px（320 那档见上面 `.img-ratio-popup` 的 `width: 320px`）。
+   组件侧用 `data-video-params-slider="true"` 标记（`VideoParamSelector.tsx` 的 `panelUsesSlider`）。 */
+.ui-schema-video-params-popup[data-video-params-slider='true'] {
+  width: 400px;
+}
+
+.img-rp-section-label {
+  /* 官方实测：12px/500 lh16 rgb(122,122,122) · padding 0 4px · 不大写
+     cls 原文: `**flex items-center gap-1** text-xs font-medium text-muted-foreground **px-1**`
+     → 实测盒 **296×16** · display **flex** · gap **4** ✓（我原来只写了字号 ✗ display/gap 漏了 ✗）*/
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: rgb(122, 122, 122);
+  padding: 0 4px;
+  margin-bottom: 0;
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* ★ 官方标题行里的 **help 图标**（「透明背景」那组的标题只有它 ✓ 实测 12×12 ✓）
+     官方 cls 原文：`<div class="**cursor-help**"><svg class="tabler-icon tabler-icon-help **text-muted-foreground**">` ✓ */
+.img-rp-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: rgb(122, 122, 122);
+  cursor: help;
+}
+.img-rp-help svg {
+  width: 12px;
+  height: 12px;
+  color: currentColor;
+}
+/* ══ §125 **视频参数面板那一层**的底栏触发 chip（官方 `Poe` 外面那层 `$t` Button）══
+   真机对照（2026-10-15 两侧面板同开）：
+     · 官方 chip（面板打开态）：`224.1×36` · `color rgb(245,245,245)` · `line-height 20px` ·
+       `background oklab(… / 0.1)` = `data-[state=open]:bg-white/[0.1]` ✓（MTV 已是同一值）·
+       `transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-*` ·
+       `transition-duration: 0.15s` · `transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1)` · `border: 0px`
+     · MTV chip（改前）：`color rgb(250,250,250)`（`prompt.css` 的 hover/open 两条把它覆盖成 250）·
+       `line-height 21px`（`.img-pill-btn` 继承 1.5）·
+       `transition-duration 0.135s` + `cubic-bezier(0.16, 1, 0.3, 1)`（= MTV 的 `--transition-colors` 弹簧）
+   ⇒ 只作用于 **`data-ui-schema-placement="videoParams"`** 这一层（图片面板是 `"resolution"`、音频是 `"audioParams"`,
+      见 `QualityRatioSelector.tsx:455` / `AudioParamSelector.tsx:119`）⇒ **共享基类 `.img-pill-btn` 不动**。 */
+.prompt-footer .ui-schema-renderer[data-ui-schema-placement='videoParams'] .img-pill-btn {
+  line-height: 20px;
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    outline-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    text-decoration-color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    fill 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* 官方 chip 的 `color` 在 hover / open 两态都**保持 `rgb(245,245,245)`**（`hover:bg-muted` 只改背景） */
+.prompt-footer .ui-schema-renderer[data-ui-schema-placement='videoParams'] .img-pill-btn:hover,
+.prompt-footer .ui-schema-renderer[data-ui-schema-placement='videoParams'] .img-pill-btn[aria-expanded='true'] {
+  color: rgb(245, 245, 245);
+}
+.prompt-footer .ui-schema-renderer[data-ui-schema-placement='videoParams'] .img-pill-btn:hover svg,
+.prompt-footer .ui-schema-renderer[data-ui-schema-placement='videoParams'] .img-pill-btn[aria-expanded='true'] svg {
+  color: rgb(245, 245, 245);
+}
+/* ★★★★★ **自适应时「画质」行里的那个只读标识** ✓✓（用户截图实测 ✓ 我上次当成空条 ✗✓）
+     官方：图标（lucide image 16px ✓ 原文）+ 「自适应」文字 ✓ · 居中 · 占满那条 36 高的底 ✓
+     注意：它**不是按钮** ✗（所以 `querySelectorAll('button')` 数不到它 ✗ —— 我上次就是这么漏的 ✓）*/
+.img-rp-quality-auto {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  border-radius: 10px;
+  color: rgb(245, 245, 245);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  pointer-events: none;
+  user-select: none;
+}
+.img-rp-quality-auto svg {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  flex: none;
+}
+/* ★★★★★ **每组一块**（官方 cls 原文 `**p-2 flex flex-col gap-1.5**` ✓）
+   → pad **8** · 竖排 · **gap 6** ✓
+   实测（官方）：画质块 312×**74** = 8 + 标题16 + **gap6** + 行36 + 8 ✓✓
+   ⚠️ 我原来这两个 area **完全没有样式** ✗ → 组内 pad 0 · 标题与行**贴死 0** ✗✓ 用户："标题与行之间的间距" ✓ */
+.img-rp-quality-area,
+.img-rp-ratio-area {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+.img-rp-quality-segmented {
+  /* ★ 官方实测：分段控件 **296×36** · bg **rgba(255,255,255,0.06)** · **r12** · **pad 2px** · 无边框 ✓
+     cls 原文: "relative flex **bg-input/40 rounded-lg p-0.5**" ✓（296 = 2×2 + 3×97 ✓ 吻合 ✓）*/
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px;
+  border-radius: 12px;
+  border: none;
+  gap: 0;
+  /* ★★★★★ **空档位时也保持 36 高** ✓✓（官方实测：自适应已选时该行是**空底 296×36** ✓ 零按钮 ✓）
+       = pad 2×2 + 按钮 32 ✓
+     ⚠️ 我一开始按「隐藏整组」实现 ✗ 后来改成留空但**没给高度** → 塌成 **296×4** ✗✓
+       （用户实测口径：官方弹窗总高 413 **不变** ✓ = 切自适应**不跳版** ✓）*/
+  min-height: 36px;
+  box-sizing: border-box;
+  /* 滑动指示块的包含块 ✓（官方 cls 里就有 `relative` ✓）*/
+  position: relative;
+}
+/* ★★★★★ **官方「滑动指示块」**（EXE DOM 原文 ✓✓ 我此前**完全没有** ✗ 用户："点击底色" ✓）
+   官方 cls 原文：`absolute **top-0.5 bottom-0.5** bg-input/40 rounded-md
+                 **transition-all duration-200 ease-out**`
+   实测（官方 · 画质组）：97×32 @x2（相对容器 pad 2 ✓）· bg = white **6%** · r10 ✓
+   实测（官方 · 比例组）：64×67（左列）或 52×43（格阵）· bg = white **9%**（`bg-input/60` ✓）
+   → 位置/尺寸由 JS 按**选中项的真实盒**写入 ✓（本组内唯一 `.active` ✓）
+   ⚠️ 选中项按钮必须自己 `position: relative + z-index` 抬起来，否则被它盖住 ✗（AGENTS.md 已记 ✓）
+
+   ★★★★★ **官方是【两套】几何规则** ✓✓（`zoom-slider-3ZcFvYQO.js` 的 `P2e` 原文 ✓ 我原来只做了一套 ✗）
+     ① **flex 组**（画质 / 精细度 / 透明背景 · 轨道 `.p-0.5`）——
+        轨道：`relative flex bg-input/40 rounded-lg **p-0.5**`
+        指示块：`absolute **top-0.5 bottom-0.5** bg-input/60 rounded-md transition-all duration-200 ease-out
+                 pointer-events-none`，style = **只写 `{left, width}`** ✓
+        ⇒ **纵向完全由 `top:2px` + `bottom:2px` 两条 inset 定死** ✓
+          高度 = 轨道 padding box 高 − 4 = `36 − 4` = **32** = 选项按钮高 ✓（永远相等，与选中哪一项无关 ✓）
+     ② **栅格组**（比例 · 轨道 `**gap-1.5** … **p-1**`，左列 64×67 与格 52×43 **高度不同**）——
+        指示块：`absolute bg-input/60 rounded-md transition-all duration-200 ease-out pointer-events-none`
+        （★ **没有** `top-0.5 bottom-0.5` ✗✓ —— 高度不唯一，必须实测 ✓）
+        style = **`{top, left, width, height}` 四个都写** ✓
+     ⚠️ 所以「一套写四个」在 flex 组里只是**数值上恰好等价** ✓，但在栅格组里若照抄 `top-0.5/bottom-0.5`
+        就会把指示块拉成**整轨高** ✗（官方正是为此分成两套 ✓）
+   ⇒ 本文件：默认（flex 组）用 inset 定纵向 ✓；比例组（栅格组）由下面那条覆盖成「四边全测」✓ */
+.img-rp-segmented-thumb {
+  position: absolute;
+  left: 0;
+  width: 0;
+  /* 官方 `top-0.5` / `bottom-0.5`（= 2px）—— flex 组的纵向由这两条 inset 定死 ✓ */
+  top: 2px;
+  bottom: 2px;
+  /* 高度必须 auto ✗✓ —— 否则 `top`+`bottom`+`height:0` 会把高度压成 0 ✗ */
+  height: auto;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+  transition: all 0.2s ease-out;
+  z-index: 0;
+}
+/* 比例组 = **栅格组**：官方去掉 `top-0.5` / `bottom-0.5` ✗✓ → top/left/width/height 四个都由 JS 写 ✓
+   （指示块更亮一档：官方 `bg-input/60` ≈ 9% ✓）*/
+.img-rp-ratio-split > .img-rp-segmented-thumb {
+  top: 0;
+  bottom: auto;
+  height: 0;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* ★★★★★ **官方选项按钮【没有任何 transform / scale】** ✓✓（EXE 原文 ✓）
+   官方三个按钮的 cls 都只有 `transition-colors duration-200` ✓：
+     · 分段按钮   `relative z-10 flex flex-1 items-center justify-center px-2 py-1.5 rounded-md text-sm transition-colors duration-200`
+     · 比例格     `relative z-10 flex flex-col items-center justify-center rounded-md transition-colors duration-200 …`
+     · 左列大按钮 `relative z-10 flex flex-col items-center justify-center rounded-md transition-colors duration-200 …`
+   ⚠️ MTV 用 `AnimatedButton`（`.anim-btn:hover → scale(1.04)` / `:active → scale(0.96)`）✗
+      `prompt.css` 里那条 `.prompt-footer .anim-btn { transform: none }` **管不到弹窗** ✗✓
+        —— 弹窗**portal 到 `<body>`** 了 ✗ → `.prompt-footer` 不再是它的祖先 ✗✓（现场实测 ✓）
+   ⚠️⚠️ 后果（**现场实测到的事故** ✓✓）：点某一项时鼠标正 hover 它 → `scale(1.04)`
+      → `getBoundingClientRect()` 量到的是**放大 4% 的盒** ✗ → 指示块被写成 1.04×
+      → 而 ResizeObserver 只看**布局盒**（transform 不改布局 ✗）→ **不会再自愈** ✗✓
+      → 稳态残差 **Δ=−1,−1,+2,+2**（自适应 64×67→67×70 · 16:9 52×43→54×45 ✓ 与实测完全一致 ✓）
+   ⇒ 弹窗内一律**去掉缩放**（= 官方行为 ✓ 用户此前也明确说过"加动画干鸡毛" ✓）*/
+.img-ratio-popup .anim-btn,
+.img-ratio-popup .anim-btn:hover:not(:disabled),
+.img-ratio-popup .anim-btn:active:not(:disabled) {
+  transform: none !important;
+}
+
+.img-rp-quality-item {
+  flex: 1;
+  /* §119：官方 `ti` 的项有 `flex items-center justify-center`（@1225800 区逐字），
+     官方真机计算值 `display: flex`；MTV 原来没写 display ⇒ 计算值 `block`（flex 子项被 blockify）。
+     视觉上单行文字无差，但「图标+文字竖排」那种 renderOption 会差 ⇒ 补上，与官方逐字一致。 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  border: none;
+  background: transparent;
+  /* ★★★★★ 官方实测：pad **6px 8px** ✗（我原来写 `0 12px` ✗）
+      官方 cls 原文 ✓: "relative z-10 flex flex-1 items-center justify-center **px-2 py-1.5**
+                        rounded-md text-sm transition-colors duration-200"
+       → px-2 = 8px ✓ · py-1.5 = 6px ✓ · rounded-md = r10 ✓（实测 97×32 ✓）*/
+  padding: 6px 8px;
+  /* ★ 官方实测：选项 **97×32** · **14px / w400** · **r10** ✓ · 透明底 ✓
+     选中 rgb(245,245,245) / 未选 rgb(122,122,122) ✓（**选中不是品牌色底** ✗ MTV 原来是 ✗）
+     ★★★★★ §124 **官方项按钮上没有任何 `height` 工具类** —— 高度 = `py-1.5`(6+6) + 内容高：
+       · 纯文字项（生成方式 / 清晰度 / 生成音频 / 时长药丸）：内容 = 行高 20 ⇒ **32**
+       · 比例项（`renderOption` = `flex flex-col items-center gap-0.5` 内放 14px 图标 + `text-xs` 文字）：
+         内容 = 14 + 2 + 16 = 32 ⇒ **44**（官方真机 9222 实测：比例项 53.1×44 · 容器 376×48）
+     ⚠️ MTV 原来写死 `height: 32px` ⇒ 比例项 32 的内容塞进 20 的可视高度 ⇒ **上下各溢出 6px**
+        （用户截图「比例那行图标压文字」的直接原因）。
+     ⇒ 改成 `min-height: 32px`：文字组仍是 32，比例组自然长到 44，与官方一致。 */
+  height: auto;
+  min-height: 32px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: rgb(122, 122, 122);
+  cursor: var(--cursor-pointer, pointer);
+  border-radius: 10px;
+  /* 官方 cls：`transition-colors **duration-200**` → 官方实测过渡
+       `color, background-color … **0.2s cubic-bezier(0.4, 0, 0.2, 1)**` ✓（我原来只有 color .15s ✗）*/
+  transition:
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    outline-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    text-decoration-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    fill 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    stroke 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+}
+/* §125 官方项**没有 hover 背景**（类串只有 `hover:text-foreground`；`transition-colors` 里没有 background 的 hover 工具类）。
+   真机（2026-10-15 两侧面板同开）：
+     · 官方未选中项 cls = `… text-muted-foreground hover:text-foreground`（**无 `hover:bg-*`**）
+     · 官方项的 `background-color` 在各态都是 `rgba(0,0,0,0)`
+   ⚠️ 真机 `:hover` 强制取值：**未能取得** —— `CSS.forcePseudoState` 调用无报错，但
+      `getComputedStyle` 读数在强制前后完全一致（`rgb(122,122,122)` / 透明），判定为该 CDP 通道在本环境
+      不生效 ⇒ **按官方 DOM 类串判定**（这是直接证据，不是推断），结论：项这一层**不需要**改。
+   MTV 现有 `.img-rp-quality-item:hover { color: rgb(245,245,245); background: transparent }` 与官方一致 ⇒ 不动。 */
+.img-rp-quality-item:hover {
+  color: rgb(245, 245, 245);
+  background: transparent;
+}
+/* ★ 渠道置灰档位（不是「模型不支持」✗，而是**这条渠道**会拒：土豆免费池 `resolution=4k`
+   / `quality=high` → `409 free_pool_param_mismatch`，2026-10-20 实测）。
+   用户口径：**留项置灰**，不剪掉菜单；`title` 由组件传（说明原因）。
+   （官方没有这个状态 —— 官方自己就是渠道，不存在「模型支持但渠道不收」的情况。）*/
+.img-rp-quality-item.is-channel-disabled,
+.img-rp-quality-item.is-channel-disabled:hover {
+  color: rgb(122, 122, 122);
+  opacity: 0.38;
+  cursor: not-allowed;
+  background: transparent;
+}
+.img-rp-quality-item:active {
+  transform: none;
+}
+.img-rp-quality-item.active {
+  color: rgb(245, 245, 245);
+  background: transparent;
+  box-shadow: none;
+}
+/* §123 分段控件超出宽度时横向滚动（官方 `ni` 的 `scrollable`）：
+   `overflow-x-auto` + `scrollbar-width:none` + 左右 15%/85% 的 `mask-image` 渐变（mask 由组件写行内样式）。
+   MTV 的 `.img-rp-quality-segmented` 原本没有这条规则、上一轮的 `is-scrollable` 也**从未定义** ✗
+   ⇒ >8 档的时长（如 seedance-2.5 的 4–30）会被 `flex:1` 压扁（官方是每颗 `min-w-10` = 40px + 横向滚动）。 */
+.img-rp-quality-segmented.is-scrollable {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.img-rp-quality-segmented.is-scrollable::-webkit-scrollbar {
+  display: none;
+}
+.img-rp-quality-segmented.is-scrollable > .img-rp-quality-item {
+  flex: 0 0 auto;
+}
+.img-rp-ratio-split {
+  display: flex;
+  /* ★★★★★ **官方结构（DOM 实测 ✓）**：内容容器 cls 原文
+       "relative flex **gap-1.5 bg-input/40 rounded-lg p-1**"
+       → **左右布局**：左列两格（自适应 64×67 + 全景图 64×67）+ 右侧 4 列格阵 ✓
+       → 容器 gap **6** ✓ · pad **4** ✓ · bg **rgba(255,255,255,.06)** ✓ · r **12** ✓ */
+  gap: 6px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  /* 下滑指示块的包含块（官方 cls 里就有 `relative` ✓）*/
+  position: relative;
+}
+.img-rp-ratio-left {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  /* 官方：自适应 @y4 · 全景图 @y75 → 67 高 + **4 gap** ✓ */
+  gap: 4px;
+}
+/* ★★★★★ 官方「自适应」**和**「全景图」= **64×67** · r10 · pad **8px 0** · gap **4** · 色 #7a7a7a ✓
+   （我此前写 52×43 ✗ / 60 宽 minH80 ✗ / 56×56 ✗ —— 一路都被实测纠正 ✓ 用户："不要胡乱搞" ✓）*/
+.img-rp-large-adaptive,
+.img-rp-large-panorama {
+  width: 64px;
+  height: 67px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: rgb(122, 122, 122);
+  border-radius: 10px;
+  cursor: var(--cursor-pointer, pointer);
+  /* 官方 cls：`transition-colors duration-200` ✓ */
+  transition:
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 20px;
+  /* 抬到指示块之上 ✓（官方这些按钮也是 `relative z-10` ✓）*/
+  position: relative;
+  z-index: 1;
+}
+/* 官方图标尺寸：自适应 **20×20**（lucide-fullscreen ✓）· 全景图 **18×18**（tabler ✓）*/
+.img-rp-large-adaptive svg { width: 20px; height: 20px; color: currentColor; }
+.img-rp-large-panorama svg { width: 18px; height: 18px; color: currentColor; }
+/* 官方标签字号：自适应 **12px**（cls "text-xs" ✓）· 全景图 **10px**（cls "text-[10px] leading-none" ✓）*/
+.img-rp-pano-label-12 { font-size: 12px; line-height: 16px; }
+.img-rp-pano-label-10 { font-size: 10px; line-height: 10px; }
+.img-rp-large-adaptive:hover,
+.img-rp-large-panorama:hover,
+.img-rp-large-adaptive.active,
+.img-rp-large-panorama.active {
+  color: rgb(245, 245, 245);
+}
+.img-rp-ratio-right {
+  flex: 1;
+  display: grid;
+  /* 官方实测：4 列 · 格 **52×43** · 列间距 **4**（x: 74,130,185,241 → 52+4 ✓）
+     行间距 **4**（y: 4,51,98 → 43+4 ✓）· 12 项 = 3 行 = 3×43+2×4 = **137** ✓✓ 吻合 */
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  max-height: none;
+  overflow: visible;
+}
+.img-rp-ratio-item {
+  /* ★ 官方实测：格 **52×43** · r10 · pad **6px 0** · gap **2px** · bg **透明** ✓
+     色：选中 rgb(245,245,245) / 未选 rgb(122,122,122) ✓
+     ⚠️ 格内**字号是标签的 10px** ✗ —— 按钮自身的 fs=16px 是**容器继承值** ✓（官方也如此 ✓）*/
+  height: 43px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 0;
+  border: none;
+  background: transparent;
+  color: rgb(122, 122, 122);
+  border-radius: 10px;
+  cursor: var(--cursor-pointer, pointer);
+  /* 官方 cls：`transition-colors duration-200` ✓（实测 0.2s cubic-bezier(0.4,0,0.2,1) ✓）*/
+  transition:
+    color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 20px;
+  /* 抬到指示块之上 ✓（官方 `relative z-10` ✓）*/
+  position: relative;
+  z-index: 1;
+}
+/* ★★★★★ **官方 hover 实测（今天重测 ✓ 修正我旧注释 ✗）**：
+     比例格 1:1 —— 常态 标签色 rgb(122,122,122) → **hover rgb(245,245,245)**（**只变字色** ✓）
+     按下（mousedown）→ 与 hover **完全相同**（bg 仍是 transparent ✓ **没有额外的按下底色** ✓）
+   ⚠️ 我旧注释写「砖块 hover 无任何变化」✗ —— 那是**没把鼠标真的移上去**的误判 ✗✓ */
+.img-rp-ratio-item:hover {
+  color: rgb(245, 245, 245);
+}
+.img-rp-ratio-item:active,
+.img-rp-large-adaptive:active,
+.img-rp-large-panorama:active {
+  transform: none;
+}
+.img-rp-ratio-item.active {
+  color: rgb(245, 245, 245);
+  background: transparent;
+}
+/* ★★★★★ 官方图标结构（DOM 实测原文 ✓）
+   外层 `div` 14×14 · cls "flex items-center justify-center flex-none" ✓
+   内形 `div` 尺寸按比例算 ✓ · cls "**border-[1.5px] border-current rounded-[2px]**" ✓
+   → **border 1.5px currentColor** ✓ · **r2** ✓ · **opacity 1** ✓（MTV 原来是 1.5px/1.5px 圆角 + **opacity .7** ✗）*/
+.img-rp-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+.img-rp-icon-shape {
+  display: block;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  background: transparent;
+}
+/* 官方比例标签：**10px**（cls "text-[10px]" ✓）—— 我此前按 16px 写 ✗（那是容器继承值 ✗）*/
+.img-rp-ratio-label {
+  font-size: 10px;
+  line-height: 15px;
+}
+.img-rp-icon {
+  display: inline-block;
+  border: 1.5px solid currentColor;
+  border-radius: 1.5px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+.img-rp-ratio-item.active .img-rp-icon {
+  opacity: 1;
+  color: var(--accent-primary);
+}
+[data-theme='light'] .img-rp-ratio-item.active,
+[data-theme='light'] .img-rp-large-adaptive.active {
+  color: color-mix(in srgb, var(--primary) 78%, var(--theme-text));
+  background: rgba(255, 255, 255, 0.20);
+}
+[data-theme='light'] .img-rp-ratio-item.active .img-rp-icon,
+[data-theme='light'] .img-rp-large-adaptive.active svg {
+  color: inherit;
+}
+.img-rp-sq { width: 12px; height: 12px; }
+.img-rp-tall { width: 8px; height: 14px; }
+.img-rp-wide { width: 14px; height: 8px; }
+.img-rp-p34 { width: 9px; height: 12px; }
+.img-rp-l43 { width: 12px; height: 9px; }
+.img-rp-l32 { width: 13px; height: 9px; }
+.img-rp-p23 { width: 9px; height: 13px; }
+.img-rp-l54 { width: 12px; height: 10px; }
+.img-rp-p45 { width: 10px; height: 12px; }
+.img-rp-ultra { width: 16px; height: 7px; }
+.img-rp-p14 { width: 5px; height: 15px; }
+.img-rp-l41 { width: 15px; height: 5px; }
+.img-rp-p18 { width: 3px; height: 16px; }
+.img-rp-l81 { width: 16px; height: 3px; }
+.img-rp-pano { width: 16px; height: 8px; }
+
+/* ============================================
+   Video Parameter Selector Styles
+   ============================================ */
+.ui-schema-video-params-popup {
+  width: 320px;
+}
+
+/* ══ §119 视频参数分段控件：**去掉 MTV 自造的 grid/11px 覆盖**，回到官方 `ti` ══
+   官方 `ti`（`D:\DEEPSEEK\live-assets-r100\vendor-pkg-canvas-DuoOicPr.js` @1225800 区，逐字）：
+     容器 `relative flex bg-input/40 rounded-lg p-0.5`（+ 高亮条 `absolute top-0.5 bottom-0.5 bg-input/40 rounded-md`）
+     项   `relative z-10 flex flex-1 items-center justify-center px-2 py-1.5 rounded-md text-sm transition-colors duration-200`
+   而**同一个 `ti` 组件同时供官方图像面板与视频面板使用**（图像 @1860009/@1860172/@1860977 …；视频 @1869635 …）
+   ⇒ 官方两类**不分家**，不该给视频单独换皮。
+   基类 `.img-rp-quality-segmented` / `.img-rp-quality-item`（本文件 173/256 行）**本来就是官方那组值**
+   （flex · 半径 12 · pad 2 · item 14px/6px 8px），只有下面这条 MTV 自造覆盖把它们改成了
+   `grid / repeat(4,1fr) / 11px / 4px 8px` ⇒ 真机实测视频面板 = grid·11px·4px8px，与官方不符（用户图3/图6）。
+   ⇒ 删除该覆盖；`.rh-res-seg-with-custom`（本地工作流的「像素分辨率 + 自定义输入」那组，
+     最后一格是输入框）**需要网格列**，故给它补上自己的 `display:grid`。 */
+/* 预设 + 自定义输入同排：最后一格是输入框（依赖网格列 ⇒ 必须自带 display:grid） */
+.rh-res-seg-with-custom {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+.rh-res-custom-input {
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px dashed var(--theme-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 11px;
+  text-align: center;
+  outline: none;
+  transition: var(--transition-colors);
+}
+.rh-res-custom-input:hover {
+  border-color: var(--theme-text-muted);
+}
+.rh-res-custom-input:focus {
+  border-style: solid;
+  border-color: var(--primary);
+}
+.rh-res-custom-input::placeholder {
+  color: var(--theme-text-muted);
+}
+/* 一格只有 60px 宽，加减按钮挤掉数字 */
+.rh-res-custom-input::-webkit-inner-spin-button,
+.rh-res-custom-input::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+/* ── 参考帧 / 参考角色：按需添加的参考图 ── */
+.rh-video-ref-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.rh-video-ref-add {
+  font-size: 11px;
+  color: var(--primary);
+  background: none;
+  border: none;
+  cursor: var(--cursor-pointer, pointer);
+  padding: 0 2px;
+}
+.rh-video-ref-add:hover {
+  color: var(--accent-primary);
+}
+.rh-video-ref-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--theme-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.rh-video-ref-remove {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--theme-text-muted);
+  font-size: 11px;
+  cursor: var(--cursor-pointer, pointer);
+}
+.rh-video-ref-remove:hover {
+  color: var(--theme-text);
+  background: var(--theme-hover);
+}
+.rh-video-ref-picker {
+  margin-top: 6px;
+  max-height: 176px;
+  overflow-y: auto;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  padding: 4px;
+}
+.rh-video-ref-picker-label {
+  padding: 4px 6px 2px;
+  font-size: 10px;
+  color: var(--theme-text-muted);
+}
+.rh-video-ref-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  cursor: var(--cursor-pointer, pointer);
+}
+.rh-video-ref-option:hover {
+  background: var(--theme-hover);
+}
+.rh-video-ref-empty {
+  padding: 8px 6px;
+  font-size: 11px;
+  color: var(--theme-text-muted);
+}
+
+/* ── 参考帧指派：缩略图 + 首/中/尾分段 ── */
+.rh-video-frame-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 168px;
+  overflow-y: auto;
+}
+.rh-video-frame-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rh-video-frame-thumb {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--theme-border);
+}
+.rh-video-frame-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  flex: 1;
+  min-width: 0;
+}
+.rh-video-frame-seg .img-rp-quality-item {
+  flex: none;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+.rh-v5-meta-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rh-vram-adv-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rh-vram-adv-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+.rh-vram-adv-label > span:first-child {
+  color: var(--theme-text-secondary);
+}
+.rh-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--theme-border);
+  color: var(--theme-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: var(--cursor-help, help);
+  line-height: 1;
+}
+.rh-v5-fps-seg .img-rp-quality-item {
+  font-size: 11px;
+}
+.rh-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rh-v5-source-framecount {
+  font-size: 12px;
+  color: var(--theme-text-muted);
+  min-width: 20px;
+  text-align: center;
+}
+.rh-stepper-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  padding: 4px 10px;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-card);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--theme-text);
+  cursor: var(--cursor-text, text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.rh-stepper-value:hover {
+  border-color: var(--border-secondary);
+}
+.rh-stepper-value:focus {
+  border-color: var(--primary);
+}
+.rh-stepper-input {
+  display: inline-flex;
+  align-items: center;
+  min-width: 48px;
+  padding: 4px 10px;
+  background: var(--theme-bg);
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--theme-text);
+  font-family: inherit;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.rh-stepper-input::-webkit-outer-spin-button,
+.rh-stepper-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ════════════════════════════════════════════
+   Seedance 时长拖拽滑块
+   ════════════════════════════════════════════ */
+.rh-duration-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rh-duration-track {
+  position: relative;
+  height: 24px;
+  display: flex;
+  align-items: center;
+}
+.rh-duration-fill {
+  position: absolute;
+  inset: 0;
+  height: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--primary);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: width 0.08s linear;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.30);
+}
+.rh-duration-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  height: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--theme-card);
+  border-radius: 3px;
+}
+.rh-duration-input {
+  position: relative;
+  width: 100%;
+  height: 24px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: var(--cursor-pointer, pointer);
+  margin: 0;
+  z-index: 1;
+}
+.rh-duration-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.20), 0 2px 8px rgba(0,0,0,0.4);
+  cursor: grab;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+.rh-duration-input::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.30), 0 2px 12px rgba(0,0,0,0.5);
+}
+.rh-duration-input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.20), 0 2px 8px rgba(0,0,0,0.4);
+  cursor: grab;
+}
+.rh-duration-input::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+}
+/* Firefox 轨道 */
+.rh-duration-input::-moz-range-track {
+  background: transparent;
+  height: 6px;
+}
+.rh-duration-labels {
+  display: flex;
+}
+/* 刻度槽按总刻度数均分容器宽度；长时长模型（2.5 的 4~30，共 27 槽）
+   不再按 20px 固定宽度，否则 20s/25s/30s 会溢出右侧且滑杆拖不到上限 */
+.rh-duration-tick {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  font-size: 10px;
+  color: var(--theme-text-muted);
+  cursor: var(--cursor-pointer, pointer);
+  transition: color 0.15s;
+  user-select: none;
+  padding: 2px 0;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.rh-duration-tick:hover {
+  color: var(--theme-text-secondary);
+}
+.rh-duration-tick.active {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* ════════════════════════════════════════════
+   有声视频 Toggle 开关
+   ════════════════════════════════════════════ */
+.rh-toggle-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: var(--cursor-pointer, pointer);
+  user-select: none;
+}
+.rh-toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.rh-toggle-track {
+  display: flex;
+  align-items: center;
+  width: 44px;
+  height: 24px;
+  padding: 2px;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.rh-toggle-switch input:checked + .rh-toggle-track {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.30);
+}
+.rh-toggle-knob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: translateX(0);
+}
+.rh-toggle-switch input:checked + .rh-toggle-track .rh-toggle-knob {
+  transform: translateX(20px);
+}
+.rh-toggle-track:hover {
+  border-color: var(--input);
+}
+.rh-toggle-switch input:checked + .rh-toggle-track:hover {
+  box-shadow: 0 0 12px var(--input);
+}
+.rh-toggle-switch:active .rh-toggle-knob {
+  transform: translateX(0) scale(0.9);
+}
+.rh-toggle-switch:active input:checked + .rh-toggle-track .rh-toggle-knob {
+  transform: translateX(20px) scale(0.9);
+}
+
+/* ★★★ **第三组「联网搜索」的分段控件** ✓✓（官方实测 ✓）
+   官方: «ON» «OFF» 各 **146×32** ✓（= (296 − pad 2×2) ÷ 2 = 146 ✓）· **14px / w400** · **r10** ✓
+   容器: 与画质分段同款 —— bg **rgba(255,255,255,.06)** ✓ · **r12** ✓ · **pad 2px** ✓
+   选中: rgb(245,245,245) ✓ / 未选 rgb(122,122,122) ✓（官方实测默认 **OFF** 选中 ✓）*/
+.img-rp-search-segmented {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px;
+  border-radius: 12px;
+  border: none;
+  gap: 0;
+}
+.img-rp-search-item {
+  flex: 1;
+  height: 32px;
+  border: none;
+  background: transparent;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: rgb(122, 122, 122);
+  cursor: var(--cursor-pointer, pointer);
+  border-radius: 10px;
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: inherit;
+}
+.img-rp-search-item:hover,
+.img-rp-search-item.active {
+  color: rgb(245, 245, 245);
+  background: transparent;
+}
+
+/* ★★★★★ **「精细度」组 = 官方弹窗的第三组** ✓✓（DOM 实测 ✓ —— 不是我之前做的「联网搜索」✗）
+   官方 «精细度» 组：标题同款 ✓ · 内容 **296×36** · bg **rgba(255,255,255,.06)** · **r12** · **pad 2px** ✓
+                    三格 «低»«中»«高» 各 **97×32** · **r10** · pad **6px 8px** · **14px/w400** ✓
+                    选中 rgb(245,245,245) / 未选 rgb(122,122,122) ✓
+   → 与「画质」组完全同款 ✓ 所以直接复用 `.img-rp-quality-*` 的样式 ✓（这里只是显式声明 ✓）*/
+.img-rp-fidelity-segmented {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px;
+  border-radius: 12px;
+  border: none;
+  gap: 0;
+}

@@ -1,0 +1,425 @@
+﻿/**
+ * StoryboardNode 宫格分镜 — 单节点内把源图按均分网格拼接展示（多图拼接）。
+ *
+ * 各格用「超尺寸源图 + 负偏移」呈现对应裁片（object-fit:fill）；分割线固定不可拖拽。
+ * 双击进入分镜编辑：可拖拽某一格到画布，生成一个「提取分镜r-c」真实裁片图像节点，
+ * 原格随即变为空占位（+）。
+ */
+import { memo, lazy, Suspense, useCallback, useMemo, useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Handle, Position, useReactFlow } from '@xyflow/react';
+import type { Node } from '@xyflow/react';
+import type { BaseNodeData, StoryboardCellOverride } from '../../types';
+import NodeLabel from './shared/NodeLabel';
+import GooeyBtn from './shared/GooeyBtn';
+import NodeError from './shared/NodeError';
+import { useNodeRename } from './shared/useNodeRename';
+import { useAppStore, generateId } from '../../store/useAppStore';
+import { cropImageCell, cropImageByRanges, computeImageNodeDimensions } from './shared/image/imageUtils';
+import { cellBackgroundStyle, gridBoundaries, remapStoryboardCells } from '../../utils/storyboardGrid';
+import { saveDataUrlToProjectData, buildNodeFileName } from '../../services/fileService';
+import { useReferencedImageRevisions, withPreviewRevision } from '../../hooks/useReferencedImageWatcher';
+import {
+  cancelCanvasDerivation,
+  completeCanvasDerivation,
+  isCanvasDerivationFresh,
+  registerCanvasDerivation,
+} from '../../services/canvasDerivationGuard';
+
+const CustomGridEditor = lazy(() => import('./shared/image/CustomGridEditor'));
+
+/** 拖出判定阈值（像素）：小于此位移视为误触，不提取 */
+const DRAG_THRESHOLD = 8;
+
+function StoryboardNode({ id, data, selected }: { id: string; data: BaseNodeData; selected?: boolean }) {
+  const updateNodeDataTransient = useAppStore((s) => s.updateNodeDataTransient);
+  const commitToHistory = useAppStore((s) => s.commitToHistory);
+  const { screenToFlowPosition } = useReactFlow();
+  /* ★ 旧数据兼容 —— 官方图片节点是 **333×250** ✓；MTV 上一版默认写的是 **280** ✗，
+     而 280 已持久化进画布数据 → 只改 fallback 无效（`data.nodeWidth` 有值就会赢 ✓）
+     实测证据：`.node-wrapper` 的 inline style 是 `width: 280px` ✗
+     → 这里把**旧默认值 280** 视为 **333** ✓（只针对这一个值，用户手动调过的其它宽度不动 ✓）*/
+  const storedWidth = data.nodeWidth as number | undefined;
+  const nodeWidth = storedWidth === 280 ? 333 : (storedWidth || 333);
+  const nodeHeight = (data.nodeHeight as number) || 333;
+  const cols = Math.max(1, (data.storyboardCols as number) || 3);
+  const rows = Math.max(1, (data.storyboardRows as number) || 3);
+  const imageUrl = (data.imageUrl || data.thumbnailUrl) as string | undefined;
+  // 字段缺省时 ?? [] 每次渲染都是新数组，会让下游 useMemo/useCallback 依赖恒变
+  const extracted = useMemo(
+    () => (data.storyboardExtracted as boolean[] | undefined) ?? [],
+    [data.storyboardExtracted],
+  );
+  const overrides = useMemo(
+    () => (data.storyboardOverrides as (StoryboardCellOverride | null)[] | undefined) ?? [],
+    [data.storyboardOverrides],
+  );
+  const rowPositions = useMemo(
+    () => (data.storyboardRowPositions as number[] | undefined) ?? [],
+    [data.storyboardRowPositions],
+  );
+  const colPositions = useMemo(
+    () => (data.storyboardColPositions as number[] | undefined) ?? [],
+    [data.storyboardColPositions],
+  );
+  const isCustomGrid = rowPositions.length > 0 || colPositions.length > 0;
+  const revisionFor = useReferencedImageRevisions([
+    data.filePath,
+    ...overrides.map((override) => override?.filePath),
+  ]);
+  const displayImageUrl = withPreviewRevision(imageUrl, revisionFor(data.filePath));
+
+  // 行/列边界（含 0 和 100）：均分宫格按格数算，自定义宫格按线算
+  const hRanges = useMemo(() => gridBoundaries(rows, rowPositions), [rows, rowPositions]);
+  const vRanges = useMemo(() => gridBoundaries(cols, colPositions), [cols, colPositions]);
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [editRequested, setEditRequested] = useState(false);
+  // 拖出中的格：{ idx, x, y } —— 用于渲染跟随光标的幽灵预览
+  const [drag, setDrag] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
+
+  
+  // 计算各格的定位与背景裁片偏移（百分比）
+  const cells = useMemo(() => {
+    const arr: { idx: number; r: number; c: number; corner: string; box: React.CSSProperties; bg: React.CSSProperties }[] = [];
+    const lastRow = rows - 1;
+    const lastCol = cols - 1;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cellTop = hRanges[r];
+        const cellLeft = vRanges[c];
+        const cellH = hRanges[r + 1] - hRanges[r];
+        const cellW = vRanges[c + 1] - vRanges[c];
+        const corner = r === 0 && c === 0 ? 'tl' : r === 0 && c === lastCol ? 'tr' : r === lastRow && c === 0 ? 'bl' : r === lastRow && c === lastCol ? 'br' : '';
+        arr.push({
+          idx: r * cols + c,
+          r, c, corner,
+          box: { left: `${cellLeft}%`, top: `${cellTop}%`, width: `${cellW}%`, height: `${cellH}%` },
+          bg: cellBackgroundStyle(cellLeft, cellTop, cellW, cellH),
+        });
+      }
+    }
+    return arr;
+  }, [rows, cols, hRanges, vRanges]);
+
+  const backgroundImage = displayImageUrl ? `url("${displayImageUrl}")` : undefined;
+
+  // 取消选中即退出编辑态：派生而非用 effect 回写，避免多一轮渲染
+  const editing = editRequested && !!selected;
+
+  // ── 双击进入/退出编辑 ──
+  const toggleEditing = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditRequested((v) => !v);
+  }, []);
+
+  // ── 调整分割线：把现有的线喂回裁切编辑器，确认后就地改这个节点 ──
+  const [isLineEditor, setIsLineEditor] = useState(false);
+  const openLineEditor = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsLineEditor(true);
+  }, []);
+  const closeLineEditor = useCallback(() => setIsLineEditor(false), []);
+
+  const handleLinesConfirm = useCallback(
+    (hPercentages: number[], vPercentages: number[]) => {
+      setIsLineEditor(false);
+      const next = { rows: hPercentages.length + 1, cols: vPercentages.length + 1 };
+      const map = remapStoryboardCells(
+        { rows, cols, rowPositions, colPositions },
+        { ...next, rowPositions: hPercentages, colPositions: vPercentages },
+      );
+      commitToHistory();
+      updateNodeDataTransient(id, {
+        storyboardRows: next.rows,
+        storyboardCols: next.cols,
+        storyboardRowPositions: hPercentages,
+        storyboardColPositions: vPercentages,
+        // 线的条数变了格子会对不上，按旧格中心搬过去，搬不到的格恢复成源图裁片
+        storyboardOverrides: map.map((from) => (from >= 0 ? overrides[from] ?? null : null)),
+        storyboardExtracted: map.map((from) => (from >= 0 ? extracted[from] ?? false : false)),
+      } as Partial<BaseNodeData>);
+      commitToHistory();
+    },
+    [id, rows, cols, rowPositions, colPositions, overrides, extracted, commitToHistory, updateNodeDataTransient],
+  );
+
+  // Esc 退出编辑态
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setEditRequested(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing]);
+
+  // 点击节点外部 → 失焦退出编辑态
+  useEffect(() => {
+    if (!editing) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Element)) {
+        setEditRequested(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [editing]);
+
+  // ── 拖出一格 → 生成「提取分镜」图像节点 ──
+  const extractCell = useCallback(
+    async (idx: number, clientX: number, clientY: number) => {
+      if (!displayImageUrl) return;
+      const r = Math.floor(idx / cols);
+      const c = idx % cols;
+      const store = useAppStore.getState();
+      const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
+      const label = `提取分镜${r + 1}-${c + 1}`;
+      const override = overrides[idx];
+
+      // 被拖入的图：直接用它建节点（无需裁切），原格清空
+      if (override) {
+        const derivation = registerCanvasDerivation(store, id);
+        if (!derivation) return;
+        const overrideUrl = withPreviewRevision(override.url, revisionFor(override.filePath)) ?? override.url;
+        const dims = await computeImageNodeDimensions(overrideUrl).catch(() => ({ nodeWidth: 200, nodeHeight: 200 }));
+        const liveStore = useAppStore.getState();
+        if (!isCanvasDerivationFresh(derivation, liveStore)) {
+          cancelCanvasDerivation(derivation);
+          return;
+        }
+
+        liveStore.commitToHistory();
+        liveStore.addNodeTransient({
+          id: `node-${generateId()}`,
+          type: 'ai-image',
+          position: { x: flowPos.x - 100, y: flowPos.y - 100 },
+          data: { label, type: 'ai-image', role: 'source', status: 'success', imageUrl: overrideUrl, filePath: override.filePath, ...dims } as BaseNodeData,
+        } as Node<BaseNodeData>);
+        const nextOv = [...overrides]; nextOv[idx] = null;
+        const nextEx = [...extracted]; nextEx[idx] = true;
+        liveStore.updateNodeDataTransient(id, { storyboardOverrides: nextOv, storyboardExtracted: nextEx } as Partial<BaseNodeData>);
+        liveStore.commitToHistory();
+        completeCanvasDerivation(derivation);
+        return;
+      }
+
+      // 立即建 loading 节点 + 标记原格已提取
+      const newId = `node-${generateId()}`;
+      store.commitToHistory();
+      store.addNodeTransient({
+        id: newId,
+        type: 'ai-image',
+        position: { x: flowPos.x - 100, y: flowPos.y - 100 },
+        data: { label, type: 'ai-image', role: 'source', status: 'loading', nodeWidth: 200, nodeHeight: 200 } as BaseNodeData,
+      } as Node<BaseNodeData>);
+      const nextExtracted = [...extracted];
+      nextExtracted[idx] = true;
+      store.updateNodeDataTransient(id, { storyboardExtracted: nextExtracted } as Partial<BaseNodeData>);
+      const projectId = store.currentProjectId;
+      const rollbackExtraction = () => {
+        const liveStore = useAppStore.getState();
+        if (liveStore.currentProjectId !== projectId) return;
+        liveStore.setNodes(liveStore.nodes
+          .filter((node) => node.id !== newId)
+          .map((node) => {
+            if (node.id !== id) return node;
+            const rollback = [...((node.data.storyboardExtracted as boolean[] | undefined) ?? [])];
+            rollback[idx] = extracted[idx] ?? false;
+            return {
+              ...node,
+              data: { ...node.data, storyboardExtracted: rollback } as BaseNodeData,
+            };
+          }));
+      };
+      const derivation = registerCanvasDerivation(store, id, {
+        placeholderNodeId: newId,
+        onCancel: rollbackExtraction,
+      });
+      if (!derivation) {
+        rollbackExtraction();
+        return;
+      }
+      const ensureFresh = () => {
+        const fresh = isCanvasDerivationFresh(derivation, useAppStore.getState());
+        if (!fresh) cancelCanvasDerivation(derivation);
+        return fresh;
+      };
+
+      try {
+        const cell = isCustomGrid
+          ? await cropImageByRanges(displayImageUrl, hRanges, vRanges, r, c)
+          : await cropImageCell(displayImageUrl, c, r, cols, rows);
+        if (!ensureFresh()) return;
+
+        let assetUrl = cell.dataUrl;
+        let filePath: string | undefined;
+        if (derivation.projectId !== 'default') {
+          const saved = await saveDataUrlToProjectData(cell.dataUrl, derivation.projectId, buildNodeFileName(label, 'png', 'grid'));
+          if (saved?.assetUrl) { assetUrl = saved.assetUrl; filePath = saved.filePath; }
+        }
+        if (!ensureFresh()) return;
+
+        const dims = await computeImageNodeDimensions(assetUrl);
+        if (!ensureFresh()) return;
+
+        const liveStore = useAppStore.getState();
+        liveStore.updateNodeDataTransient(newId, {
+          imageUrl: assetUrl, filePath, status: 'success',
+          imageWidth: cell.width, imageHeight: cell.height,
+          nodeWidth: dims.nodeWidth, nodeHeight: dims.nodeHeight,
+        } as Partial<BaseNodeData>);
+        liveStore.commitToHistory();
+        completeCanvasDerivation(derivation);
+      } catch (err) {
+        console.error('[Storyboard] 提取失败:', err);
+        const shouldNotify = isCanvasDerivationFresh(derivation, useAppStore.getState());
+        cancelCanvasDerivation(derivation);
+        if (shouldNotify) useAppStore.getState().showToast('提取分镜失败，请重试', 'error');
+      }
+    },
+    [id, displayImageUrl, cols, rows, isCustomGrid, hRanges, vRanges, extracted, overrides, revisionFor, screenToFlowPosition],
+  );
+
+  const startCellDrag = useCallback(
+    (idx: number) => (e: React.PointerEvent) => {
+      if (!editing || extracted[idx]) return;
+      e.preventDefault();
+      e.stopPropagation(); // 阻止 React Flow 拖动节点
+      dragStart.current = { x: e.clientX, y: e.clientY };
+      setDrag({ idx, x: e.clientX, y: e.clientY });
+
+      const onMove = (ev: PointerEvent) => setDrag({ idx, x: ev.clientX, y: ev.clientY });
+      const onUp = (ev: PointerEvent) => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        setDrag(null);
+        const s = dragStart.current;
+        dragStart.current = null;
+        if (!s) return;
+        const moved = Math.hypot(ev.clientX - s.x, ev.clientY - s.y);
+        if (moved >= DRAG_THRESHOLD) extractCell(idx, ev.clientX, ev.clientY);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    },
+    [editing, extracted, extractCell],
+  );
+
+  const { displayLabel, handleRename } = useNodeRename(id, data, '宫格分镜');
+
+  // 拖出中格子的裁片偏移（用于幽灵预览）
+  const dragCell = drag != null ? cells[drag.idx] : null;
+
+  return (
+    <div className="node-wrapper relative" style={{ width: nodeWidth }} ref={wrapperRef}>
+      <NodeLabel
+        kind="ai-storyboard"
+        label={displayLabel}
+        displayId={data.displayId as number | undefined}
+        nodeId={id}
+        onRename={handleRename}
+      />
+      <div
+        className={`node storyboard-node ${selected ? 'selected' : ''} ${editing ? 'editing' : ''}`}
+        style={{ height: nodeHeight }}
+        data-tooltip={editing ? undefined : '双击进入编辑'}
+        onDoubleClick={toggleEditing}
+      >
+        <div className="storyboard-grid">
+          {displayImageUrl ? (
+            cells.map((cell) => {
+              const override = overrides[cell.idx];
+              const isEmpty = !override && extracted[cell.idx];
+              const draggable = editing && !isEmpty; // 空格不可拖出（可作拖入目标）
+              return (
+                <div
+                  key={cell.idx}
+                  data-sb-cell-idx={cell.idx}
+                  {...(cell.corner ? { 'data-sb-corner': cell.corner } : {})}
+                  className={`sb-cell${isEmpty ? ' sb-cell--empty' : ''}${override ? ' sb-cell--override' : ''}${draggable ? ' sb-cell--draggable nodrag' : ''}${drag?.idx === cell.idx ? ' sb-cell--dragging' : ''}`}
+                  style={override || isEmpty ? cell.box : { ...cell.box, ...cell.bg, backgroundImage }}
+                  onPointerDown={draggable ? startCellDrag(cell.idx) : undefined}
+                >
+                  {override ? (
+                    <img className="sb-cell-fill" src={withPreviewRevision(override.url, revisionFor(override.filePath))} alt="" draggable={false} />
+                  ) : isEmpty ? (
+                    <span className="sb-cell-plus">+</span>
+                  ) : null}
+                  <span className="sb-cell-overlay" />
+                </div>
+              );
+            })
+          ) : (
+            <div className="storyboard-empty">无图像</div>
+          )}
+
+          {editing && displayImageUrl && (
+            <button
+              type="button"
+              className="storyboard-lines-btn nodrag"
+              data-tooltip="调整分割线"
+              onClick={openLineEditor}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 10h18M3 14h18M10 3v18M14 3v18" />
+              </svg>
+              调线
+            </button>
+          )}
+
+          {displayImageUrl && (
+            <span className="storyboard-badge">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" />
+              </svg>
+              {rows * cols}
+            </span>
+          )}
+        </div>
+
+        {data.error && <NodeError nodeId={id} message={data.error} />}
+
+        <Handle type="source" position={Position.Left} id="left" className="node-handle handle-source handle-storyboard">
+          <GooeyBtn className="gooey-btn-left" hue={330} />
+        </Handle>
+        <Handle type="source" position={Position.Right} id="right" className="node-handle handle-source handle-storyboard">
+          <GooeyBtn className="gooey-btn-right" hue={330} />
+        </Handle>
+      </div>
+
+      
+      {isLineEditor && displayImageUrl && (
+        <Suspense fallback={null}>
+          <CustomGridEditor
+            isOpen
+            imageUrl={displayImageUrl}
+            initialHPercentages={rowPositions.length ? rowPositions : hRanges.slice(1, -1)}
+            initialVPercentages={colPositions.length ? colPositions : vRanges.slice(1, -1)}
+            onClose={closeLineEditor}
+            onConfirm={handleLinesConfirm}
+          />
+        </Suspense>
+      )}
+
+      {/* 拖出幽灵预览（portal 到 body，避免被画布 transform 影响定位）*/}
+      {drag && dragCell && displayImageUrl &&
+        createPortal(
+          <div className="sb-drag-ghost" style={{ left: drag.x, top: drag.y }}>
+            <div className="sb-drag-ghost-clip">
+              {overrides[drag.idx] ? (
+                <img src={withPreviewRevision(overrides[drag.idx]!.url, revisionFor(overrides[drag.idx]!.filePath))} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <div className="sb-drag-ghost-fill" style={{ ...dragCell.bg, backgroundImage }} />
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </div>
+  );
+}
+
+export default memo(StoryboardNode);

@@ -1,0 +1,466 @@
+/* ============================================
+   Group Node — 官方 `QQ`（`zoom-slider`@char2884373）
+   ============================================ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ★★ 分组节点本体 = 官方 `QQ`（逐字）
+      `div.canvas-node-presence-surface relative w-full h-full duration-300 rounded-[12px] group`
+      + `style={{backgroundColor: color || "transparent"}}`
+      ⇒ **分组色就是整块表面的底色**（旧版「淡染底 + 描边」是本仓库自己编的 ✗；
+        用户 2026 复核后裁定按官方重写）
+      ⚠️ 旧版的 `.canvas-group-node-wrapper` / `.canvas-group-title` / `.canvas-group-node-box` /
+        `.canvas-group-folder*` 已不再被 `GroupNode` 使用（标题栏与「折叠为文件夹」按用户裁定去掉）
+        —— 规则保留在此以免误删别处引用，但分组节点现在走下面这套新规则。
+   ══════════════════════════════════════════════════════════════════════════ */
+.canvas-group-surface {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;              /* 官方 `rounded-[12px]` */
+  transition-duration: 300ms;       /* 官方 `duration-300` */
+  box-sizing: border-box;
+  /* ⚠️ MTV 的 `.react-flow__node-group` 是 `pointer-events: none`（旧设计：分组盒子不吃点击，
+     只有 `.canvas-group-title` 是 `auto`）⇒ 标题栏变细之后**整组就没法用鼠标选中**了（实测回归）。
+     官方 `QQ` 里整块 `canvas-node-presence-surface` 就是节点的可点表面 ⇒ 这里显式恢复 `auto`：
+     点空白处 = 选中分组，点子节点 = 命中子节点（子节点绘制在其上）。
+     官方 `D7` 上的 `pointer-events-auto` 也正是这个道理。 */
+  pointer-events: auto;
+}
+
+/* 官方 `D7`（逐字，@char1210514）：
+     `canvas-node-title absolute z-[1] pointer-events-auto -translate-y-full left-1 -top-0 pb-2 w-full
+      text-foreground/60 overflow-hidden whitespace-nowrap flex items-center gap-1`
+   官方 `F7`：`{lineHeight:1.5}`
+   ⚠️ `canvas-node-title` 在官方 CSS 里**没有规则**（`canvas-*` 是无样式的语义钩子，已核）
+      ⇒ 标题的字号是**继承**来的，`D7`/`F7` 都不设 font-size —— 这里也**不写** font-size ✓
+   ⚠️ `text-foreground/60`：MTV 没有 `--foreground` 色阶（Tailwind v3 不生成该工具类）
+      ⇒ 写官方 `--foreground:#f5f5f5` 的 60% */
+.canvas-group-titlebar {
+  position: absolute;
+  z-index: 1;                       /* z-[1] */
+  left: 4px;                        /* left-1 */
+  top: 0;                           /* -top-0 */
+  transform: translateY(-100%);     /* -translate-y-full ⇒ 悬浮在盒子上方 */
+  width: 100%;
+  padding-bottom: 8px;              /* pb-2 */
+  display: flex;
+  align-items: center;
+  gap: 4px;                         /* gap-1 */
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: auto;
+  line-height: 1.5;                 /* 官方 F7 */
+  color: rgba(245, 245, 245, 0.6);  /* 官方 text-foreground/60 */
+}
+/* 官方 `Yke`（可编辑态，@char1211377）：`div.relative.min-w-0.max-w-full.w-max.shrink`
+   + `span.invisible.whitespace-pre`（撑宽垫）+ 绝对定位 `input` */
+.canvas-group-titlebar-field {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  width: max-content;
+  flex-shrink: 1;
+}
+.canvas-group-titlebar-ghost {
+  visibility: hidden;
+  white-space: pre;
+  display: inline-block;
+  pointer-events: none;
+  user-select: none;
+  vertical-align: top;
+}
+.canvas-group-titlebar-input {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  height: auto;
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  line-height: inherit;
+  color: inherit;
+  outline: none;
+}
+.canvas-group-titlebar-input::placeholder { color: rgba(245, 245, 245, 0.35); }
+/* 官方 `qke`（只读态）里的标题：`span.min-w-0 truncate` */
+.canvas-group-titlebar-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-group-node-wrapper {
+  --group-title-height: 28px;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ★★ 分组外壳 —— **官方 `zoom-slider-B3yfHu80.css`@char43538 逐字**：
+     `.react-flow__node-group{padding:0;border:1px solid rgba(255,255,255,.2);border-radius:16px;outline:none!important}`
+     `.react-flow__node-group.selected{border:2px solid rgba(255,255,255,.4)}`
+   底色**不覆盖**：官方与 MTV 都定义了同一个变量
+     `.react-flow{--xy-node-group-background-color-default: #5353534e}`
+   而库规则 `.react-flow__node-group{background-color:var(--xy-node-group-background-color,…)}` 会用它。
+
+   ⚠️⚠️ MTV 原来这里是：
+        `.react-flow__node-group{background-color:transparent!important;border:none!important}`
+        —— 既把自己的 `--xy-node-group-background-color-default:#5353534e` 废掉，
+           又把官方那条 1px/2px 的边框整个抹掉 ⇒ 「框选打组时还是 MTV 的东西」✗（本轮按源码改回）。
+   ⚠️ 同时删掉另一条 MTV 旧值 `border-radius:14px!important`（官方是 16px）。
+   ⚠️ 官方 `outline:none!important` 是**针对分组专属**的（分组自己画边框，不要外面的圆角描边）——
+      与 `.react-flow__node{outline:1px solid rgba(255,255,255,.2)!important}` 并存时靠 `!important` + 更靠后的顺序取胜。 */
+.react-flow__node-group {
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  outline: none !important;
+}
+
+.react-flow__node-group.selected {
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+/* ★★ 分组**被选中时**外圈那道较粗的灰描边 ✓✓
+   官方 CSS 两条并存的净效果：
+     `.react-flow__node-group{…outline:none!important}`                    特异性 (0,1,0)
+     `.react-flow__node.selected{outline:2px solid rgba(122,122,122)!important}`  特异性 (0,2,0)
+   ⇒ 两条都带 `!important` 时**特异性高的赢** ⇒ 分组选中时**确实有** 2px 灰描边；
+     点画布空白取消选中 ⇒ `.selected` 掉线 ⇒ 描边消失（用户描述的正是这个行为 ✓）。
+   ⚠️ MTV 的 `nodes.css` 里有一条 `.react-flow__node.selected{outline:none!important}`（(0,2,0)）
+      —— 那是为了满足用户早前「点击单张卡片时不应出现灰色描边」的反馈加的。
+      本次**只给分组**补回这条：用 (0,3,0) 的特异性（`.react-flow__node-group.react-flow__node.selected`）
+      压过它，**不动单张卡片**那条，避免把已接受的裁定回退掉。 */
+.react-flow__node-group.react-flow__node.selected {
+  outline: 2px solid rgba(122, 122, 122, 1) !important;
+}
+
+/* 分组外壳上仍要让四边四角的缩放控制点可命中（`.group-conn-handle` 已随旧分组设计废弃） */
+.react-flow__node-group .react-flow__resize-control {
+  pointer-events: auto;
+}
+
+/* ⚠️ 已删除的**死规则**（2026 复核：`GroupNode.tsx` 改成官方 `QQ` 之后这些类在 ts/tsx 里 0 命中，
+    留着只会让人误以为分组还是旧形状）：
+      `.canvas-group-node-box`（14px 圆角 + 虚线框 + rgba(26,26,38,.25) 底 —— 纯 MTV 旧设计）
+      `.canvas-group-title` / `::before`（标题栏里那个 8px 圆点）/ `:hover` / `:active`
+      `.canvas-group-handle` · `.canvas-group-label-text` / `:hover` · `.canvas-group-count`
+      `.canvas-group-resize-hint` + `.react-flow__node-group:hover .canvas-group-resize-hint`
+      `.canvas-group-collapse-btn` 及整个 `.canvas-group-folder*` 家族（折叠为文件夹已被用户裁定去掉）
+    引用核对命令：`git grep -l -- <class> -- "src/*.ts" "src/*.tsx"`
+    （唯一还提到 `.canvas-group-title` / `.canvas-group-node-wrapper` 的是
+     `hooks/useCanvasSecondaryClickMenu.ts:29-30` 的几何回查，两边的 `querySelector` 找不到时
+     会自然回落成 `candidate` 本身 ⇒ 删 CSS 不影响该分支。） */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   缩放控制点（四边四角）—— 官方 `zoom-slider-B3yfHu80.css` @45086 起**逐字**
+   ══════════════════════════════════════════════════════════════════════════
+   官方口径（不是库原版的 5×5 蓝点，也不是"全局透明"那么简单）：
+     · 未选中：`.line{border-width:0}` + `.handle{width:0;height:0;border:0}` ⇒ **0×0，根本抓不到**
+     · 选中：  `.line{border-width:1px;border-color:transparent}`（1px 透明，命中区 = 那条边）
+              `.handle{width:24px;height:24px;border:none;border-radius:0;background:transparent}`
+              ⇒ **24×24 的透明大抓取区**（看不见，但好抓）
+     · 透明来自 `.react-flow{--xy-resize-background-color-default:transparent}`（同文件 @50522 的变量块），
+       不是靠给控制点写 `background:transparent`。
+   ⚠️ CDP `CSS.getMatchedStylesForNode` 在官方 9444 上实测命中：`.react-flow__node.selected .react-flow__resize-control.handle{width:24px;height:24px;border:none;border-radius:0;background-color:transparent}`
+      —— 我上一轮那套 `!important` 色值补丁是**错的**（把抓取区压回 5×5 且没做选中态区分），已删除。
+   ⚠️ 这些规则与库 CSS 同特异性 ⇒ **必须让库 CSS 先加载**（见 `main.tsx` 顶部的 `@xyflow/react/dist/style.css` 导入）。 */
+.react-flow {
+  --xy-node-group-background-color-default: #5353534e;
+  --xy-edge-stroke-default: #ffffff60;
+  --xy-resize-background-color-default: transparent;
+  --xy-edge-stroke-selected-default: #ffffff;
+  --xy-selection-background-color: #ffffff20;
+}
+
+.react-flow__resize-control.line {
+  border-width: 0px;
+}
+
+.react-flow__resize-control.handle {
+  width: 0px;
+  height: 0px;
+  border: 0px;
+}
+
+.react-flow__node.selected .react-flow__resize-control.line {
+  border-width: 1px;
+  border-color: transparent;
+}
+
+.react-flow__node.selected .react-flow__resize-control.handle {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+}
+
+.react-flow__nodesselection-rect {
+  border: 1px solid #ffffff60;
+  border-radius: 16px;
+}
+
+/* ── 四角「白色圆弧」提示（官方 `zoom-slider-B3yfHu80.css` @45090 起逐字）──────────────
+   用户截图里卡片**外侧**那道更亮的白色圆角线就是它：24×24 的 handle 里塞一张 18×20 的 SVG 弧线，
+   **hover 到该角时才 opacity 0→1**（所以是「触发缩放时外侧出现白色圆角线」，平时看不见）。
+   ⚠️ 官方原文用的就是 `data:image/svg+xml,...` 内联 SVG（stroke `#F5F5F5` / width 2 / round），
+      四个角分别 rotate 0 / 90 / 180 / 270（bottom-right / bottom-left / top-left / top-right）。
+   ⚠️ 顺带核对：`.react-flow__node` 的描边 MTV **已经有**且与官方逐字一致
+      （`nodes.css` 未选中 `1px solid rgba(255,255,255,.2)!important` / 选中 `2px solid rgb(122,122,122)!important`、
+      `border-radius:16px`；实测两边 outline 完全相同）⇒ 本轮缺的只有这个 `::after` 圆弧。
+   ⚠️ 官方还有一条 `.react-flow__node:hover{outline:1px solid rgba(255,255,255,.45)}`（无 `!important`），
+      但被它自己上面那条带 `!important` 的基础规则压住 ⇒ 官方实际渲染里 hover **不会**变成 45%，
+      MTV 不照抄这条（照抄反而与官方实际观感不符）。 */
+.react-flow__node.selected .react-flow__resize-control.handle::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg width='18' height='20' viewBox='0 0 14 15' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13 1V2C13 8.62742 7.62742 14 1 14' stroke='%23F5F5F5' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.react-flow__node.selected .react-flow__resize-control.handle:hover::after {
+  opacity: 1;
+}
+
+.react-flow__node.selected .react-flow__resize-control.handle.bottom.right::after { transform: rotate(0); }
+.react-flow__node.selected .react-flow__resize-control.handle.bottom.left::after { transform: rotate(90deg); }
+.react-flow__node.selected .react-flow__resize-control.handle.top.left::after { transform: rotate(180deg); }
+.react-flow__node.selected .react-flow__resize-control.handle.top.right::after { transform: rotate(270deg); }
+
+.canvas-group-resize-hint {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  opacity: 0;
+}
+
+.react-flow__node-group:hover .canvas-group-resize-hint {
+  opacity: .5;
+}
+
+/* 分组节点两侧连线手柄 */
+.group-conn-handle {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  border: 2px solid var(--theme-card) !important;
+  opacity: 0;
+  transition: opacity var(--transition-base), transform var(--transition-base);
+  z-index: 5;
+}
+.react-flow__node:hover .group-conn-handle,
+.group-conn-handle.connectionindicator,
+.react-flow__node.selected .group-conn-handle {
+  opacity: 1;
+}
+.react-flow__node.dragging .group-conn-handle:not(.connectionindicator),
+.react-flow__node-dragging .group-conn-handle:not(.connectionindicator) {
+  opacity: 0;
+  pointer-events: none;
+}
+.group-conn-handle:hover {
+  transform: scale(1.3);
+}
+
+/* ============================================
+   Collapsed group — folder card
+   ============================================ */
+.canvas-group-collapse-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-base), background-color var(--transition-base);
+}
+.react-flow__node-group:hover .canvas-group-collapse-btn,
+.react-flow__node-group.selected .canvas-group-collapse-btn {
+  opacity: 0.7;
+}
+.canvas-group-collapse-btn:hover {
+  opacity: 1 !important;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.canvas-group-folder {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  animation: groupFolderIn 260ms var(--ease-spring);
+}
+@keyframes groupFolderIn {
+  from { opacity: 0; transform: scale(0.86); }
+  to { opacity: 1; transform: scale(1); }
+}
+.canvas-group-folder:active {
+  cursor: grabbing;
+}
+/* 文件夹顶部标签页 */
+.canvas-group-folder-tab {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 42%;
+  height: 20px;
+  border-radius: 10px 10px 0 0;
+  background: color-mix(in srgb, var(--group-color) 32%, var(--theme-card));
+}
+/* 夹在文件夹里的纸张 */
+.canvas-group-folder-paper {
+  position: absolute;
+  top: 6px;
+  left: 14%;
+  right: 8%;
+  height: 26px;
+  border-radius: 6px 6px 0 0;
+  background: var(--theme-card);
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.12);
+}
+.canvas-group-folder-body {
+  position: absolute;
+  inset: 14px 0 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--group-color) 30%, transparent);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--group-color) 26%, var(--theme-card)),
+    color-mix(in srgb, var(--group-color) 10%, var(--theme-card))
+  );
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.canvas-group-folder-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.canvas-group-folder-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-base);
+}
+.canvas-group-folder-btn:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+}
+.canvas-group-folder-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+.canvas-group-folder-name {
+  min-width: 0;
+  text-align: left;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 色板 — 选中时浮在卡片下方 */
+.canvas-group-folder-colors {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+.canvas-group-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: var(--cursor-pointer, pointer);
+  transition: transform var(--transition-base);
+}
+.canvas-group-swatch:hover {
+  transform: scale(1.2);
+}
+.canvas-group-swatch.is-active {
+  border-color: var(--theme-text);
+}
+
+/* 拖拽节点悬停到文件夹上 —— 文件夹掀开，被拖节点缩小倾斜 */
+.canvas-group-folder-paper,
+.canvas-group-folder-photos,
+.canvas-group-folder-tab,
+.canvas-group-folder-body {
+  transition: transform 220ms var(--ease-spring), box-shadow 220ms var(--ease-out-expo);
+}
+.canvas-group-folder-body {
+  transform-origin: bottom center;
+}
+.canvas-group-folder.is-folder-drop-target .canvas-group-folder-paper {
+  transform: translateY(-16px) rotate(-3deg);
+}
+.canvas-group-folder.is-folder-drop-target .canvas-group-folder-photos {
+  transform: translateY(-14px);
+}
+.canvas-group-folder.is-folder-drop-target .canvas-group-folder-tab {
+  transform: translateY(-4px);
+}
+.canvas-group-folder.is-folder-drop-target .canvas-group-folder-body {
+  transform: perspective(600px) rotateX(-14deg) translateY(4px);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+}
+.react-flow__node.folder-drop-shrink > * {
+  transform: scale(0.55) rotate(-7deg);
+  transform-origin: center center;
+  transition: transform 200ms var(--ease-spring);
+}
+
+/* 文件夹封面 —— 组内随机 2-3 张图片，扇形叠在夹口上 */
+.canvas-group-folder-photos {
+  position: absolute;
+  top: -8px;
+  left: 0;
+  right: 0;
+  height: 56px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+}
+.canvas-group-folder-photo {
+  width: 62px;
+  height: 50px;
+  margin: 0 -6px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 2px solid var(--theme-card);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+  transform: rotate(calc(var(--fan) * 7deg));
+  transform-origin: bottom center;
+}
+.canvas-group-folder-photo:first-child {
+  margin-top: 8px;
+}

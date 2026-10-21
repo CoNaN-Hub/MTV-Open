@@ -1,0 +1,83 @@
+[package]
+name = "mtv-desktop"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "mtv_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+default = ["local-onnx"]
+local-onnx = ["dep:ort"]
+# 仅供离线 MockRuntime 安全回归；普通构建不包含测试支架。
+tauri-channel-tests = ["tauri/test"]
+
+[[test]]
+name = "mtv-desktop"
+path = "vendor/tauri/tests/channel-security.rs"
+required-features = ["tauri-channel-tests"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "=2.11.2", features = ["macos-private-api", "protocol-asset", "devtools"] }
+tauri-plugin-fs = { version = "2", features = ["watch"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-drag = "2"
+tauri-plugin-process = "2"
+trash = "5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
+tokio-util = "0.7"
+axum = "0.8"
+rmcp = { version = "3.1.4", default-features = false, features = ["server", "transport-streamable-http-server"] }
+tower = { version = "0.5", features = ["limit"] }
+url = "2"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "blocking"] }
+base64 = "0.22"
+# 图片往返桥的任务令牌需要操作系统随机源，不用伪随机凑数。
+getrandom = "0.3"
+fs2 = "0.4"
+flate2 = "1"
+sha2 = "0.10"
+tar = "0.4"
+image = "0.25"
+rquickjs = "0.12.2"
+# 本地语音转文本：解码 mp3 / wav / m4a / flac / ogg。默认已含 wav、flac、ogg、vorbis、pcm
+symphonia = { version = "0.5", features = ["mp3", "aac", "isomp4"] }
+
+# Intel macOS 没有 ort 2.0.0-rc.12 的预编译 ONNX Runtime，因此该目标不编译 ONNX Worker。
+# 其他平台继续使用当前版本；DirectML EP 仅由 Windows Worker 初始化。
+[target.'cfg(not(all(target_os = "macos", target_arch = "x86_64")))'.dependencies]
+ort = { version = "2.0.0-rc.12", features = ["download-binaries", "directml"], optional = true }
+
+# Mac：仅为主画布普通滚轮分流启用原生绑定，复用锁文件中的版本。
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "=0.6.4"
+block2 = "=0.6.2"
+objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["std", "block2", "NSEvent", "NSApplication", "NSResponder", "NSView", "NSWindow", "objc2-core-foundation"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSError", "NSGeometry", "NSObject", "NSProcessInfo", "NSString", "NSValue"] }
+objc2-web-kit = { version = "=0.3.2", default-features = false, features = ["std", "block2", "WKWebView", "objc2-app-kit"] }
+
+# Windows: DXGI 适配器枚举（GPU 探测用）+ 剪贴板 CF_HDROP 文件写入
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dwm",
+  "Win32_System_DataExchange",
+  "Win32_System_JobObjects",
+  "Win32_System_Memory",
+  "Win32_System_Registry",
+  "Win32_System_Threading",
+  "Win32_Security",
+  "Win32_Foundation",
+] }
+
+# 保留锁定版本，以本地小补丁补齐 Channel 的 WebView 归属与 ACL 校验。
+[patch.crates-io]
+tauri = { path = "vendor/tauri" }

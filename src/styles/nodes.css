@@ -1,0 +1,3133 @@
+/* ============================================
+   Node Components — Frosted Glass Design System (base)
+   ============================================ */
+
+/* Node Wrapper — label sits above the glass card */
+.node-wrapper {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  /* ★★★★★ **不要给 width/height 加 CSS transition** ✗✓（用户："280ms 平滑过渡 只有卡片本体" ✓）
+     官方源码验证 ✓（EXE `$Ol`）：换比例的动画**完全由 JS requestAnimationFrame 驱动** ✓
+       逐帧写内联 `width` / `height` / `position` ✓ · **280ms** ✓ · ease `1-(1-u)³` ✓
+       → CSS 层**没有**任何 width/height 过渡 ✓
+     ⚠️ MTV 原来在这里写 `transition: width 0.24s var(--ease-spring)` ✗
+        → 与 JS 的 280ms 动画**叠加** ✗ → 观感变成"慢半拍 + 回弹" ✗✓
+     → 移除 ✓（其它过渡不受影响 ✓）*/
+}
+
+/* ⚠️ MTV 旧值 `border-radius: 12PX` 已删：官方是
+   `.react-flow__nodesselection-rect{border:1px solid #ffffff60;border-radius:16px}`
+   （`zoom-slider-B3yfHu80.css`@char43538）—— 由 `nodes-group.css` 里那条官方规则提供。 */
+
+/* Far-zoom media nodes keep the same outer box and connection anchors. */
+.canvas-node-lod-boundary {
+  display: contents;
+}
+
+/* ★ 占位色必须 = **卡面本色** ✓（`--theme-node-bg` = 官方实测 #1F1F1F ✓）
+   ⚠️ 原来写的是**面板 token** `--theme-surface`（#14141c，偏蓝）✗ —— 同一个盒子上描边却
+     已经用的是 `--theme-node-border`（卡面描边）✗✓ 一条规则里自相矛盾 ✓
+   → 用户实测：「缓存加载时颜色是偏蓝的 不对 应该是 MTV 原始的」✓✓
+   `.canvas-node-lod-preview` = LOD **缓存缩略图加载中**的占位盒（`acquireCanvasImagePreview` 的
+   256px 预览还没就绪时露出来的就是它）；`lite` 与 `is-cover` 两态**共用这一条** ⇒ 改这里两态一起修 ✓ */
+.canvas-node-lod-preview {
+  background: var(--theme-node-bg);
+  box-shadow: inset 0 0 0 1px var(--theme-node-border);
+  border-radius: var(--theme-node-radius, 16px);
+}
+
+.canvas-node-lod-preview.is-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.canvas-node-lod-image {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+
+.canvas-node-lod-image.is-ready {
+  opacity: 1;
+}
+
+/* Base Node — frosted glass card */
+.node {
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg-node);
+  /* ponytail: 不加 backdrop-filter —— 卡面已不透明（--theme-node-bg），6px 模糊看不出来，
+     却让每个节点单独成一层合成表面并逐帧回读背景，是画布平移/缩放的主要开销。 */
+  /* 卡片描边：**不再自己画** —— 官方卡面 border=0，唯一的描边是 `.react-flow__node` 的 outline
+     （未选中 1px rgba(255,255,255,.2) / 选中 2px rgb(122,122,122)）。
+     MTV 原来卡面也有一条 border，叠加 node 的 outline 就成了**两层圈**（用户截图一眼看出）。 */
+  border: none;
+  border-radius: var(--theme-node-radius, 16px);
+  transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth),
+    transform var(--dur-fast) var(--ease-out-quart);
+  /* ★★★★★ **height 的 CSS transition 也移除** ✗✓（同 `.node-wrapper` 的理由 ✓）
+     官方换比例的尺寸动画由 JS rAF 逐帧驱动 ✓（280ms · ease-out-cubic ✓）
+     这里保留 `height 0.24s spring` ✗ 会与它叠加 → 观感错误 ✓（用户："只有卡片本体" ✓）*/
+  /* 进场动画已按用户要求删除（刷新后卡片会"弹入"，官方没有这个动作）。 */
+}
+
+/* ── 节点进场 ── */
+@keyframes nodeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ★ 官方「节点 presence 入场/退场」动画 —— 逐字照抄官方
+     `zoom-slider-B3yfHu80.css` @65072 / 常量表 `zoom-slider-3ZcFvYQO.js` @1068021：
+       @keyframes canvas-node-presence-enter { 0%{opacity:0;scale:var(--…collapsed-scale,.2)}
+                                               25%{opacity:1} to{opacity:1;scale:1} }
+       @keyframes canvas-node-presence-exit  { 0%{opacity:1;scale:1} 75%{opacity:1}
+                                               to{opacity:0;scale:var(--…collapsed-scale,.2)} }
+       .react-flow .canvas-node-presence-entering,
+       .react-flow .canvas-node-presence-exiting { outline:none!important }
+       .react-flow .canvas-node-presence-entering .canvas-node-presence-surface {
+         transform-origin:center;
+         animation: canvas-node-presence-enter var(--canvas-node-presence-duration,.23s)
+                    cubic-bezier(.39,.575,.565,1) both; will-change:opacity,scale }
+       .react-flow .canvas-node-presence-exiting { pointer-events:none }
+       .react-flow .canvas-node-presence-exiting .canvas-node-presence-surface {
+         animation: canvas-node-presence-exit … cubic-bezier(.435,0,.61,.425) both }
+     参数：duration .23s · collapsedScale .2 · 入场 class 挂 **250ms**（(.23+.02)*1000）
+
+     ⚠️ 只对**新增节点**生效（`useCanvasNodePresenceEnter` 做 id diff + ready 门）——
+       刷新/首次加载不播。这正是之前用户否掉「刷新后卡片弹入」的那条：
+       官方也只在新建节点时播（`Mat()` 的 ready + diff）。
+     ⚠️ 官方动画挂在 `.canvas-node-presence-surface`（卡面）；MTV 的卡面是 `.node-wrapper > .node`
+       （ImageNode/TextNode/VideoNode/AudioNode 都是这个结构）。 */
+@keyframes canvas-node-presence-enter {
+  0% { opacity: 0; scale: var(--canvas-node-presence-collapsed-scale, 0.2); }
+  25% { opacity: 1; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes canvas-node-presence-exit {
+  0% { opacity: 1; scale: 1; }
+  75% { opacity: 1; }
+  to { opacity: 0; scale: var(--canvas-node-presence-collapsed-scale, 0.2); }
+}
+
+.react-flow .canvas-node-presence-entering,
+.react-flow .canvas-node-presence-exiting {
+  outline: none !important;
+}
+
+/* 官方把这两个变量写进 node.style（`m7`）；这里写在类上，等价且不污染节点数据 */
+.react-flow .canvas-node-presence-entering,
+.react-flow .canvas-node-presence-exiting {
+  --canvas-node-presence-duration: 0.23s;
+  --canvas-node-presence-collapsed-scale: 0.2;
+}
+
+.react-flow .canvas-node-presence-entering .node-wrapper > .node {
+  transform-origin: center;
+  animation: canvas-node-presence-enter var(--canvas-node-presence-duration, 0.23s)
+    cubic-bezier(0.39, 0.575, 0.565, 1) both;
+  will-change: opacity, scale;
+}
+
+.react-flow .canvas-node-presence-exiting {
+  pointer-events: none;
+}
+
+.react-flow .canvas-node-presence-exiting .node-wrapper > .node {
+  transform-origin: center;
+  animation: canvas-node-presence-exit var(--canvas-node-presence-duration, 0.23s)
+    cubic-bezier(0.435, 0, 0.61, 0.425) both;
+  will-change: opacity, scale;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow .canvas-node-presence-entering .node-wrapper > .node,
+  .react-flow .canvas-node-presence-exiting .node-wrapper > .node {
+    animation: none;
+    opacity: 1;
+    scale: 1;
+    will-change: auto;
+  }
+}
+
+/* ── 节点退场（由 playNodeExit 添加 .node-exiting）——向下淡出。
+   节点随即被移除，位移不会造成持久的连线问题。 ── */
+.node.node-exiting {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.13s var(--ease-out-quart), transform 0.13s var(--ease-out-quart);
+}
+
+/* 拖拽「抬起」（scale 1.03 + 分层强投影）已按 Design.md §12.2 / checklist D2 删除：
+   官方卡片在拖拽期间与 hover 一样**不做任何视觉变化**（卡面/描边/位移全不变）。 */
+
+/* 选中态 — 官方实测（缩放 2，取 getComputedStyle 的 CSS 值）：
+     未选中：node **outline = 1px rgba(255,255,255,.2)**
+     选中  ：node **outline = 2px rgb(122,122,122)**
+   border / box-shadow / background 两态**完全一致**（shadow=none、border=0）。
+   —— 之前这里写「选中与未选中完全相同」是错的：差异确实存在，只是在 outline 上，
+      而且我前几次比较的是「选中 vs 选中」（卡片本来就是选中态），所以没测出来。
+   MTV 原来选中是 2.667px rgb(232,232,237)，颜色更亮、更粗。 */
+/* 官方描边就挂在 `.react-flow__node` 这一层；内层不再画描边。
+   注意：只写 outline 简写不够 —— Tailwind reset 里 `* { outline-color: var(--ring) }`
+   是**同优先级的 outline-color 长写法**，会把简写里的颜色盖掉（CDP 查规则时确认过），
+   所以这里再显式补一条 outline-color。 */
+.react-flow__node {
+  outline: 1px solid rgba(255, 255, 255, 0.2) !important;
+  outline-color: rgba(255, 255, 255, 0.2) !important;
+  outline-offset: 0 !important;
+  /* 官方 `.react-flow__node` 自带 **16px 圆角**（实测 r=16px），outline 因此贴合卡片圆角。
+     MTV 的 node 是直角 → outline 画出来四角是**方角**（截图一眼可见）。补上圆角。 */
+  border-radius: 16px !important;
+}
+/* ★ t1054/t1060 官方四态实测：`.react-flow__node` 在**未选 / 悬停 / 单选 / 框选**四态下都是
+   `outline: 2.66667px none rgb(245,245,245)` —— **outline-style: none，即没有任何描边**。
+   旧实现给选中态画了 `2px solid rgb(122,122,122)` ⇒ 用户反馈「点击单张卡片时不应出现灰色描边」✗ 已去掉。 */
+.react-flow__node.selected {
+  outline: none !important;
+}
+.react-flow__node .node,
+.react-flow__node .node-wrapper {
+  outline: none !important;
+}
+.node.selected {
+  border-color: inherit;
+  box-shadow: none;
+}
+
+/* ★★ 图片卡（多变体/堆叠卡）**被选中时**外圈那道 2px「灰色粗描边」✓✓
+   官方 CSS 三条并存的净效果（`_official-interactions/source-snippets.md:482` 逐字）：
+     `.react-flow__node{outline:1px solid rgba(255,255,255,.2)!important}`           (0,1,0) 未选中
+     `.react-flow__node:hover{outline:1px solid rgba(255,255,255,.45)}`              (0,2,0) 悬停
+     `.react-flow__node.selected{outline:2px solid rgba(122,122,122)!important}`     (0,2,0) 选中
+   ⇒ 官方**选中的图片卡确实有 2px `rgb(122,122,122)` 灰描边**；点空白取消选中即消失。
+   ⚠️ 上面早前那条 `.react-flow__node.selected{outline:none!important}`（(0,2,0)）是为了满足
+      「点击**单张**卡片时不应出现灰色描边」加的。本次是用户**点名要回**这条
+      （多变体堆叠卡的上层卡缺这道描边），因此用 (0,3,0) 特异性补回，且**只给图片卡**
+      —— 与 `nodes-group.css:138` 给分组补回那条是同一手法，其余节点类型的旧裁定不动。 */
+.react-flow__node-ai-image.react-flow__node.selected {
+  outline: 2px solid rgba(122, 122, 122, 1) !important;
+}
+
+/* ⚠️ **焦点编辑状态下，源节点（本体卡）不出这道灰描边**（用户 2026 实测反馈）。
+   焦点编辑时源卡已经被 `.focus-edit-mask`（rgba(0,0,0,.7) + ESC）盖住，
+   再叠一圈 2px 灰描边就多了一层「被选中」的错误暗示。
+   ⇒ 用 (0,5,0) 特异性压过上面那条 (0,3,0)。 */
+.react-flow__node-ai-image.react-flow__node.selected:has(.focus-edit-mask) {
+  outline: none !important;
+}
+
+/* ════════════════════════════════════════════
+   生成中 → 完成 状态过渡 / Generating → Done
+   ════════════════════════════════════════════ */
+
+/* 生成中：官方为**透明度呼吸**（tapPricePending，见 checklist D6），
+   卡面 filter:none / opacity:1，**不加内辉光、不改描边色**（Design.md §24.1）。
+   这里只保留一层中性微光扫过，供尚未接呼吸动画时提示进行中。 */
+.node.loading .node-preview {
+  position: relative;
+  overflow: hidden;
+  contain: paint;
+}
+
+/* 流光扫过（中性白，不用品牌色）*/
+.node.loading .node-preview::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.12) 48%,
+    rgba(255, 255, 255, 0.12) 52%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+  animation: shimmerSweep 1.9s var(--ease-in-out) infinite;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes shimmerSweep {
+  0% { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(120%); }
+}
+
+/* 完成瞬间：边框/外发光柔和闪现成功色，再随 .just-completed 移除平滑回落
+   （走 .node 已有的 border-color/box-shadow 过渡，不会重放进场动画）*/
+.node.just-completed {
+  border-color: var(--success-light);
+  box-shadow: 0 0 0 1px var(--success-bg), 0 8px 28px -4px var(--success);
+}
+
+/* 预览区一次性成功内闪 */
+.node.just-completed .node-preview {
+  animation: completeFlash 0.7s var(--ease-out-quart);
+}
+
+@keyframes completeFlash {
+  0% {
+    box-shadow: inset 0 0 0 2px var(--success-light), inset 0 0 26px var(--success-bg);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 transparent, inset 0 0 0 transparent;
+  }
+}
+
+/* Node Label Header — 官方 canvas-node-title 实测（缩放=2，已换算成流坐标）：
+   250×26 · rel=(4,−26)（底边贴卡顶、左距卡左 4）· padding 只有下边距 8 · gap 4
+   display:flex · align-items:center · 12px/400 rgba(247,247,247,.6)
+   图标 12×12（size-[1em]）· 文字行高 18
+   注：官方是 left:4px + width:100%（右侧外溢 4px），不是 padding-left ——
+   这决定了超长标题 truncate 的可用宽度。 */
+.node-label {
+  position: absolute;
+  left: 4px;
+  width: 100%;
+  top: -26px;
+  height: 26px;
+  padding: 0 0 8px;
+  gap: 4px;
+  display: flex;
+  align-items: center;
+  /* 官方：整行 12px/400 rgba(247,247,247,.6) —— 图标继承同一个色 */
+  font-size: 12px;
+  font-weight: 400;
+  color: rgba(247, 247, 247, 0.6);
+}
+
+.node-label-icon {
+  flex-shrink: 0;
+  /* 官方实测：裸图标 12×12（1em），没有底色方块 */
+  width: 12px;
+  height: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+}
+
+/* 官方图标严格 12×12；MTV 用的 iconify / `OfficialIcon`（外层 span.official-icon + 内层 svg）都要压回方形。
+   ⚠️ 只写 `> svg` 命中不到 `OfficialIcon` 的内层 svg（中间隔了一层 span）⇒ 实测图标被撑到 20 逻辑像素 ✗ */
+.node-label-icon > svg,
+.node-label-icon svg {
+  width: 12px;
+  height: 12px;
+}
+.node-label-icon .official-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.node-label-text {
+  /* 官方：12px/400 rgba(247,247,247,.6) · 行高 18（内容区 26−8） */
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  color: rgba(247, 247, 247, 0.6);
+}
+
+/* 重命名输入框：官方编辑态**没有任何框**（截图：纯文字 + 文字被选中高亮）。
+   这里兜底压掉全局 input 样式可能带进来的边框/底色/内边距，字号与显示态一致。 */
+.node-label-input {
+  background: transparent !important;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  color: rgba(247, 247, 247, 0.6);
+}
+.node-label-input:focus,
+.node-label-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* 官方实测：**卡片被选中时标题隐藏**（span 加 Tailwind 的 invisible = visibility:hidden，
+   但仍保留 whitespace-pre 占位，所以布局不跳）。点空白取消选中后恢复。 */
+.node.selected .node-label-text,
+.node.selected .node-label-icon {
+  visibility: hidden;
+}
+
+/* 设置中关闭「显示节点标题」后隐藏标签（保留 DOM，项目快照仍可读取标题） */
+[data-node-label-visible='false'] .node-label {
+  display: none;
+}
+
+/* 官方「上传」胶囊 — 悬停卡片时浮现在**标题上方**
+   官方实测：外层 75×37 · bg rgb(38,38,38)(#262626) · radius 999px · 水平居中于卡片 · 顶边距卡顶 −68
+             按钮 74×36 · radius 999px · padding 8px 12px · 文案 14px/400 rgb(204,204,204) */
+.node-upload-pill {
+  position: absolute;
+  left: 50%;
+  /* 官方实测（缩放 2）：胶囊底距卡片顶 **49 屏幕 = 24.5 流**；胶囊高 36 → top ≈ −61。
+     原来写 −68，比官方高 7 流。 */
+  top: -61px;
+  translate: -50% 0;
+  height: 36px;
+  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* 官方外壳（dump 自官方上传按钮）：
+       div "nodrag nopan pointer-events-auto absolute left-1/2 z-10 rounded-full border **bg-popover**"
+       → bg = rgb(38,38,38) ✓ · **border: 1px rgba(255,255,255,.1)** · r999
+     MTV 原来写 border:none ✗（漏了这条边框）。
+     box-sizing: border-box 保证加了边框后总高仍是 36。 */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: #262626; /* = 官方 bg-popover rgb(38,38,38) ✓ */
+  overflow: hidden;
+  color: rgb(204, 204, 204);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 20;
+  /* ★★★★ **改用官方的 `--float-scale`** ✗✓（用户："上传按钮动画有延迟、不丝滑" ✓）
+     官方 EXE 原文（`NJ` 组件 = 上传胶囊 ✓）：
+       `const r = Sh("--float-scale")`
+       `style={{ bottom:"calc(100% + 24px)",
+                 transform:"translateX(-50%) scale(var(--float-scale, 1))",
+                 transformOrigin:"center bottom" }}`
+     `--float-scale = 1 / zoom` ✓ 由 `Sh()` **订阅 store 逐帧写** ✓
+     ⚠️ MTV 原来用 `--canvas-inv-zoom` ✗ —— 它**只在画布交互结束后**才写 ✗
+        （`Canvas.updateNodeZoomCompensation` 里交互中是 `return` ✗）
+        → 缩放**过程中**胶囊的反缩放值一直是旧的 ✗ → 被画布拉伸/压缩 ✗
+        → 结束瞬间才"啪"地校正 ✗ = **延迟、不丝滑** ✓✓
+     → 现在用 `--float-scale` ✓（Canvas 已改为**每帧无条件写** ✓）
+       fallback 保留 `--canvas-inv-zoom` ✓（老变量万一还在 ✓ 不会退化成 1 ✗）*/
+  transform: scale(var(--float-scale, var(--canvas-inv-zoom, 1)));
+  transform-origin: bottom center;
+  /* ★★★★★ **容器不能有 `transition: all`** ✗✓（用户："上传按钮依旧不对，怎么会有抖动呢？" ✓）
+     事故：这里写了 `transition: 0.2s cubic-bezier(.25,.8,.25,1)` ✗
+       → 简写 = **`all`** ✗ → **把 `transform` 也一起做了 0.2s 过渡** ✗✓
+       → 画布缩放是**瞬时**的 ✓ 而 scale 要**追 0.2s** ✗ → 两者不同步 → **抖动** ✓✓
+     官方 `NJ` 容器（EXE 原文 ✓）**只有 inline 的 transform / bottom** ✓ **没有任何 transition** ✗
+     官方的 0.2s 在**内层 button**（`transition-all duration-200` ✓）上 ✓ —— 与缩放无关 ✓
+     → 这里改成 `transition: none` ✓（hover 高光由 `::before/::after` 各自的 0.4s opacity 负责 ✓ 不受影响 ✓）*/
+  transition: none;
+}
+
+/* ★★★★ **恢复（我上一轮删错了 ✗）—— 官方确实有这两层高光** ✓✓
+   我误判的经过 ✗：只查了**伪元素**（`::before/::after` 的 content = `"none"` ✓）
+     → 就断定"官方没有渐变" ✗ —— 但官方是把它做在**子 div** 上 ✓✓：
+       [0] div `absolute inset-0 z-[-1] overflow-hidden rounded-[inherit] opacity-0
+                transition-opacity duration-400 ease-[cubic-bezier(0.25,0.8,0.25,1)]`   ← 高光容器
+       [1]   div `absolute inset-[-100%]`                                           ← 4 倍大层
+       [2]     div `conic-gradient(rgb(93,93,93) 0deg, …)`                           ← conic ✓ 官方原文
+       [3]   div `absolute inset-[1px] rounded-[inherit]`
+                 → `radial-gradient(200% 140% at 50% 40.25%, …)`                    ← radial ✓ 官方原文
+   MTV 这两个伪元素与官方**逐值一致** ✓（连 `200% 140% at 50% 40.25%` 都一样 ✓ = 当初从官方抠的 ✓）
+   → 它们就是**上传按钮的 hover 高光** ✓ 删掉就"hover 没了" ✓（用户反馈 ✓）→ **恢复** ✓
+   → `duration-400` = **0.4s** ✓ 与官方一致 ✓
+   注：它们**不是**卡顿元凶 ✗（官方也有 ✓）—— 卡顿真因是 `will-change` 位图化 + 逐帧写 left/top ✓ 已另修 ✓ */
+.node-upload-pill::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    200% 140% at 50% 40.25%,
+    rgb(26, 26, 26) 16%,
+    rgb(101, 103, 102) 85%
+  );
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.node-upload-pill::after {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  z-index: -2;
+  pointer-events: none;
+  background: conic-gradient(
+    rgb(93, 93, 93) 0deg,
+    rgba(106, 106, 106, 0.1) 70deg,
+    rgb(144, 144, 144) 180deg,
+    rgba(144, 144, 144, 0.1) 290deg,
+    rgb(93, 93, 93) 360deg
+  );
+  transform: scale(1.1, 0.7);
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.node-upload-pill:hover::before,
+.node-upload-pill:hover::after {
+  opacity: 1;
+}
+
+/* 上传胶囊**只在选中态**出现。
+   ⚠️ 不能挂在 `.node-wrapper:hover` 上 —— 官方四态实测：
+     图2（未选中、无 hover）无胶囊；**图3（未选中、hover 卡片）只有左右 +，没有胶囊**；
+     图1/图4（选中）胶囊常驻。所以 hover 不该带出胶囊。 */
+.react-flow__node.selected .node-upload-pill {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 「替换」按钮 —— 官方 `UploadButton`（内部名 `IT`，zoom-slider @3046460）**逐字**：
+     const IT = h.memo(({onClick, className}) => (
+       <div><Wt variant="secondary"                       ← 官方 shadcn Button（内部名 `Un`）
+             className={Z("text-white flex items-center gap-2 w-fit bg-secondary/80 cursor-pointer
+                           border border-border/50 ", className)}
+             onClick={onClick}>
+         <Gd size={20} />{t("canvas.replace")}</Wt></div>));
+   调用点（图像节点 @3219874）：
+     className = "absolute top-2 right-2 z-5 opacity-0 group-hover:opacity-100 transition-opacity"
+   按钮 cva（`_Ve`：base + variant.secondary + **默认 size**，注意 IT **没有**传 size）：
+     base    = inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm
+               font-medium transition-colors … [&_svg]:size-4 [&_svg]:shrink-0
+     size    = default → **h-9 px-4 py-2**（36 高 · padding 16/8）
+     secondary = bg-secondary text-secondary-foreground **shadow-sm** hover:bg-secondary/80
+   官方 token（index-DV4al4p1.css）：
+     --secondary:#222 · --border:#ffffff1a · --radius:.5rem · --spacing:.25rem
+     --shadow-sm:0px 2px 4px 0px #0000001a,0px 1px 2px -1px #0000001a
+     `.rounded-md{border-radius:calc(var(--radius) - 2px)}` ⇒ **6px**
+   ⇒ 定值：36 高 · padding 8/16 · gap 8 · 14px/20px/500 · #fff · bg **rgba(34,34,34,.8)**（#222 @80%）
+           · border 1px rgba(255,255,255,.05)（#ffffff1a ÷2）· radius **6px** · shadow-sm
+           · **图标 16×16**（被 `[&_svg]:size-4` 压下去，源码里写 size={20} 也无效）
+           · top/right 8px（`top-2 right-2`）· z-index **5**（`z-5`）
+   ⚠️ 旧实现：bg rgba(64,64,64,.8) · radius 10px · 图标 20 · z 20 · **无阴影** ✗ —— 已按官方逐个改正。 */
+/* 注意：必须带 `.image-node`/`.node-wrapper` 提高特异性 —— MTV 有全局 `[data-tooltip]{position:relative}`，
+   与单类选择器同权重且在后面，会把这里的 absolute 覆盖掉（实测踩过）。 */
+.image-node .node-wrapper .node-replace-btn,
+.node-wrapper .node-replace-btn {
+  position: absolute;
+  top: 8px;                    /* top-2 */
+  right: 8px;                  /* right-2 */
+  z-index: 5;                  /* z-5 */
+  height: 36px;                /* h-9 */
+  width: fit-content;          /* w-fit */
+  padding: 8px 16px;           /* px-4 py-2 */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;                    /* gap-2 */
+  border: 1px solid rgba(255, 255, 255, 0.05);   /* border-border/50 */
+  border-radius: 10px;         /* 官方 rounded-md = calc(--radius .75rem − 2px) = **10px**（旧注释按 .5rem 算成 6px ✗） */
+  background: rgba(34, 34, 34, 0.8);             /* bg-secondary/80（--secondary:#222） */
+  color: #ffffff;              /* text-white */
+  font-size: 14px;             /* text-sm */
+  line-height: 20px;
+  font-weight: 500;            /* font-medium */
+  box-shadow: 0 2px 4px 0 #0000001a, 0 1px 2px -1px #0000001a;   /* shadow-sm */
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);   /* transition-opacity */
+}
+
+/* ★★★★★ **恢复官方语义：参考卡悬停时浮现「替换」**（用户 2026：「上传图后卡片 替换按钮没了」）
+   官方该按钮的类名（逐字，MTV 上一轮注释里也抄过）：
+     `… absolute top-2 right-2 z-5 **opacity-0 group-hover:opacity-100** transition-opacity`
+   ⇒ 常态 `opacity:0`，**悬停卡片（`.group:hover`）→ opacity 1** ✓
+   判据（官方 t1171/t1172 实测）：
+     · **参考/上传卡**：卡内**有**「替换」且**没有**星标 ✓
+     · **角色/生成卡**：**连替换按钮都不挂载**，只有星标（选中时）✓
+       ⇒ JSX 侧已按 `isReferenceCard` 门控（`ImageNode.tsx`）✓
+   ⚠️ 上一轮这里被改成「永久 `opacity:0` + hover 也 0」✗（按「角色卡不该有替换」一刀切）
+      ⇒ 上传的参考卡从此再也看不到替换 ✗✓ 现在恢复 hover 浮现 ✓ */
+.node-wrapper:hover .node-replace-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 官方 `[&_svg]:size-4` ⇒ 图标 16×16（`OfficialIcon` 的 span 也一起按 16 走） */
+.node-replace-btn .official-icon,
+.node-replace-btn > svg,
+.node-replace-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Upload button on node-preview top-right corner (source nodes) */
+.node-upload-btn {
+  position: absolute !important;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 1px solid var(--white-alpha-12);
+  background: rgba(10, 10, 15, 0.55);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  color: var(--theme-text-secondary);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base), opacity var(--transition-base);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* hover 不加背景色（Design.md §12.1 / D1）；颜色与描边变化保留 */
+.node-upload-btn:hover {
+  color: var(--theme-text);
+  border-color: rgba(255, 255, 255, 0.25);
+  opacity: 1;
+}
+
+[data-theme='light'] .node-upload-btn {
+  border-color: var(--border-secondary);
+  background: color-mix(in srgb, var(--theme-surface) 88%, var(--theme-hover));
+  color: var(--accent-primary);
+  opacity: 1;
+}
+
+[data-theme='light'] .node-upload-btn:hover {
+  border-color: rgba(255, 255, 255, 0.30);
+  color: var(--accent-primary);
+}
+
+/* Floating Toolbar — 官方节点工具条实测：
+   容器 bg rgb(38,38,38) · radius 999px · padding 4px · gap 4px · border 1px rgba(255,255,255,.1) · z=10
+   按钮 40×40 · rounded-full · color rgba(255,255,255,.9) · padding 10px
+   按钮 hover：radial-gradient 高光层 opacity 0 → 1 · transition-opacity .4s cubic-bezier(.25,.8,.25,1) */
+.node-floating-toolbar {
+  /* ★ 官方**机制**（不是近似）：
+     位置 = JS 内联给 —— 官方 `od` @1485963: `top:-${Math.min(48*(1/zoom),60)}px` + `left-1/2` + `origin-bottom`
+     变换 = CSS 给 —— 官方 `.node-float-ui-visible`（zoom-slider-B3yfHu80.css @59973）：
+        `transform: translate(-50%) translateY(var(--float-y,0%)) scale(var(--float-scale,1))`
+     进出场动画**不在这里**：由 `NodeToolbarShell`（官方 `eT`）用 framer-motion 按 `Zw`/`Lf` 表跑。 */
+  --float-y: -100%;
+  /* ★★ 官方 `Sh("--float-scale")` 的**唯一**公式（逐字，zoom-slider @1200288）：
+       `function I7(e){ return e>0 ? e : 1 }` · `function xB(e){ return 1 / I7(e) }`
+       `Sh(e)` → `r.style.setProperty(e, String(xB(zoom)))` + 订阅 store（zoom 一变就写）
+     ⇒ `--float-scale = 1/zoom`（**精确反比，没有任何上下限**）⇒ 工具条**屏幕尺寸恒定 48×40**。
+     它由 `Canvas.updateNodeZoomCompensation` 每帧写在画布根上，这里**绝不能本地覆盖**（会 shadow 掉它）。
+     ⚠️ 旧实现 `--float-scale: var(--node-toolbar-zoom-compensation, 1)` 把屏幕尺寸夹在 [0.8, 1.25] ✗：
+        zoom=2 时工具条 61.7px 高（应 48）、zoom=0.55 时 39.5px 高（应 48）⇒ 用户反馈的「放大/缩小后大小不一致」。 */
+  position: absolute;
+  /* ★ 官方 `od` 的上移量：`top: -min(48*(1/zoom), 60)px`（画布单位）。
+     由 `Canvas.updateNodeZoomCompensation` 每帧写在画布根上 ⇒ **所有节点类型共用这一条** ✓
+     （图像 / 文本 / 视频 / 音频 / 全景 … 都不需要各自写内联 top）。 */
+  top: var(--float-top, -60px);
+  left: 50%;
+  /* 官方容器类名里是 `z-10`，照抄。
+     ⚠️ 这里**不是**「工具栏盖不盖得住 `+` 把手」的开关 —— 本元素带 `transform`，
+        自己就是层叠上下文，改这里的 z-index 只能在自己内部生效。
+        真正决定它相对 `.node-handle`（z-index 15）层级的是**外面那层 shell**
+        （`NodeToolbarShell` 的 `absolute inset-0 z-20`）；
+        上一版 `ImageNode` 给 shell 传的 `className="z-10"` 把整条工具栏子树钉在 10
+        ⇒ 用户报的「浏览全部弹窗没在上层，能直接看到 + 按钮」。详见 NodeToolbarShell.tsx。 */
+  z-index: 10;
+  display: flex;
+  flex-wrap: nowrap;            /* 官方容器 `flex-nowrap` ✓ */
+  /* ★★ 官方容器类名里有 **`items-center`**（`cPe` 逐字：
+       `nodrag cursor-default w-fit h-12 p-1 rounded-full flex flex-nowrap items-center
+        justify-between bg-popover border z-10 whitespace-nowrap gap-1 text-white/90`）
+      ⚠️ MTV 之前漏了这一条 ✗ ⇒ flex 默认 `align-items: stretch`，而 `.ftb-divider` 有**固定 height:18px**
+         ⇒ 固定高度的 flex item 在 stretch 下按 **flex-start** 排 ⇒ **两条分隔线被顶到工具条顶部**
+         （实测：距胶囊顶 7 image px = 4.7 逻辑 px = 1px 描边 + 4px padding）。
+         官方是垂直居中的（48 高、18 高 ⇒ 上下各 ~15px）⇒ 用户反馈「Pin 两侧的两条丨位置不对」✓ */
+  align-items: center;
+  /* 官方容器类名里还有 `justify-between`（w-fit 容器下无实际作用，照抄以免以后再漏） */
+  justify-content: space-between;
+  /* 官方容器类名 `h-12`（= 48px，Tailwind 默认 border-box）⇒ **高度写死 48** ✓
+     不写死的话高度由内容撑（40 按钮 + 8 padding + 2 描边 = 50）✗ 会比官方高 1.3~2px。 */
+  height: 48px;
+  box-sizing: border-box;
+  gap: 4px;      /* 官方容器 gap-1 = 4px（组内 gap-[2px] 见 `.ftb-zone`） */
+  padding: 4px;  /* 官方容器 p-1 = 4px（容器 h-12 = 48px ⇒ 按钮区 40px） */
+  transform: translate(-50%) translateY(var(--float-y, 0%)) scale(var(--float-scale, 1));
+  transform-origin: center bottom;
+  pointer-events: auto;
+  background: rgb(38, 38, 38);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  /* 官方容器类名 = `cursor-default`（只有按钮自身是 `cursor-pointer`） */
+  cursor: default;
+  /* 官方容器类名 = `... text-white/90 whitespace-nowrap` ⇒ 容器自身的文字色/不换行也要有
+     （按钮文字、图标兜底、以及 `icons-and-text` 模式下的标题都从这里继承） */
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  isolation: isolate;
+}
+
+/* ★ 官方容器上**没有**任何 hover 光晕 ✗：官方的指针高光在**每个按钮内部**
+   （`YKo` = `absolute inset-0 z-[-1] overflow-hidden rounded-[inherit] opacity-0
+     transition-opacity duration-400 group-hover/button:opacity-100`，
+     靠按钮自身 `overflow:hidden` + `rounded-full` 裁成圆形 ⇒ 见下方 `.ftb-btn::before/::after`）。
+   MTV 曾在容器上叠一层 32px 的跟随光斑（`::before` + `--toolbar-pointer-x/y`）✗ —— 那是多加的：
+   鼠标落在**按钮之外**（容器 padding 4px、组内 gap、分隔线两侧）时整条工具条会亮一块 ⇒
+   用户反馈的「鼠标悬浮在不是按钮的位置会出现一层光晕」。已连同 Canvas 里的指针写入一起删除。 */
+
+/* ★ 官方**没有** hover/选中 CSS 显隐，也没有逐项 stagger：
+   显隐由 `jl`(NodeToolbarLayer: visible && !isLoading && nd(id)) 决定，
+   整层的进/出与位移由 `eT`(NodeFloatingLayer) 用 framer-motion 按 `Zw`/`Lf` 表跑 —— 见 NodeToolbarShell.tsx。 */
+.node-floating-toolbar .ftb-btn,
+.node-floating-toolbar .ftb-zone,
+.node-floating-toolbar .ftb-divider {
+  transition: scale var(--dur-fast, 0.15s) var(--ease-out-quart, ease-out);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ★★★ 工具条「组」与「分隔线」——**所有节点类型共用这一份**（不要再按节点类型写）
+   官方 `cPe` 的 DOM（逐字）：
+     <div class="… h-12 p-1 rounded-full flex … gap-1 …">      ← 容器（.node-floating-toolbar）
+       <ul class="flex flex-nowrap items-center gap-[2px] justify-between w-full border-primary-border"> … </ul>
+       <div class="w-px h-[18px] bg-primary-border"/>           ← 分隔线是容器的**直接子节点**
+       <ul …> … </ul>  <div …/>  <ul …> … </ul>
+     </div>
+   ⇒ 组内 gap 2px；分隔线 1×18px、**无自身 margin**（两侧间距只由容器 gap-1 = 4px 提供）。
+   新增节点类型时：容器用 `node-floating-toolbar`，每组用 `ftb-zone`，组间用 `ftb-divider` 即可 ✓
+   （图像 / 文本 / 视频 / 音频 / 全景 五个 Toolbar 现已全部改成这一套，见各 *.tsx）。 */
+.node-floating-toolbar .ftb-zone {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.node-floating-toolbar .ftb-divider,
+.selection-floating-toolbar .ftb-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  /* ★ 官方分隔线 = `bg-primary-border`（`cPe` 逐字）：
+       深色 `--primary-border: var(--color-zinc-600)` = oklch(44.2% .017 285.786)
+       浅色 `--primary-border: #daebfb`
+     ⚠️ **不要**用 MTV 的 `--separator-color`（深色 rgba(232,232,237,.10)）—— 实测比官方暗一档 ✗ */
+  background-color: oklch(44.2% 0.017 285.786);
+}
+
+[data-theme='light'] .node-floating-toolbar .ftb-divider,
+[data-theme='light'] .selection-floating-toolbar .ftb-divider {
+  background-color: #daebfb;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   官方「多选浮动工具栏」外壳（`page-DPdEgTS0.js`@char1446342 `Bme` 里那颗胶囊）
+   官方类名逐字：`w-fit rounded-full flex items-center gap-1 bg-popover/80 backdrop-blur-lg
+                   border transform -translate-x-1/2 p-1`
+   t980 官方窗口（9444）实测：383×49、padding 4、gap 4、radius 极大、
+     bg = popover 80%（oklab(0.2686 …) / .8）、backdrop-filter blur(16px)、border 1px rgba(255,255,255,.1)、
+     颜色 #F5F5F5；子项 = 40×40 圆钮（.ftb-btn）+ 1×18 分隔线（.ftb-divider）。
+
+   ★★ 几何 / 配色**已全部搬进 TSX 那串官方类名本身**（`SelectionToolbar.tsx` 的
+      `className="selection-floating-toolbar w-fit rounded-full flex items-center gap-1 border
+                  transform -translate-x-1/2 p-1"` + 三条缺失 token 的内联兜底）。
+      原因：官方就是 Tailwind 内联工具类实现的，MTV 也是 Tailwind（v3，圆角刻度已按官方钉死）
+      ⇒ 能照抄的类名一律照抄，比在这里手写等价 CSS 更不容易漂。
+      这里**不再**写 width/display/gap/padding/radius/transform/background/border/backdrop-filter/color。
+
+   ★ `.selection-floating-toolbar` 这个类**保留**，但已降级为「作用域钩子」：
+      只用来把下面两条规则收窄到多选工具栏（不加会污染节点工具条）。
+   ★ 原来的 `.selection-toolbar-anchor { transform-origin: center bottom }` **已删**：
+      官方外层就是光秃秃的 `absolute z-50`，源码里没有任何 transform-origin ⇒ 用默认中心缩放。
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 官方多选工具栏的分隔线类名**带 `mx-1`**（`page-DPdEgTS0.js`@char1446616 逐字 `mx-1 h-[18px] w-px bg-primary-border`）
+   ⚠️ 而官方**节点**工具条的分隔线是 `w-px h-[18px] bg-primary-border`，**没有** mx-1
+   （`zoom-slider-3ZcFvYQO.js`@char1479274）⇒ 两条不能共用 margin：
+   共用的话多选工具栏会比官方**窄 16px**（= 2 条分隔线 × 两侧各 4px），实测 MTV 279 ↔ 官方公式 280 ✓。
+   宽度/高度/底色仍走上面那条共用规则（含浅色主题覆写），这里只补 margin。 */
+.selection-floating-toolbar .ftb-divider {
+  margin: 0 4px;
+}
+
+/* 「布局」按钮的包裹层只为承载下拉开合状态：`display: contents` ⇒ 不生成盒子，
+   保证胶囊的直接子元素与官方一致（官方第一个子元素就是那颗 `<button>`，没有 wrapper）。
+   下拉菜单本身 portal 到 body（fixed 定位），不受这里影响。 */
+.selection-layout-wrap {
+  display: contents;
+}
+
+/* 「布局」下拉（官方 `O8`，radix `DropdownMenuContent`）
+   官方**基类**逐字（`index-BiTZf8mJ.js`@char6038459）：
+     `bg-popover text-popover-foreground z-50 max-h-(--radix-dropdown-menu-content-available-height)
+      min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto
+      rounded-md border p-1 shadow-md` + motion
+     ⇒ bg #262626 · color #ccc · min-width **128px** · radius calc(12−2)=**10px** · border 1px #ffffff1a
+       · padding 4px · box-shadow=官方 `--shadow-md` · sideOffset 默认 **4**
+   官方本菜单**覆写**（`zoom-slider-3ZcFvYQO.js`@char2877200 逐字 `Ga className:"w-fit bg-background/95 border-border"`）：
+     · `w-fit`（宽度自适应）
+     · `bg-background/95` ⇒ `color-mix(in oklab, var(--background) 95%, transparent)` = rgba(15,15,15,.95)
+       ⚠️ **不是**基类的 `bg-popover`(#262626)；MTV 原来写的是 popover 95% ✗
+     · `border-border`：官方 CSS 里**只有 `.!border-border`、没有 `.border-border`**（规格 §0.2 / §11）
+       ⇒ 该 class 是 no-op，实际靠全局 `*{border-color:var(--border)}` 兜底 = `#ffffff1a`（值相同）
+   官方覆盖过的 `--shadow-md`（规格 §0 表）：`0px 2px 4px 0px #0000001a, 0px 2px 4px -1px #0000001a`
+     （≠ Tailwind 默认的 shadow-md；MTV 原来写 `rgba(0,0,0,.1)`，少了 #1a 的精确值 ✗）
+   ⚠️ 未做：官方的 `animate-in / fade-in-0 / zoom-in-95 / slide-in-from-top-2` 入场动画 ——
+      规格 §0.3 明确标注这套 `tw-animate-css` 的 **keyframes 未逐条核对**，只确认了类名字面量
+      ⇒ 按「不把推断当实测」暂不加（MTV 这个菜单仍是瞬时出现）。 */
+.selection-layout-menu,
+.group-layout-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 128px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid #ffffff1a;
+  background: color-mix(in oklab, var(--background, #0f0f0f) 95%, transparent);
+  box-shadow: 0px 2px 4px 0px #0000001a, 0px 2px 4px -1px #0000001a;
+  color: #cccccc;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* 菜单项（官方 `Uo className:"cursor-pointer flex items-center gap-2"` + 基类
+   `relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden
+    select-none focus:bg-accent focus:text-accent-foreground …`，`zoom-slider`@char2877280 / @char6038955）
+   ⇒ radius `rounded-sm` = calc(12−4) = **8px** · `px-2 py-1.5` = padding 6px 8px · 字 14px/20px · gap 8px
+   焦点/悬浮态：`focus:bg-accent` = `--accent` **#404040**、`focus:text-accent-foreground` = **#fafafa**
+   ⚠️ MTV 全仓**没有定义 `--accent`**（grep 只命中一处注释）⇒ 原来 `var(--accent, rgba(255,255,255,.08))`
+      实际落到 `rgba(255,255,255,.08)`、文字还写死 `#ffffff` —— 两个都不是官方值 ✗
+   ⚠️ 官方条目图标由调用点**显式传 `size=18`**（宫格 `kse` / 水平 `Ise`）⇒ `[&_svg]:size-4` 那条不生效 ✓ */
+.selection-layout-item,
+.group-layout-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.selection-layout-item:hover,
+.selection-layout-item:focus-visible,
+.group-layout-item:hover,
+.group-layout-item:focus-visible {
+  background: var(--accent, #404040);
+  color: var(--accent-foreground, #fafafa);
+  outline: none;
+}
+
+/* ★★★ **菜单里的图标颜色 = `--muted-foreground`，不是菜单文字色** ✓✓
+   官方菜单项 `Uo`（= shadcn `DropdownMenuItem`，`index-BiTZf8mJ.js`@char6038955 逐字）基础类里有一条：
+     `[&_svg:not([class*='text-'])]:text-muted-foreground`
+   ⇒ 任何**没有自带 `text-*` 类**的 svg 后代都被强制刷成 `--muted-foreground`。
+   官方调用点 `l.jsx(kse,{size:18})` / `l.jsx(Ise,{className:"-rotate-90",size:18})`
+   **都没有传 `text-*` 类** ⇒ 两个图标实际渲染色 = `--muted-foreground`。
+   官方 dark 变量表逐字：`--muted-foreground:#7a7a7a`（`index-DV4al4p1.css`）。
+   ⚠️⚠️ MTV 原来图标是 `stroke="currentColor"` 继承菜单的 `#ccc`（= `--popover-foreground`）
+      ⇒ 比官方**亮一档**，用户实测「布局弹窗内的宫格和水平的图标的颜色显示不对」✗。
+   注意：官方那条 `[&_svg]` 直接作用在 svg 上，**优先于父项的 `focus:text-accent-foreground`**
+   ⇒ 悬浮时图标**仍然**是 `#7a7a7a`（不变白），这条也照抄。 */
+.selection-layout-item svg,
+.group-layout-item svg {
+  color: #7a7a7a;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   group（打组）浮动工具条 —— 官方 `zoom-slider-3ZcFvYQO.js`@char2883801 的 group 三组按钮。
+   容器/组/分隔线**全部复用 `.node-floating-toolbar` + `.ftb-zone` + `.ftb-divider`**：
+   官方那三个都是**同一个组件**（容器 `cPe`、组 `<ul gap-[2px]>`、`w-px h-[18px] bg-primary-border`），
+   ⇒ 48 高 / padding 4 / gap 4 / bg `#262626` / border `#ffffff1a` / z-10 一条都不用重写 ✓
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 分组工具条的「布局」触发器（官方 `gXe` 的 `triggerVariant="group"` 默认分支，逐字）：
+   `Wt variant="ghost" size="sm" className="cursor-pointer !px-1"`
+   ⇒ `h-8` = **32 高** · `rounded-md` = calc(12−2) = **10px** · `!px-1` = padding-inline **4px** · `text-xs`(12px/16px)
+     · ghost 变体 `hover:bg-accent hover:text-accent-foreground` = #404040 / #fafafa
+   ⚠️ 它**不带** `Xm` 那层 conic/radial 高光（那是圆钮专有）⇒ 这里不能用 `.ftb-btn`。 */
+.group-toolbar-layout-trigger {
+  display: flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  padding: 0 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms;
+}
+.group-toolbar-layout-trigger:hover {
+  background: var(--accent, #404040);
+  color: var(--accent-foreground, #fafafa);
+}
+
+/* 带文字的按钮（官方 `dPe` 的 text 分支逐字：`px-3 rounded-full flex gap-2 items-center`）
+   ⇒ 宽度自适应 · padding 0 12px · gap 8px；字号用按钮基类的 `text-xs`（12px/16px）
+   ⚠️ 必须覆盖 `.ftb-btn` 的 `padding: 10px`（那是图标态的方形内距） */
+.group-toolbar .group-toolbar-text-btn {
+  width: auto;
+  padding: 0 12px;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1rem;
+}
+
+/* ★★★ 官方 token 补齐 —— **这是本次一连串「照抄类名却看不到效果」的根因** ✗✓
+   官方 `tailwind.config` 里这些颜色都走 CSS 变量（`bg-card-foreground` → `--card-foreground`、
+   `hover:bg-accent` → `--accent`、`bg-primary-border` → `--primary-border`、`ring-ring` → `--ring`）。
+   MTV 仓里**这几个变量只在注释里出现过、从没定义**（`git grep -- "--card-foreground:"` 0 命中）
+   ⇒ 官方类名一个个全是惰性的：
+     · `bg-card-foreground` 失效 ⇒ 未选色的色点**透明**（只剩 1px 边框 = 用户看到的「空心圈」✗）
+     · `hover:bg-accent` 失效 ⇒ 色点/菜单项**没有悬浮底**（用户：「hover呢？」✗）
+     · `bg-primary-border` 失效 ⇒ **分割线不可见**（用户：「分割线呢？」✗）
+     · `focus-visible:ring-ring` 失效 ⇒ **没有焦点环**（用户：「点击时的那个环呢？」✗）
+   取值全部来自官方原文（`index-DV4al4p1.css` 的 dark 变量表，逐字）：
+     `--popover:#262626` · `--popover-foreground:#ccc` · `--border:#ffffff1a`
+     `--card-foreground:#fafafa` · `--accent:#404040` · `--accent-foreground:#fafafa`
+     `--primary-border: var(--color-zinc-600)` = oklch(44.2% 0.017 285.786)
+     `--ring:#7373731a`（官方焦点环那档几乎不可见的灰）
+   ⚠️ 只在 `.group-toolbar` 作用域内补，避免影响 MTV 其它既有界面。 */
+.group-toolbar {
+  --border: #ffffff1a;
+  --card-foreground: #fafafa;
+  --accent: #404040;
+  --accent-foreground: #fafafa;
+  --primary-border: oklch(44.2% 0.017 285.786);
+  --ring: #7373731a;
+  --popover: #262626;
+  --popover-foreground: #ccc;
+}
+
+/* 颜色选择器触发器（官方 `mQ` @2757073 逐字）：
+   类名 `size-5 aspect-square rounded-full border cursor-pointer` + 内联 `backgroundColor`
+   （未设色时官方再叠 `bg-card-foreground` = #fafafa）
+   ⚠️ 已改成**直接用官方 Tailwind 类名**（见 `GroupNodeToolbar.tsx`），
+      这里只保留一个**兼容钩子**，不再写死尺寸/边框/过渡（那些由官方类名负责）。 */
+.group-toolbar .group-toolbar-color-trigger {
+  flex-shrink: 0;
+}
+
+/* 颜色弹层内层（官方 `mQ` 逐字）：`flex flex-col gap-4 px-3 py-5 bg-black/60 backdrop-blur-lg
+   rounded-xl border border-input`
+   ⚠️⚠️ **`flex flex-col`（竖排一列）** —— 官方色板就是竖着一条 24×24 圆点，**不是网格**。
+      上一轮我写成 5 列网格（自己编的）⇒ 用户实测「弹窗的排列布局也不对」✗，这里改回竖排。 */
+.group-toolbar-popover {
+  position: fixed;
+  z-index: 80;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;   /* 官方 `flex-col` ✓ */
+  gap: 16px;                /* 官方 `gap-4` */
+  padding: 20px 12px;       /* 官方 `px-3 py-5` */
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  border-radius: 16px;
+  border: 1px solid #ffffff26;   /* 官方 `border-input` = --input #ffffff26 */
+  width: fit-content;            /* 官方 `w-auto`（PopoverContent） */
+}
+/* 色块本体（官方逐字）：
+   `size-6 rounded-full border border-input transition-transform hover:scale-110 cursor-pointer` */
+.group-toolbar-swatch {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 1px solid #ffffff26;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 150ms;
+}
+.group-toolbar-swatch:hover { transform: scale(1.1); }
+/* 重置块（官方 showReset 分支）：`bg-card-foreground` + `before` 16×1.5px、
+   颜色 `rgba(122,122,122,.5)`（= `--muted-foreground #7a7a7a` 的 50%）、`rotate(45deg)` 的斜杠 */
+.group-toolbar-swatch--reset {
+  position: relative;
+  background: #fafafa;
+}
+.group-toolbar-swatch--reset::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 16px;
+  height: 1.5px;
+  background: rgba(122, 122, 122, 0.5);
+  transform: rotate(45deg);
+}
+
+.ftb-btn {
+  position: relative;
+  z-index: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.9);
+  background: transparent;
+  /* 官方实测：按钮是 cursor:pointer（MTV 原来写的 none，所以悬停看不见光标） */
+  cursor: pointer;
+  padding: 10px;
+  /* ★ 官方按钮基类含 `text-xs`（`KKo` 第一段，逐字）⇒ 按钮内的文字是 12px/16px。
+     图标态看不出差别，但 `icons-and-text` 模式 / 官方带 `text` 的按钮（如分组「运行全部」）全靠它； */
+  font-size: 12px;
+  line-height: 1rem;
+  transition: opacity var(--hover-fade, 0.15s cubic-bezier(0.4, 0, 0.2, 1)),
+    color var(--hover-fade, 0.15s cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+/* 官方工具条按钮 hover 高光 —— **两层叠着**（用 CDP forcePseudoState 精测，缩放=2）：
+     外层 div.absolute.inset-0.rounded-[inherit].overflow-hidden.z-[-1]  opacity 0 → 1
+          transition opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)
+       ├ 内层 div.absolute.inset-[-100%]（按钮 3 倍大）> div.w-full.h-full
+       │      bgImg = conic-gradient(rgb(93,93,93) 0deg, rgba(106,106,106,.1) 70deg,
+       │                    rgb(144,144,144) 180deg, rgba(144,144,144,.1) 290deg, rgb(93,93,93) 360deg)
+       └ 渐变层 div.absolute.inset-[1px].rounded-[inherit]
+              bgImg = radial-gradient(200% 140% at 50% 40.25%, rgb(26,26,26) 16%, rgb(101,103,102) 85%)
+   两层的 z 关系：conic 在下（::after，z-index -2），radial 在上（::before，z-index -1），
+   与官方 DOM 顺序一致；按钮自带 overflow:hidden，conic 的 3 倍外溢会被裁成圆。 */
+
+/* radial 层（对应官方 div[3]） */
+.ftb-btn::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    200% 140% at 50% 40.25%,
+    rgb(26, 26, 26) 16%,
+    rgb(101, 103, 102) 85%
+  );
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* conic 层（对应官方 div[1] > div[2]，3 倍大、靠按钮的 overflow:hidden 裁切） */
+.ftb-btn::after {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  z-index: -2;
+  pointer-events: none;
+  background: conic-gradient(
+    rgb(93, 93, 93) 0deg,
+    rgba(106, 106, 106, 0.1) 70deg,
+    rgb(144, 144, 144) 180deg,
+    rgba(144, 144, 144, 0.1) 290deg,
+    rgb(93, 93, 93) 360deg
+  );
+  transform: scale(1.1, 0.7);
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.ftb-btn:hover::before,
+.ftb-btn:hover::after {
+  opacity: 1;
+}
+
+/* ★★ 把同一套官方 `mse` 悬浮光效（`YKo`@5919771 逐字：conic + radial 两层）也给
+   **分组工具条的文字按钮** —— 上一版把它们换成官方 `tc`/`dPe` 类名时，
+   `.ftb-btn` 一并去掉了 ⇒ **悬停没有任何高光**（用户实测：「整组执行 创建模板 解散
+   下载全部的 hover 呢？」✗）。
+   官方侧的依据：`dPe` 的 `obsidian` 变体类串里确实**没有** hover 类
+   （`obsidian:"bg-transparent text-nowrap transition-all duration-200 ease-[…]"`），
+   官方按钮的悬浮高光来自内嵌的 `mse` 那一层（`Xm` 里 `<mse className={…opacity-100}/>`）。
+   这里就是把同一层补上（渐变值逐字复用上面 `.ftb-btn::before/::after`）。 */
+.group-toolbar .group-toolbar-text-btn {
+  position: relative;
+  z-index: 0;
+  overflow: hidden;
+}
+.group-toolbar .group-toolbar-text-btn::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: radial-gradient(
+    200% 140% at 50% 40.25%,
+    rgb(26, 26, 26) 16%,
+    rgb(101, 103, 102) 85%
+  );
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.group-toolbar .group-toolbar-text-btn::after {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  z-index: -2;
+  pointer-events: none;
+  background: conic-gradient(
+    rgb(93, 93, 93) 0deg,
+    rgba(106, 106, 106, 0.1) 70deg,
+    rgb(144, 144, 144) 180deg,
+    rgba(144, 144, 144, 0.1) 290deg,
+    rgb(93, 93, 93) 360deg
+  );
+  transform: scale(1.1, 0.7);
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.group-toolbar .group-toolbar-text-btn:hover::before,
+.group-toolbar .group-toolbar-text-btn:hover::after {
+  opacity: 1;
+}
+
+/* §96 **已删除** MTV 自加的 `.ftb-btn:hover { color:#ffffff }`。
+   官方按钮 `BO`（cva，`vendor-packages-DRvCmDjR.js` @404856 起）逐字：
+     · 基串 `z-0 group/button relative flex items-center justify-center cursor-pointer
+        focus-visible:outline-none text-xs transition-colors duration-300
+        disabled:opacity-50 disabled:cursor-not-allowed`
+     · obsidian 变体 `bg-transparent text-nowrap transition-all duration-200
+        ease-[cubic-bezier(0.25,0.8,0.25,1)]`
+   ⇒ 整个 cva 里**没有任何** hover 文字色 / hover 背景 / hover 缩放。
+   hover 反馈**只**来自官方 `ObsidianBg`（导出名 `P6`，同文件 @404087 定义、@404093 落在
+   `const P6=({className:e})=>…` 这一行）那层 overlay —— 就是上面 `.ftb-btn::before`(radial) /
+   `.ftb-btn::after`(conic)（已按官方原文逐字复核，见上方注释；官方值：conic
+   `rgba(93,93,93,1) 0deg → rgba(106,106,106,.1) 70deg → rgba(144,144,144,1) 180deg →
+    rgba(144,144,144,.1) 290deg → rgba(93,93,93,1) 360deg` + `scale(1.1,0.7)`；radial
+   `200% 140% at 50% 40.25%, #1A1A1A 16%, #656766 85%`；外层 `opacity-0 →
+   group-hover/button:opacity-100`，`duration-400` + `cubic-bezier(0.25,0.8,0.25,1)`）。
+   按钮常态文字色不变：`.ftb-btn{color:rgba(255,255,255,0.9)}` = 官方行容器继承的 `text-white/90`。 */
+
+/* ★ 官方按钮（`KKo` obsidian 变体，逐字）只有
+     `transition-colors duration-300` + `transition-all duration-200 ease-[cubic-bezier(.25,.8,.25,1)]`
+     + 圆角/尺寸/`cursor-pointer` + `disabled:opacity-50` —— **没有任何 hover/active 缩放** ✗
+   hover 表现 = `YKo` 高光层 `opacity 0→1`（400ms，见上面 ::before/::after）。
+   而 MTV 通用按钮样式 `.anim-btn:hover{transform:scale(1.04)}` / `.anim-btn:active{scale:.96}`
+   会给工具条按钮多加一层"弹一下" ⇒ 与官方不一致，这里按源码抹平（只作用于工具条内）。 */
+.node-floating-toolbar .ftb-btn,
+.node-floating-toolbar .ftb-btn:hover:not(:disabled),
+.node-floating-toolbar .ftb-btn:active:not(:disabled) {
+  transform: none;
+  scale: none;
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  /* 官方按钮**没有**按下缩放（`KKo` 全表里没有任何 scale/active:scale）⇒ MTV 原来这条已删。
+     保留空块只为记录结论；如需恢复"按下回弹"应另开 MTV 自有样式，不要混进"对齐官方"的规则里。 */
+  .node-floating-toolbar .ftb-btn:active:not(:disabled) {
+    scale: none;
+  }
+}
+
+/* ── 带文字的按钮（MTV 的 `data-node-toolbar-mode='icons-and-text'`）──
+   ★ 官方带 `text` 的按钮分支（`dPe` 的 obsidian 分支：`const S = !y && s`）类名逐字 =
+     `px-3 rounded-full flex gap-2 items-center` —— 即 **左右 padding 12px / gap 8px /
+     文字用按钮自身的 `text-xs`(12px) / 字重继承（400）**，高度仍是 `h-10`(40px)。
+   MTV 原来写的是 10px 字 + 4px gap + min-width 28px ✗ ⇒ 已按源码改为官方值。 */
+[data-node-toolbar-mode='icons-and-text'] .node-floating-toolbar .ftb-btn[data-tooltip] {
+  width: auto;
+  min-width: 0;
+  padding: 0 12px;
+  gap: 8px;
+}
+
+[data-node-toolbar-mode='icons-and-text'] .node-floating-toolbar .ftb-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.toolbar-more-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ★ 官方 ⋯ 按钮**没有** active/选中底色：
+     `dPe` 的 more 分支渲染 `tc`（Button）时**刻意不传 `active`**（`l.jsx(tc,{variant:"obsidian",size:"md",…})`），
+     Popover 打开也只是 `open` 状态 ⇒ 视觉上只有 obsidian 高光层随 hover 变化。
+   MTV 原来给 `.act-more.is-active` 加了 `background: var(--theme-hover)` ✗ 已按源码删除。 */
+
+.toolbar-more-menu {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 10010;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  padding: 4px 6px;
+  color: var(--theme-text-secondary);
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(var(--glass-blur-md));
+  border: 1px solid var(--glass-ring);
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+[data-theme='dark'] .toolbar-more-menu {
+  background: var(--glass-bg-node);
+}
+
+.toolbar-more-menu-item,
+.toolbar-more-menu-item > .multigrid-wrap {
+  display: inline-flex;
+}
+
+.toolbar-more-menu-empty {
+  padding: 4px 8px;
+  color: var(--theme-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   「⋯ 浏览全部」菜单 · **官方形态**（`variant="official"`）
+   官方依据：TapNowExtract · `zoom-slider-3ZcFvYQO.js`
+     @1479352 `dPe` 的 `buttonType:"more"` 分支 + @1480500 的 `Ga`（=PopoverContent）
+     容器 `align:"start" sideOffset:8` · `min-w-[220px] rounded-2xl border-none px-1 py-2 bg-[#2F2F2F]`
+          + `shadow-[0px_4px_16px_rgba(0,0,0,0.16),inset_0px_0.5px_0px_rgba(255,255,255,0.16)]`
+     行   `gap-1.5 rounded px-2 py-1.5 text-sm font-normal text-white/90 hover:bg-white/10`
+     图标 `[&_svg:not([class*='size-'])]:size-5`（20px）· 禁用项 `opacity-50`
+   注意：官方是**竖向「图标 + 文字」列表**，不是横排图标条。
+   ══════════════════════════════════════════════════════════════════════ */
+.toolbar-more-menu.toolbar-more-menu--official {
+  left: 0;                                    /* align="start"：面板左边缘 = 触发钮左边缘 */
+  /* ★ 官方 Radix `DropdownMenuContent` 的 **默认 side = "bottom"** + `sideOffset:8`
+     ⇒ 面板在触发钮**下方 8px**（9444 实测：触发钮 [1253..1293, 341..381]，面板 [1253,389,243×272]
+        = left 1253 ✓ 面板顶 389 = 钮底 381 + 8 ✓）
+     MTV 之前写成 `bottom: calc(100% + 8px)`（= 向上弹）✗ 用户：「浏览全部 弹窗位置不对」。 */
+  top: calc(100% + 8px);
+  bottom: auto;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  min-width: 220px;
+  padding: 8px 4px;
+  overflow: visible;
+  background: #2f2f2f;
+  border: none;
+  border-radius: 16px;
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.16),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16);
+  transform: none;
+}
+
+/* ★ 官方「普通行」的 DOM（`dPe` 菜单的第 4 个分支，逐字）= `Uo` = shadcn **DropdownMenuItem**
+   （`H9a` @6038964），基类 `… relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5
+   text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50
+   [&_svg:not([class*='size-'])]:size-4`，再被 `Z("gap-1.5 rounded px-2 py-1.5 font-medium
+   text-white/90 [&_svg:not([class*='size-'])]:size-5 [&_svg]:!text-white/90", …)` 覆盖 ⇒
+     gap 6px · rounded 4px · padding 8px/6px · **字号 14px（text-sm 未被覆盖）** · **字重 500（font-medium）**
+     · **cursor: default**（Radix item，不是 pointer）· 图标 20px
+     · hover/键盘焦点 = `focus:bg-accent` = **#404040**（官方 `--accent`）+ `focus:text-accent-foreground`(#fafafa)
+     · 禁用 = `data-disabled:opacity-50 pointer-events-none`；锁定 = 额外 `cursor-not-allowed`
+   MTV 原来是 `hover: rgba(255,255,255,.1)` + `cursor:pointer` + 400 字重 ✗ ⇒ 已按源码改。 */
+.toolbar-more-menu--official .toolbar-more-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+  white-space: nowrap;
+  cursor: default;
+  transition: background-color var(--dur-fast, 0.15s) ease;
+}
+
+.toolbar-more-menu--official .toolbar-more-menu-row:hover:not(:disabled),
+.toolbar-more-menu--official .toolbar-more-menu-row:focus-visible:not(:disabled) {
+  background: #404040;   /* 官方 `--accent` */
+  color: #fafafa;        /* 官方 `--accent-foreground` */
+}
+
+.toolbar-more-menu--official .toolbar-more-menu-row:disabled,
+.toolbar-more-menu--official .toolbar-more-menu-row[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-more-menu--official .toolbar-more-menu-row-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.toolbar-more-menu--official .toolbar-more-menu-row-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.toolbar-more-menu--official .toolbar-more-menu-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   「⋯ 浏览全部」里**带子操作 / hover 子面板**的行
+   官方 `dPe` 菜单的第 1 个分支（`E.renderHoverContent` 存在时，逐字）：
+     行   `group/menuitem relative flex items-center gap-1.5 rounded px-2 py-1.5
+           text-sm font-normal text-white/90 hover:bg-white/10 svg:size-5 svg:text-white/90`
+          （⚠️ 与「普通行」不同：**font-normal + hover 白 10%**，普通行是 font-medium + focus:bg-accent(#404040)）
+     子操作 chips 外层 `flex items-center gap-1 ml-auto`
+     chip      `px-1.5 py-0.5 rounded text-xs text-white/60 hover:text-white hover:bg-white/10
+                transition-colors disabled:opacity-40 disabled:cursor-not-allowed`
+                （锁定态额外 `opacity-40 cursor-not-allowed`）
+     箭头      `text-lg leading-none text-white/50`，内容 `›`
+     子面板    行内 `invisible absolute left-full top-0 z-50 pl-3 opacity-0 transition-opacity
+                group-hover/menuitem:visible group-hover/menuitem:opacity-100`
+   ⇒ 即「行右侧 hover 弹出的宫格选择面板」（`htt`，见 QuickSplitPanel.tsx）。
+   ══════════════════════════════════════════════════════════════════════ */
+.toolbar-more-menu--official .toolbar-more-menu-row--hover {
+  cursor: default;
+  font-weight: 400;
+}
+
+.toolbar-more-menu--official .toolbar-more-menu-row--hover:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.toolbar-more-menu--official .toolbar-more-subactions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.toolbar-more-menu--official .toolbar-more-subaction {
+  padding: 2px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-fast, 0.15s) ease, background-color var(--dur-fast, 0.15s) ease;
+}
+
+.toolbar-more-menu--official .toolbar-more-subaction:hover:not(:disabled) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.toolbar-more-menu--official .toolbar-more-subaction:disabled,
+.toolbar-more-menu--official .toolbar-more-subaction[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.toolbar-more-menu--official .toolbar-more-chevron {
+  font-size: 18px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 行右侧 hover 子面板（官方 `lPe(E)` 分支：`left-full top-0 pl-3`，淡入） */
+.toolbar-more-menu--official .toolbar-more-hoverpanel {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  z-index: 50;
+  padding-left: 12px;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity var(--dur-fast, 0.15s) ease;
+}
+
+.toolbar-more-menu--official .toolbar-more-menu-row--hover:hover .toolbar-more-hoverpanel,
+.toolbar-more-menu--official .toolbar-more-hoverpanel:focus-within {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* ── 官方「快速切分」宫格面板（`htt` @3080396，逐字换算）──
+   `w-[212px]` · `rounded-2xl`(16) · `bg-[#2F2F2F]` · `p-3`(12) ·
+   `shadow-[0px_8px_28px_rgba(0,0,0,0.26),inset_0px_0.5px_0px_rgba(255,255,255,0.16)]`
+   `grid grid-cols-8 gap-1`(4) · 格子 `size-5`(20) `rounded-[4px]` `border`
+   `border-white/10 bg-white/[0.07] hover:border-white/30` ·
+   高亮 `border-white/55 bg-white/28` · 禁用 `opacity-30 cursor-not-allowed`
+   读数 `mt-2 text-center text-sm font-normal tabular-nums text-white/80` */
+.toolbar-quicksplit-panel {
+  width: 212px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #2f2f2f;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.26),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16);
+}
+
+.toolbar-quicksplit-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 20px);
+  gap: 4px;
+}
+
+.toolbar-quicksplit-cell {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  transition: background-color var(--dur-fast, 0.15s) ease, border-color var(--dur-fast, 0.15s) ease;
+}
+
+.toolbar-quicksplit-cell:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.toolbar-quicksplit-cell.is-preview {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.toolbar-quicksplit-cell:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.toolbar-quicksplit-readout {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* MTV 自有布局把「快速切分」放进主行时（官方只在 ⋯ 里）：面板锚定在按钮上方，
+   面板本身仍是官方那一块（不另造 UI） */
+.multigrid-wrap > .toolbar-quicksplit-panel {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  z-index: 10002;
+  transform: translateX(-50%);
+}
+
+/* ── 低缩放（zoom < 0.2）：按钮退化为纯图标（官方 `dPe` 的 `y` 分支）──
+   官方同时在 tooltip 里补上文字；MTV 的 tooltip 本来就是 label，无需改写。 */
+[data-node-toolbar-mode='icons-and-text'] .node-floating-toolbar[data-icon-only='true'] .ftb-btn[data-tooltip] {
+  width: 40px;
+  min-width: 0;
+  padding: 10px;
+  gap: 0;
+}
+
+[data-node-toolbar-mode='icons-and-text'] .node-floating-toolbar[data-icon-only='true'] .ftb-btn[data-tooltip]::after {
+  content: none;
+}
+
+/* ── 项级禁用 / 锁定（官方外层：`cursor-not-allowed opacity-40`）── */
+.node-floating-toolbar .ftb-btn:disabled,
+.node-floating-toolbar .ftb-btn.is-locked {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.node-floating-toolbar .ftb-btn:disabled:hover::before,
+.node-floating-toolbar .ftb-btn:disabled:hover::after,
+.node-floating-toolbar .ftb-btn.is-locked:hover::before,
+.node-floating-toolbar .ftb-btn.is-locked:hover::after {
+  opacity: 0;
+}
+
+/* Preview Area */
+.node-preview {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ★ 卡面内的媒体区同样用**卡面本色** ✓（原来是面板 token `--theme-surface` 偏蓝 ✗）——
+   与 `.canvas-node-lod-preview` 同一类问题：这是**卡片的面**，不是面板 ✓ */
+.image-preview {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--theme-node-bg);
+  margin: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.video-preview {
+  position: relative;
+  aspect-ratio: 16/9;
+  background: var(--theme-node-bg);
+  margin: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.text-output-content {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--theme-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.image-preview-img {
+  width: 100%;
+  height: 100%;
+  /* ★ **`contain`** ✗✓（官方 ✓）：官方图片内容 = `w-full h-full object-contain rounded-2xl` ✓
+     （`zoom-slider-3ZcFvYQO.js` @3218739 逐字 ✓；节点生成中的模糊底图同款 @3096360 ✓）
+     ⇒ 卡片内**整图完整显示** ✓，比例不吻合时四周留卡片底色 ✓（`cover` 会裁掉边缘 ✗）
+     ⚠️ 卡片主图实际命中下面那条 `.image-preview-img.compact`（同值 contain ✓ + 16px 圆角 ✓）；
+        **两条必须同值** ✗✓（否则"有的地方整图、有的地方被裁"✗ —— 2026-09-23 统一 ✓）*/
+  object-fit: contain;
+}
+
+/* ── 图片揭示动画：淡入 + 微放大落位 ── */
+/* 避免 filter 动画逐帧重绘图片；只用合成器处理 opacity/transform。 */
+.img-reveal {
+  opacity: 0;
+  transform: scale(1.025);
+  transition:
+    opacity var(--dur-slow) var(--ease-out-expo),
+    transform 0.36s var(--ease-spring);
+}
+.img-reveal.is-loaded {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.image-preview-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.image-preview-mask {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* ★ **必须与主图同 fit** ✗✓（主图 = `contain` ✓ 官方 ✓）
+     这一层同时用于：抠图遮罩（`data.mattingMask` ✓）与旧标注图（`annotate` ✓ 回退路径 ✓）
+     ⇒ 主图 `contain` 而这里 `cover` ✗ → 遮罩被裁切、与主图**错位** ✗✓（本轮修正 ✓）*/
+  object-fit: contain;
+  pointer-events: none;
+}
+
+/* ── 图片加载失败覆盖层（官方 `VZ` @1819344 邻域逐字，见 `_official-interactions/source-snippets.md:278-281`）──
+   官方容器 = `absolute inset-0 z-1000 pointer-events-auto flex flex-col items-center justify-center
+               bg-background/80 gap-2 p-4 text-center rounded-2xl`
+   `bg-background/80` 取官方 `--background:#0f0f0f` ⇒ `rgba(15,15,15,.8)`。
+   ★ 这里同时把官方 `--o-*` 令牌落进作用域，好让按钮直接复用官方 Button 的 `.o-btn--outline`
+     —— 否则 `.o-btn--outline` 的 `var(--o-background/--o-input)` 未定义，按钮会退化成透明底+透明描边。
+     全部用官方中性值（`--o-*` 同表）：**不再走 `--theme-hover`/`--theme-border` 那两个靛蓝令牌**，
+     那正是用户报的「这个蓝色太丑了」。 */
+.image-load-error-overlay {
+  --o-background: #0f0f0f;
+  --o-foreground: #f5f5f5;
+  --o-input: rgba(255, 255, 255, 0.15);   /* 官方 --input:#ffffff26 */
+  --o-accent: #404040;
+  --o-accent-foreground: #fafafa;
+  --o-ring: rgba(115, 115, 115, 0.1);
+  --o-muted-foreground: #7a7a7a;
+  --o-radius: 10px;                        /* 官方 Button base 的 rounded-md 实测值，漏了按钮会变直角 */
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;                                /* 官方 gap-2 */
+  padding: 16px;                           /* 官方 p-4 */
+  text-align: center;
+  border-radius: 16px;
+  background: rgba(15, 15, 15, 0.8);
+  pointer-events: auto;
+}
+
+/* 图标 48px。⚠️ 必须是 `svg.image-load-error-icon`（0,1,1）：
+   官方 Button 基类有一条 `.o-btn > svg { width:16px }`（0,2,0）—— 单类 `.image-load-error-icon`（0,1,0）
+   会被它压掉，实测图标塌成 **7×7**（本轮踩到）。提高特异性即可，与按钮内图标互不影响。 */
+svg.image-load-error-icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  color: #f5f5f5;                          /* 官方继承 text-foreground */
+  opacity: 0.45;                           /* 官方无此值：仅保留「失败图标偏灰」的观感，待 9444 实测后可调 */
+}
+
+.image-load-error-title {
+  margin: 0;
+  font-size: 14px;                         /* 官方 text-sm */
+  font-weight: 500;                        /* 官方 font-medium */
+  line-height: 20px;
+  color: #f5f5f5;
+}
+
+.image-load-error-desc {
+  max-width: 200px;                        /* 官方 max-w-[200px] */
+  margin: 0;
+  font-size: 12px;                         /* 官方 text-xs */
+  line-height: 16px;
+  color: #7a7a7a;                          /* 官方 --muted-foreground */
+}
+
+.image-load-error-retry {
+  margin-top: 8px;                         /* 官方 mt-2 */
+}
+
+.image-load-error-retry > svg:first-child {
+  margin-right: 4px;                       /* 官方重试图标 w-4 h-4 mr-1 */
+}
+
+/* ── 超分加载动画：光晕流动 ── */
+.upscale-glow {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+  /* 整体轻微变暗，突出光效 */
+  background: rgba(8, 10, 20, 0.28);
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 5;
+}
+
+/* 生成中遮罩浮层（节点已有内容时覆盖预览区，与图片同为 12px 圆角） */
+.generation-progress-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--theme-card) 90%, transparent);
+  color: var(--theme-text);
+  pointer-events: none;
+}
+.generation-progress-overlay .spinner {
+  width: 44px;
+  height: 44px;
+}
+
+/* ★ ComfyUI 真实进度条：叠在**官方 node-loading 生成动效**之上，只保留「文案 + 进度条」，
+   自身不带底色、不带 spinner（官方生成态是纯氛围 ✓，进度是 MTV 独有信息 ✓）。
+   官方动效包装层是 z-40 → 这里 z-41 才压得住。 */
+.generation-progress-bare {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12px;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0 20px;
+  pointer-events: none;
+}
+
+/* 斜向扫描光带，循环掠过图像（中性白，不用品牌色）*/
+.upscale-glow-scan {
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(
+    115deg,
+    transparent 38%,
+    transparent 44%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.16) 54%,
+    transparent 62%
+  );
+  filter: blur(2px);
+  transform: translateX(-60%);
+  animation: upscale-scan 1.6s ease-in-out infinite;
+}
+
+/* 内描边光晕，呼吸式明暗流动（中性白）*/
+.upscale-glow-ring {
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    inset 0 0 0 1.5px rgba(255, 255, 255, 0.35),
+    inset 0 0 18px rgba(255, 255, 255, 0.22);
+  animation: upscale-pulse 1.6s ease-in-out infinite;
+  border-radius: 14px;
+}
+
+/* 角标文字 —— 浮在图片上方，两个主题都用深色胶囊 + 亮色前景，
+   因此这里的颜色刻意写死，不跟随主题令牌（否则浅色主题会变成深底深字）。
+   配色取 TapNow 官方：深底浮标 rgba(0,0,0,.5)（§9.1）· 描边白 10%（§1.3）· 前景纯白。 */
+.upscale-glow-label {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  backdrop-filter: blur(4px);
+  white-space: nowrap;
+}
+
+.upscale-glow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.45);
+  animation: upscale-pulse 1s ease-in-out infinite;
+}
+
+@keyframes upscale-scan {
+  0% { transform: translateX(-60%); }
+  100% { transform: translateX(60%); }
+}
+
+@keyframes upscale-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upscale-glow-scan,
+  .upscale-glow-ring,
+  .upscale-glow-dot {
+    animation: none;
+  }
+}
+
+.video-preview-player {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 原生媒体控件会吞掉 React Flow 拖拽结束所需的 pointerup。
+   节点拖拽期间暂时让视频退出命中测试，松手后由 .dragging 消失自动恢复。 */
+.react-flow:has(.react-flow__node.dragging) .video-preview-player {
+  pointer-events: none;
+}
+
+/* Preview Placeholder / Loading */
+.node-preview-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--theme-text-muted);
+  font-size: 13px;
+  border-radius: 10px;
+}
+
+.node-preview-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--theme-text-secondary);
+  font-size: 10px;
+}
+
+/* Spinner — 中性白（官方图标描边色 rgba(255,255,255,.7)，Design.md §11.1）*/
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner.large {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+/* 交互期间停止绘制装饰动画，把合成与绘制预算留给 React Flow。
+   选择器逐个列出而不是用 *，避免拖拽起止时整棵节点树的样式失效。 */
+.canvas-interacting .node.loading .node-preview::after,
+.canvas-interacting .upscale-glow-scan,
+.canvas-interacting .upscale-glow-ring,
+.canvas-interacting .upscale-glow-dot,
+.canvas-interacting .audio-progress-dot {
+  visibility: hidden;
+  animation-play-state: paused;
+}
+
+/* 加载指示仍保留可见，仅冻结旋转，避免交互时失去状态反馈。 */
+.canvas-interacting .node.loading .spinner,
+.canvas-interacting .spinner-sm,
+.canvas-interacting .shot-frame-spinner {
+  animation-play-state: paused;
+}
+
+/* Node Error */
+.node-error {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  left: 10px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 13px minmax(0, 1fr);
+  align-items: start;
+  gap: 6px;
+  max-width: calc(100% - 20px);
+  max-height: min(76px, calc(100% - 20px));
+  margin: 0;
+  padding: 7px 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid color-mix(in srgb, var(--danger) 26%, var(--glass-ring));
+  border-radius: 7px;
+  color: color-mix(in srgb, var(--danger) 72%, var(--theme-text));
+  background: color-mix(in srgb, var(--glass-bg-node) 88%, var(--danger-bg));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--danger) 9%, transparent);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 1;
+  user-select: text;
+  scrollbar-color: color-mix(in srgb, var(--danger) 28%, transparent) transparent;
+  scrollbar-width: thin;
+  transition: opacity 1.1s ease, transform 1.1s ease;
+}
+
+.node-error__icon {
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.node-error__message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.node-error::-webkit-scrollbar {
+  width: 4px;
+}
+
+.node-error::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--danger) 28%, transparent);
+}
+
+/* 20 秒后缓慢淡出 */
+.node-error--fading {
+  opacity: 0;
+  transform: translateY(-2px);
+  pointer-events: none;
+}
+
+/* ============================================
+   Compact Node (simplified, no prompt panel)
+   ============================================ */
+.node-preview.compact {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 4px;
+}
+
+/* Node type overrides */
+.text-node {
+  position: relative;
+  overflow: visible !important;
+}
+
+/* ★ 官方图片节点**没有多余框线**（t963 实测 `.canvas-node-presence-surface`：border 0 / box-shadow none /
+   outline-style none，只有 `rounded-2xl + bg rgb(31,31,31)`）；
+   MTV 的 `.react-flow__node` 根上带着 `outline: 0.67px solid rgba(255,255,255,.2)` ⇒ 卡片会多出一圈线（用户反馈）。 */
+.react-flow__node-ai-image { outline: none !important; }
+/* 官方名字后的「对号」徽标（tabler circle-check）
+   ★ t1060 官方 DOM 逐字：`<span class="inline-flex items-center shrink-0"><svg width="1em" height="1em" …>`
+     ⇒ **1em（= 标题 12px）**、**没有 margin**（与名字的间距由标题行 `gap-1`=4px 提供）。
+     旧实现：固定 20×20 + `margin-left:6px` ⇒ 图标偏大 + 间距 10px ✗（用户反馈「字体/图标大小/间距都不一致」） */
+/* ★★ 官方「卡片左上角收藏（星形）按钮」（t1060 官方 DOM 逐字，单选时才渲染）：
+     `absolute top-3 left-3 z-[60] h-7 w-7 rounded-[10px] nodrag nopan pointer-events-auto
+      bg-black/50 hover:bg-black/70 flex items-center justify-center cursor-pointer transition-colors text-[#F5F5F5]`
+     官方实测尺寸 46×46 屏 @zoom1.64 = **28×28 逻辑**（`h-7 w-7`）· 图标 `tabler-icon-star` 16×16。 */
+.node-favorite-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 60;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #f5f5f5;
+  cursor: pointer;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.node-favorite-btn:hover { background: rgba(0, 0, 0, 0.7); }
+.node-favorite-btn svg { display: block; width: 16px; height: 16px; }
+.node-favorite-btn[aria-pressed='true'] { color: #ffd76a; }
+
+.node-label-check {
+  display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center;
+  width: 1em; height: 1em; color: rgba(255, 255, 255, 0.7);
+}
+.node-label-check svg { display: block; width: 1em; height: 1em; }
+.image-node {
+  overflow: visible !important;
+}
+
+.image-node .node-preview.compact {
+  position: relative;
+  /* ★★★ padding 2px → 0 ✗✓（官方实测 ✓）
+     官方有图时：卡片 pad=0 ✓ · 图片相对卡片 **L0 T0 R0 B0** ✓✓ **零内缩** ✓
+     MTV 这里写 `padding: 2px` ✗ → 图片四周内缩 2px ✗ → **露出卡片底色** ✗
+     → 用户：「上传后图片**漏底色**」✓✓
+     `overflow:hidden` + `border-radius: inherit` 保留 ✓（图片仍被 16px 圆角正确裁切 ✓）*/
+  padding: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.video-node {
+  position: relative;
+  overflow: visible !important;
+}
+
+.video-node .node-preview.compact {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.video-node .node-preview.compact.has-media {
+  background: var(--theme-bg);
+}
+
+.audio-node {
+  overflow: visible !important;
+}
+
+/* ── 卡片 resize 手柄：已按 TapNow 官方实测**整体删除**（Design.md §17.3 / checklist F2）──
+   官方样式表内不存在 resize / resizer / handle-left|right|bottom|top 规则 ⇒ 卡片尺寸是自动的。
+   连带删除：组件 ResizeHandle、10 个节点里的调用点与只服务 resize 的 handleResize 回调。 */
+
+/* ★★★ 中间容器也要给圆角 ✗✓ —— 否则 `inherit` 会从它取到 **0** ✗
+   （实测：`.image-preview-container` r=0 ✓ → 图片 inherit 后变成 **0px** ✗）
+   这里设成 **16px**（= 官方卡片 `rounded-2xl` ✓ EXE 原文 ✓） */
+.image-preview-container {
+  border-radius: 16px;
+}
+
+.image-preview-img.compact {
+  width: 100%;
+  height: 100%;
+  /* ★★★ **`cover` → `contain`** ✗✓（官方实测 ✓）
+     官方有图时：**`objectFit = contain`** ✓✓（不是 cover ✗）
+       官方 img 相对卡片 **L0 T0 R0 B0** ✓ 完整显示整图 ✓ 由 16px 圆角裁切 ✓
+     MTV 用 `cover` ✗ → **裁切填满** ✗ → 与官方"整图完整显示"不一致 ✓
+       → 用户：「hover 时**不贴齐卡片**」✓✓（其实是 cover 裁掉了边缘 ✓）
+     `contain` 会把图片按比例放进卡片 ✓（比例不匹配时四周留卡片底色 ✓ = 官方行为 ✓）*/
+  object-fit: contain;
+  /* ★★★ **显式 16px，与卡片圆角一致** ✗✓
+       CDP `getMatchedStylesForNode` 权威确认：这条规则原本写死 `border-radius: **12px**` ✗
+       而卡片/`.node-preview` 是 **16px** + `overflow:hidden` ✓
+       → 图片四角比容器更"方" ✗ → 卡片的 16px 圆角处**露出底色** ✗
+       → 用户："圆角不一致、hover 态也不一致、**没包裹住**" ✓✓
+       ⚠️ **不能用 `inherit`** ✗ —— 直接父层 `.image-preview-container` 是 0 ✗
+          （第一次改 inherit 后实测 img r=**0px** ✗ ✓）
+       16px = 官方卡片圆角 ✓ · 换比例/尺寸/hover/选中 全部贴合 ✓ */
+  border-radius: 16px;
+}
+
+/* ══ §95b：原 `.video-node-poster` 已删 ══
+   `VideoNode.tsx` 的「只有缩略图」分支改成渲染官方 `$oe` 海报的同一颗 `<img>`
+   （`data-testid="video-poster"` + 官方逐字 class），MTV 自造的 `video-node-poster`
+   类名在官方 JS（8 个）+ 官方 CSS（12 个）全套里 **0 命中** ⇒ 连类带规则一起移除。
+   ⚠️ `CanvasNodeLodBoundary.tsx:89` 的选择器里同时有 `img.video-node-poster`（现已失效）
+   与 `img[data-testid="video-poster"]`（仍然命中）⇒ LOD 覆盖不受影响，且该文件不在本任务范围。 */
+.video-preview-player.compact {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: inherit;
+}
+
+/* ══ §95b 删除：MTV 自造的「视频卡底部控制条」CSS 整块（原 `.video-node-initial-cover`
+   + `.video-node-controls` + `-control-row` / `-control-btn` / `-time` / `-control-spacer`
+   / `-progress` / `-volume` + 对应的 prefers-reduced-motion 块）══
+   依据（两条独立）：
+   1. **MTV 侧 0 消费点**：全仓 `src/**` 精确 grep 这 8 个类名，除本 CSS 文件外**没有任何**
+      TSX/TS 引用（唯一的例外是测试 `videoNodeOfficialVideoParts.test.tsx:413` 里
+      `expect(tokens).not.toContain('video-node-initial-cover')` —— 那条断言的语义正是
+      「这些 MTV 自造类**不应该**出现」）。
+   2. **官方产物 0 命中**：在 `D:\DEEPSEEK\live-assets-new\**`（8 个 JS）+
+      `D:\DEEPSEEK\_official-css\**`（12 个 CSS）里逐个搜
+      `video-node-controls` / `video-node-control-row` / `video-node-control-btn` /
+      `video-node-time` / `video-node-control-spacer` / `video-node-progress` /
+      `video-node-volume` / `video-node-initial-cover` ⇒ **全部 0 命中**。
+   官方视频卡的底部条根本不是这套 DOM：官方 `Goe`（`displayName="VideoPlayer"`，
+   `vendor-pkg-canvas-CvbAwZyy.js` @1958433）渲染的是 `m5`（hover 控制条），其容器类名逐字 =
+   `absolute bottom-0 left-0 right-0 z-20 nodrag rounded-b-2xl bg-gradient-to-t from-black/45
+    via-black/20 to-transparent px-2 pb-2.5 pt-8 flex items-center gap-2 transition-all
+    duration-200 ease-out`（见 `shared/VideoNodeControls.tsx`，MTV 已按官方重做）。
+   ⇒ 这一块是 MTV 旧自绘件的残留 CSS，**整块移除**（不是"等价实现"）。
+   ⚠️ 仅保留 `.video-node-poster`（上面那条，`VideoNode.tsx:1519` 的"只有缩略图"分支还在用它
+   —— 该分支本身是 MTV 独有语义，是否一并处理见 §95b 报告「待裁决」栏）。 */
+
+/* ════════════════════════════════════════════
+   Shared Fullscreen Overlay (framer-motion)
+   ════════════════════════════════════════════ */
+
+.fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(var(--glass-blur-sm));
+}
+
+/* 半透明模式：无面板框，仅遮罩背景（裁切/抠图等工具用） */
+.fullscreen-overlay--transparent {
+  background: rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+  flex-direction: column;
+  padding: 0;
+}
+
+/* 大图预览不模糊整个画布，避免 WebView2 为背景建立整窗离屏缓冲。 */
+.fullscreen-overlay--transparent.fullscreen-overlay--image-preview {
+  background: rgba(0, 0, 0, 0.58);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.fullscreen-panel {
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur-lg));
+  border: 1px solid var(--glass-ring);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 18px 64px rgba(0, 0, 0, 0.48);
+  position: relative;
+  transform-origin: center center;
+  will-change: transform, opacity, filter;
+}
+
+.fullscreen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+
+.fullscreen-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+
+.fullscreen-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--theme-text-secondary);
+  cursor: var(--cursor-pointer, pointer);
+  border-radius: 6px;
+  transition: color var(--transition-base), background var(--transition-base);
+}
+
+.fullscreen-close:hover {
+  color: var(--theme-text);
+  background: var(--white-alpha-06);
+}
+
+.fullscreen-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+}
+
+/* ============ Fullscreen editor (textarea-based) ============ */
+
+.fullscreen-body textarea.fullscreen-textarea {
+  width: 100%;
+  height: 72vh;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--theme-text);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.fullscreen-body textarea.fullscreen-textarea::placeholder {
+  color: var(--theme-text-muted);
+}
+
+/* ============ Fullscreen markdown preview ============ */
+
+.fullscreen-md-view {
+  min-height: 72vh;
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--theme-text);
+}
+
+/* Inherit .markdown-rendered styles but scale up for fullscreen */
+.fullscreen-md-view .markdown-rendered {
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.fullscreen-md-view .markdown-rendered h1 { font-size: 24px; }
+.fullscreen-md-view .markdown-rendered h2 { font-size: 20px; }
+.fullscreen-md-view .markdown-rendered h3 { font-size: 16px; }
+.fullscreen-md-view .markdown-rendered h4,
+.fullscreen-md-view .markdown-rendered h5,
+.fullscreen-md-view .markdown-rendered h6 { font-size: 14px; }
+
+.fullscreen-md-view .markdown-rendered code {
+  font-size: 13px;
+}
+
+.fullscreen-md-view .markdown-rendered pre code {
+  font-size: 12px;
+}
+
+/* Fullscreen toolbar (edit/preview toggle inside header) */
+.fullscreen-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Wrapper for headerContent in fullscreen-header, keeps header layout intact */
+.fullscreen-header-extra {
+  display: flex;
+  align-items: center;
+}
+
+/* ============ Fullscreen close — absolute (hideHeader mode) ============ */
+
+.fullscreen-close--absolute {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur-sm));
+  border: 1px solid var(--glass-ring);
+  border-radius: 8px;
+}
+
+.fullscreen-close--absolute:hover {
+  background: rgba(40, 40, 52, 0.9);
+}
+
+/* ============ Fullscreen panorama viewer ============ */
+
+.fullscreen-body--pano {
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: 80vh;
+}
+
+/* ============ Fullscreen image preview (hidePanel 模式) ============ */
+
+.fullscreen-img-view {
+  max-width: 92vw;
+  max-height: 92vh;
+  object-fit: contain;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* Apple Photos 式放大浮现：从略缩 + 柔焦优雅展开 */
+  transform-origin: center;
+  animation: imgZoomIn 0.5s var(--ease-out-expo) both;
+}
+
+/* 全屏视频预览（hidePanel 模式） */
+.fullscreen-video-view {
+  width: 92vw;
+  height: 92vh;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #000;
+  outline: none;
+  animation: imgZoomIn 0.5s var(--ease-out-expo) both;
+}
+
+@keyframes imgZoomIn {
+  from { transform: scale(0.86); filter: blur(14px); }
+  55% { filter: blur(3px); }
+  to { transform: scale(1); filter: blur(0); }
+}
+
+/* ============ Zoomable fullscreen image（缩放/平移查看器）============ */
+
+.zoomable-image-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transform-origin: center center;
+}
+
+.zoomable-image-stage {
+  display: inline-flex;
+  line-height: 0;
+  transform-origin: center center;
+  will-change: transform, filter;
+  animation: imgZoomIn 0.5s var(--ease-out-expo) both;
+}
+
+/* 容器内的图片不再单独执行入场动画，transform 完全由 JS 控制 */
+.zoomable-image-container .fullscreen-img-view {
+  animation: none;
+  cursor: inherit;
+}
+
+/* 图片节点全屏预览即时入场；其他 ZoomableImage 调用保留原视觉效果。 */
+.fullscreen-overlay--image-preview .zoomable-image-stage {
+  animation: none;
+  will-change: auto;
+}
+
+/* 安全预览作用域内不对大尺寸图片/视频表面做滤镜入场。 */
+.fullscreen-overlay--image-preview .fullscreen-img-view,
+.fullscreen-overlay--image-preview .fullscreen-video-view {
+  animation: none;
+}
+
+.zoom-controls {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: rgba(20, 20, 22, 0.62);
+  backdrop-filter: blur(var(--glass-blur-lg));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  user-select: none;
+  animation: zoomControlsReveal 1.2s var(--ease-out-expo) 900ms both;
+}
+
+@keyframes zoomControlsReveal {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px) scale(0.96);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fullscreen-img-view,
+  .zoomable-image-stage,
+  .zoom-controls {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}
+
+.zoom-controls .zoom-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background 0.15s ease, transform 0.12s ease, opacity 0.15s ease;
+}
+
+.zoom-controls .zoom-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.zoom-controls .zoom-btn:active:not(:disabled) {
+  transform: scale(0.9);
+}
+
+.zoom-controls .zoom-btn:disabled {
+  opacity: 0.35;
+  cursor: var(--cursor-default, default);
+}
+
+.zoom-controls .zoom-percent {
+  min-width: 52px;
+  height: 30px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background 0.15s ease;
+}
+
+.zoom-controls .zoom-percent:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+
+/* ════════════════════════════════════════════
+   Markdown Node
+   ════════════════════════════════════════════ */
+
+.markdown-node {
+  position: relative;
+  overflow: visible !important;
+}
+
+.markdown-node-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--theme-border);
+  background: color-mix(in srgb, var(--theme-card) 60%, transparent);
+  flex-shrink: 0;
+}
+
+.markdown-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--theme-text-secondary);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+/* hover 不加背景色（Design.md §12.1 / D1）；前景色变化保留 */
+.markdown-mode-btn:hover {
+  color: var(--theme-text);
+}
+
+.markdown-mode-btn.active {
+  background: color-mix(in srgb, var(--node-markdown) 15%, transparent);
+  border-color: color-mix(in srgb, var(--node-markdown) 40%, transparent);
+  color: rgb(192, 132, 252);
+}
+
+.markdown-mode-btn:disabled {
+  opacity: 0.4;
+  cursor: var(--cursor-not-allowed, not-allowed);
+}
+
+.markdown-node-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-edit-area {
+  flex: 1;
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--theme-text);
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  tab-size: 2;
+}
+
+.markdown-edit-area::placeholder {
+  color: var(--theme-text-muted);
+}
+
+.markdown-preview-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+}
+
+/* ── Rendered markdown preview ── */
+.markdown-rendered {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--theme-text);
+}
+
+.markdown-rendered h1 { font-size: 18px; font-weight: 700; margin: 8px 0 4px; color: rgb(192, 132, 252); }
+.markdown-rendered h2 { font-size: 15px; font-weight: 600; margin: 6px 0 3px; color: rgb(192, 132, 252); }
+.markdown-rendered h3 { font-size: 13px; font-weight: 600; margin: 5px 0 2px; color: var(--theme-text); }
+.markdown-rendered h4,
+.markdown-rendered h5,
+.markdown-rendered h6 { font-size: 12px; font-weight: 600; margin: 4px 0 2px; color: var(--theme-text-secondary); }
+
+.markdown-rendered p { margin: 4px 0; }
+.markdown-rendered ul,
+.markdown-rendered ol { margin: 4px 0; padding-left: 18px; }
+.markdown-rendered li { margin: 2px 0; }
+.markdown-rendered li::marker { color: var(--theme-text-muted); }
+
+.markdown-rendered code {
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 11px;
+  background: color-mix(in srgb, var(--node-markdown) 12%, transparent);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: rgb(192, 132, 252);
+}
+
+.markdown-rendered pre {
+  margin: 6px 0;
+  padding: 8px 10px;
+  background: rgba(10, 10, 15, 0.6);
+  border-radius: 6px;
+  border: 1px solid var(--theme-border);
+  overflow-x: auto;
+}
+
+.markdown-rendered pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 11px;
+  color: var(--theme-text-secondary);
+}
+
+.markdown-rendered blockquote {
+  margin: 6px 0;
+  padding: 4px 10px;
+  border-left: 3px solid color-mix(in srgb, var(--node-markdown) 50%, transparent);
+  color: var(--theme-text-secondary);
+  background: rgba(26, 26, 38, 0.4);
+  border-radius: 0 4px 4px 0;
+}
+
+.markdown-rendered a {
+  color: rgb(192, 132, 252);
+  text-decoration: underline;
+}
+
+.markdown-rendered table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 6px 0;
+  font-size: 11px;
+}
+
+.markdown-rendered th {
+  background: rgba(26, 26, 38, 0.6);
+  padding: 3px 6px;
+  text-align: left;
+  font-weight: 600;
+  border: 1px solid var(--theme-border);
+}
+
+.markdown-rendered td {
+  padding: 3px 6px;
+  border: 1px solid var(--theme-border);
+}
+
+.markdown-rendered hr {
+  border: none;
+  border-top: 1px solid var(--theme-border);
+  margin: 8px 0;
+}
+
+.markdown-rendered img {
+  max-width: 100%;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+
+.markdown-rendered strong { font-weight: 600; color: var(--theme-text); }
+.markdown-rendered em { font-style: italic; }
+
+.text-node-wordcount {
+  position: absolute;
+  right: 5px;
+  bottom: -12px;
+  font-size: 8px;
+  color: var(--theme-text-muted);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+
+
+.spinner-sm {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--theme-border);
+  border-top-color: var(--theme-text-secondary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Pin（画布标记分组）—— 官方 `iIe`/`rIe`/`nIe`/`Qke` 逐字（zoom-slider @1218276 起）
+   舞台 26px · 色点 6px（size-1.5）· 位移 `_B(i,count,3,-1)`（hover `4.2,-3`）·
+   图钉 = Tabler outline/tag 18px stroke2 + 官方投影 · 弹层 `rounded-full border bg-popover p-2 gap-1 shadow-md` */
+.pin-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* 舞台三态：默认 (0,0) · 已 Pin (1px,1px) · hover/弹层打开 (-1px,-1px) */
+.pin-stage {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
+  transform: translate(0, 0);
+  transition: transform 0.2s cubic-bezier(0.2, 0.85, 0.2, 1);
+}
+.pin-stage.is-pinned { transform: translate(1px, 1px); }
+.pin-trigger:hover .pin-stage,
+.pin-trigger.is-active .pin-stage { transform: translate(-1px, -1px); }
+.pin-trigger:active .pin-stage { scale: 0.9; }
+
+/* 图钉：18px、z-10、白 + 官方投影；hover 旋转 -5° */
+.pin-glyph {
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.72));
+  transition: transform 0.2s cubic-bezier(0.2, 0.85, 0.2, 1), filter 0.2s ease;
+}
+.pin-trigger:hover .pin-glyph,
+.pin-trigger.is-active .pin-glyph {
+  transform: rotate(-5deg);
+  filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.24));
+}
+
+/* 色点：6px，位移/缩放/透明度由 `is-on` + CSS 变量驱动 */
+.pin-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 0;
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  transform: translate(var(--pin-dot-x, 0), var(--pin-dot-y, 0)) scale(0.75);
+  opacity: 0;
+  transition: opacity 0.2s cubic-bezier(0.2, 0.85, 0.2, 1),
+    transform 0.2s cubic-bezier(0.2, 0.85, 0.2, 1);
+}
+.pin-dot.is-on {
+  transform: translate(var(--pin-dot-x, 0), var(--pin-dot-y, 0)) scale(1);
+  opacity: 1;
+}
+.pin-trigger:hover .pin-dot.is-on,
+.pin-trigger.is-active .pin-dot.is-on {
+  transform: translate(var(--pin-dot-hover-x, 0), var(--pin-dot-hover-y, 0)) scale(1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   文本卡工具栏第一格「背景颜色」= 官方 `mQ` @2757073（调色板，逐字）
+   触发器：`size-5 aspect-square rounded-full border cursor-pointer`（20px 圆），
+           未设色时 `bg-card-foreground`；已设色时 `style.backgroundColor = 当前色`
+   面板：  `<PopoverContent className="w-auto" side="bottom" sideOffset={22}>`
+           > `flex flex-col gap-4 px-3 py-5 bg-black/60 backdrop-blur-lg rounded-xl border border-input`
+      ⇒ 竖排：gap 16 · padding 12/20 · 背景 `rgba(0,0,0,.6)` + blur-lg(16) · 圆角 12 · 1px `--input` 描边
+      ⇒ 距触发器 **22px**（sideOffset），水平居中对齐（Radix 默认 align=center）
+   重置：  `size-6 rounded-full border border-input bg-card-foreground relative`
+           + 斜杠 `before:w-4 before:h-[1.5px] before:bg-muted-foreground/50 before:rotate-45`（16×1.5 斜线）
+   色点：  `size-6 rounded-full border border-input hover:scale-110`（24px 圆 + 悬停放大 10%）
+   ══════════════════════════════════════════════════════════════════════ */
+.color-picker-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.color-picker-trigger {
+  display: block;
+  width: 20px;                    /* size-5 */
+  height: 20px;
+  border: 1px solid var(--theme-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+/* 官方 `!selectedColor && "bg-card-foreground"`：未设色时显示卡片前景色的小圆 */
+.color-picker-trigger.is-empty {
+  background-color: var(--popover-foreground, #ccc);
+}
+
+.color-picker-popover {
+  position: absolute;
+  top: calc(100% + 22px);        /* side="bottom" · sideOffset:22 */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: auto;                   /* 官方 `className="w-auto"`（覆盖 PopoverContent 默认 w-72） */
+}
+
+.color-picker-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;                     /* gap-4 */
+  padding: 20px 12px;            /* px-3 py-5 */
+  border: 1px solid var(--input-border, rgba(255, 255, 255, 0.15));
+  border-radius: 12px;           /* rounded-xl */
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(16px);   /* backdrop-blur-lg */
+}
+
+.color-picker-swatch,
+.color-picker-reset {
+  position: relative;
+  width: 24px;                   /* size-6 */
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--input-border, rgba(255, 255, 255, 0.15));
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.color-picker-swatch:hover,
+.color-picker-reset:hover {
+  transform: scale(1.1);         /* hover:scale-110 */
+}
+
+/* 重置：卡片前景色底 + 中间一道 45° 斜线（官方 `before:*` 伪元素组合） */
+.color-picker-reset {
+  background-color: var(--popover-foreground, #ccc);
+}
+
+.color-picker-reset::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 16px;                   /* before:w-4 */
+  height: 1.5px;                 /* before:h-[1.5px] */
+  background: rgba(122, 122, 122, 0.5);   /* before:bg-muted-foreground/50 */
+  transform: rotate(45deg);
+}
+
+/* 弹层：官方 Radix PopoverContent `side=top align=center sideOffset=8` */
+.pin-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;                      /* gap-1 */
+  padding: 8px;                  /* p-2 */
+  border-radius: 999px;          /* rounded-full */
+  border: 1px solid var(--theme-border);
+  background: rgb(38, 38, 38);   /* bg-popover */
+  color: var(--theme-text);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);   /* shadow-md */
+}
+
+/* 色点开关：官方 `nIe` = size-6 圆钮 + 内层 18px 圆点；选中 → 2px 白 15% 描边 + 12px 对勾 */
+.pin-swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.pin-swatch-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  transition: filter 0.15s;
+}
+.pin-swatch:hover .pin-swatch-dot { filter: brightness(1.1); }
+.pin-swatch:active .pin-swatch-dot { filter: brightness(0.95); }
+.pin-swatch-dot.is-on {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* 指示器（官方 `Qke`）：小圆点叠排；title 变体的尺寸/边距由内联样式给 */
+.pin-indicator-dot {
+  display: block;
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 999px;
+  border-style: solid;
+  border-color: #fff;
+  box-sizing: border-box;
+  transition: width 0.2s ease-out, height 0.2s ease-out, margin-left 0.2s ease-out,
+    filter 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+/* ── 官方 Pin 条（`wbe`）：画布**顶部居中**的一排色组芯片 ──
+   官方容器 = `pointer-events-auto mt-2.5 flex self-start items-center`（在 top-center Panel 里）
+   芯片 = `h-5 w-7`（28×20）胶囊 + `size-5`（20px）圆点；打开态再加 `-inset-0.5 border-2 border-white/80` */
+.pin-bar {
+  display: flex;
+  align-items: center;
+  /* ⚠️ 官方容器是 `pointer-events-auto mt-2.5 flex self-start items-center` —— **没有 gap** ✓
+     芯片按钮本身宽 `w-7` = 28px、圆点 20px 居中 ⇒ 圆心间距就是 **28px**（点与点之间可见空隙 8px）。
+     我上一版在这里加了 `gap: 8px` ✗ ⇒ 圆心间距变成 36px，比官方宽 8px
+     （用户截图实测官方 42 image px @1.5x = 28px ✓；MTV 实测 centerDeltas 全是 36px ✗） */
+  gap: 0;
+  margin-top: 10px;          /* mt-2.5 */
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+.pin-chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;               /* w-7 */
+  height: 20px;              /* h-5 */
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.pin-chip-dot {
+  position: relative;        /* 白圈以它为定位父级 ⇒ 正圆 */
+  display: block;
+  width: 20px;               /* size-5 */
+  height: 20px;
+  border-radius: 999px;
+  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.pin-chip:hover .pin-chip-dot { transform: scale(1.05); }
+.pin-chip:active .pin-chip-dot { transform: scale(0.95); }
+.pin-chip:focus-visible .pin-chip-dot { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8); }
+.pin-chip.is-open .pin-chip-dot { transform: scale(1.05); }
+/* 打开态白圈：官方是**圆点子元素**（`absolute -inset-0.5 rounded-full border-2 border-white/80`）
+   ⇒ 20px 圆 + 2px 外扩 = 24px 正圆（挂在 28×20 的按钮上会变椭圆 ✗，已修正层级） */
+.pin-chip-ring {
+  position: absolute;
+  inset: -2px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.pin-chip.is-open .pin-chip-ring { opacity: 1; }
+
+/* ── 官方 `Jke`：卡片外框按"当前过滤色"亮起（3px + 22px 光晕，始终挂载只切 opacity）── */
+.pin-card-border {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: 16px;       /* rounded-2xl */
+  pointer-events: none;
+  box-sizing: border-box;
+  transition: opacity 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Pin 菜单「定位节点」的白环（官方 `highlightedNodes` 在 MTV 侧的渲染） */
+.node-wrapper[data-pin-located='true']::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 18px 0 rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+  z-index: 6;
+  animation: pin-locate-ring 1.6s ease-out forwards;
+}
+@keyframes pin-locate-ring {
+  0% { opacity: 0; transform: scale(0.985); }
+  12% { opacity: 1; transform: scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 「移出全部」的二步确认已改为官方 `hb.confirm` 的模态对话框（见 PinConfirmDialog.tsx）
+   官方动画 = tw-animate-css 的 `animate-in fade-in-0 zoom-in-95`（外加 slide-in-from-top-[40%]）；
+   MTV 没有 tw-animate-css，这里用等价 keyframes（同样尊重 reduce-motion） */
+@keyframes pin-confirm-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pin-confirm-content-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.pin-confirm-overlay { animation: pin-confirm-overlay-in 150ms ease-out; }
+.pin-confirm-content { animation: pin-confirm-content-in 150ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .pin-confirm-overlay,
+  .pin-confirm-content { animation: none; }
+}
+
+/* ── 官方 `mbe` 下拉（挂在芯片下方，`side=bottom align=center sideOffset=8`）── */
+.pin-chip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.pin-chip-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+}
+/*
+ * 菜单内容 = 官方 DropdownMenuContent（`index-BiTZf8mJ.js` @6038459 `xQe`）基类
+ *   `bg-popover text-popover-foreground z-50 min-w-[8rem] overflow-x-hidden overflow-y-auto
+ *    rounded-md border p-1 shadow-md`
+ * + Pin 条传来的类（`page-DPdEgTS0.js` @1644001 `ybe` → `Ks`）：
+ *   `w-max min-w-40 max-w-[min(20rem,calc(100vw-1rem))]`，并在编辑态用**测量到的宽度锁定 width**
+ * 官方 token：--popover:#262626 · --popover-foreground:#ccc · --border:#ffffff1a
+ *            --radius:.5rem ⇒ rounded-md = .5rem−2px = 6px
+ *            --shadow-md:0px 2px 4px 0px #0000001a,0px 2px 4px -1px #0000001a（官方自定义值，不是 TW 默认）
+ * 字体：官方 `--font-sans:Inter,sans-serif`（本机没装 Inter ⇒ 落到 sans-serif/Arial，
+ *       而 MTV 全局是 system-ui(Segoe UI)，所以拉丁文字形不一样 —— 这里显式跟官方一致）
+ */
+.pin-group-menu {
+  width: max-content;
+  min-width: 160px;                    /* 官方 `min-w-40` = 160px */
+  max-width: min(20rem, calc(100vw - 1rem));
+  padding: 4px;                        /* 官方内容基类 `p-1` */
+  /* 官方 `.dark` 里 `--radius:.75rem` ⇒ `rounded-md` = calc(.75rem − 2px) = **10px**
+     （我上一版用的是 @theme 默认 `.5rem` 算出的 6px ✗ —— 用户反馈"圆角不对"的根因） */
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);   /* 官方 `border`（--border:#ffffff1a） */
+  background: rgb(38, 38, 38);         /* bg-popover */
+  color: #ccc;                         /* text-popover-foreground */
+  font-family: Inter, sans-serif;      /* 官方 --font-sans */
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1);   /* 官方 --shadow-md */
+}
+/* ① 重命名行：官方 `flex h-9 items-center gap-2 px-2`（编辑态 / 常态同一行外壳） */
+.pin-group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px;
+}
+/* 官方 `kp({children})` = `inline-flex size-5 shrink-0 items-center justify-center` —— 色点/图标统一装进 20px 槽，
+   ⇒ 行首 20px 槽 + gap 8 才有官方那条对齐感（原来是裸 10px 点 + gap ✗，整行左侧间距不对） */
+.pin-group-dot-slot,
+.pin-group-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;               /* size-5 */
+  height: 20px;
+  flex-shrink: 0;
+}
+.pin-group-dot {
+  width: 10px;               /* size-2.5 */
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 999px;
+}
+/* 官方：`min-w-0 translate-y-[0.5px] truncate text-sm font-medium leading-5` —— **没有颜色类**，
+   继承 `text-popover-foreground` = #ccc（我之前上了组色 ✗） */
+.pin-group-name {
+  min-width: 0;
+  transform: translateY(0.5px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: inherit;
+}
+/* 官方：`ml-auto shrink-0 text-xs text-muted-foreground` ⇒ 12px / line-height 16px(text-xs) / #7a7a7a */
+.pin-group-count {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: #7a7a7a;
+}
+/* 铅笔（常态）= 官方 DropdownMenuItem `className:"size-7 shrink-0 justify-center p-0"` + 行基类：
+   `rounded-sm`(=.5rem−4px=**4px**) `text-sm` `[&_svg:not([class*='text-'])]:text-muted-foreground`
+   hover/focus → `bg-accent`(#404040)，而**图标被 `[&_svg…]:text-muted-foreground` 钉在 #7a7a7a 不变** ✓ */
+.pin-group-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;               /* size-7 */
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 8px;        /* rounded-sm = calc(.75rem − 4px) = 8px */
+  background: transparent;
+  color: #7a7a7a;            /* text-muted-foreground */
+  cursor: default;           /* 官方菜单项 `cursor-default` */
+  transition: background 0.15s;
+}
+.pin-group-icon-btn:hover { background: #404040; }
+/* 显式给 svg 上色 —— 官方那条 `[&_svg:not([class*='text-'])]:text-muted-foreground` 优先级高于父级 focus 色，
+   hover 时**图标保持灰**（我上一版 `svg{color:inherit}` 让图标变白 ✗ 用户已指出） */
+.pin-group-icon-btn svg { color: #7a7a7a; }
+/* 保存钮（编辑态）= 官方**普通 button**：`inline-flex size-7 … rounded-md text-muted-foreground
+   transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring`
+   ⇒ 圆角是 rounded-md **6px**（和铅笔的 4px 不同），且这里的图标**会**跟着变 #fafafa ✓ */
+.pin-group-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 10px;       /* rounded-md = 10px */
+  background: transparent;
+  color: #7a7a7a;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.pin-group-save-btn:hover { background: #404040; color: #fafafa; }
+.pin-group-save-btn:hover svg { color: inherit; }
+/* 官方焦点环 = `focus-visible:ring-2 ring-ring`，--ring:#7373731a（几乎不可见的灰，不是白色） */
+.pin-group-icon-btn:focus-visible,
+.pin-group-save-btn:focus-visible,
+.pin-group-item:focus-visible {
+  outline: 2px solid rgba(115, 115, 115, 0.1);
+  outline-offset: -2px;
+}
+/* 编辑态输入框：官方 `h-7 min-w-0 flex-1 rounded-md border border-border bg-transparent px-2 text-sm
+   font-medium leading-5 text-foreground outline-none placeholder:text-muted-foreground
+   focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40`
+   ⇒ 28 高 · 6px 圆角 · 描边 #ffffff1a · 文字 #f5f5f5(--foreground) · 占位 #7a7a7a
+   焦点：border-color:#7373731a + 2px 环 color-mix(--ring 40%,transparent) —— **不是白色描边高亮** */
+.pin-group-input {
+  height: 28px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;       /* rounded-md = 10px */
+  background: transparent;
+  color: #f5f5f5;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  font-family: inherit;
+  outline: none;
+}
+.pin-group-input::placeholder { color: #7a7a7a; }
+.pin-group-input:focus-visible {
+  border-color: rgba(115, 115, 115, 0.1);
+  box-shadow: 0 0 0 2px rgba(115, 115, 115, 0.04);
+  outline: none;
+}
+/* 官方 DropdownMenuSeparator = `bg-border -mx-1 my-1 h-px` ⇒ 1px / 上下 4px / **左右 −4px**（撑满内容区） */
+.pin-group-sep {
+  height: 1px;
+  margin: 4px -4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+/* ③ 节点列表：官方 `max-h-48 overflow-y-auto`，无内边距 */
+.pin-group-nodes {
+  max-height: 192px;
+  overflow-y: auto;
+}
+/* 官方 DropdownMenuItem 基类（`index-BiTZf8mJ.js` @6038955 `H9a`）：
+   `focus:bg-accent focus:text-accent-foreground … relative flex cursor-default items-center gap-2
+    rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled]:opacity-50
+    [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-muted-foreground`
+   ⇒ 圆角 **4px**（rounded-sm，不是 2px）、字重 **400**（基类没有 font-medium，我之前写 500 ✗）、
+     文字色继承 #ccc、图标 16px 且钉在 #7a7a7a（hover 不变色） */
+.pin-group-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;          /* px-2 py-1.5 */
+  border: none;
+  border-radius: 8px;        /* rounded-sm = calc(.75rem − 4px) = 8px */
+  background: transparent;
+  color: #ccc;               /* text-popover-foreground */
+  font-size: 14px;
+  font-weight: 400;          /* 基类没有 font-medium */
+  line-height: 20px;
+  font-family: inherit;
+  text-align: left;
+  cursor: default;
+  user-select: none;
+}
+.pin-group-item svg { color: #7a7a7a; }
+/* 官方：`focus:bg-accent`（--accent #404040）+ `focus:text-accent-foreground`（#fafafa）
+   —— 只有**文字**变白，图标仍被 `[&_svg…]:text-muted-foreground` 钉住 */
+.pin-group-item:hover,
+.pin-group-item:focus-visible { background: #404040; color: #fafafa; }
+.pin-group-item.is-disabled,
+.pin-group-item:disabled { opacity: 0.5; cursor: default; pointer-events: none; }
+/* 官方 destructive 行：文字/图标 = `--destructive-foreground` #ff6163（类里显式给了 text- 和 [&_svg]:!text-）；
+   hover 底色 = `dark:data-[variant=destructive]:focus:bg-destructive/20` = rgba(147,76,76,.2) */
+.pin-group-item.is-destructive { color: #ff6163; }
+.pin-group-item.is-destructive svg { color: #ff6163; }
+.pin-group-item.is-destructive:hover,
+.pin-group-item.is-destructive:focus-visible { background: rgba(147, 76, 76, 0.2); color: #ff6163; }
+.pin-group-thumb {
+  /* 官方 `kp` 的 20px 槽；行内缩略图/图标都装这里（定义见上，与色点槽同一套） */
+  color: #7a7a7a;
+}
+/* 官方 `xbe`：`img.size-5.shrink-0.rounded-sm.object-cover` ⇒ 20×20 · 圆角 8px（rounded-sm） */
+.pin-group-thumb-img {
+  width: 20px;
+  height: 20px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+/* 官方行标题：`w-0 min-w-0 flex-1 truncate` —— **width:0** 才不会把菜单撑宽（菜单是 `w-max`，
+   之前 flex:1 但没 width:0 ⇒ 长名字把整个面板顶宽，"弹窗尺寸不对"的根因） */
+.pin-group-item-label {
+  width: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   官方「折叠变体」画廊卡（`src/components/nodes/shared/image/NodeImageHistoryGallery.tsx`）
+   ──────────────────────────────────────────────────────────────────────────
+   官方 `MediaItem`（`Ree`，`course-api-base-url-CGXqZmAy.js`@3097533）的外层类名逐字：
+     `group/item min-w-full min-h-full absolute bg-muted/40 border rounded-xl
+      border-border/60 overflow-hidden backdrop-blur-sm`
+   ⚠️ MTV 的 Tailwind **v3** 对 `var()` 颜色**不生成 `/alpha` 修饰类** —— 实测样式表里
+   既没有 `.bg-muted\/40` 也没有 `.border-border\/60`（只有 `.bg-muted` / `.border-border`），
+   于是卡底透明、与官方不一致。这里按**官方解析值**补成普通 CSS：
+     · `bg-muted/40`      ⇒ `--muted:#2b2b2b`（官方 dark 变量表）× 40% = rgba(43,43,43,.4)
+     · `border-border/60` ⇒ `--border:#ffffff1a`（alpha .1）× 60%   = rgba(255,255,255,.06)
+   圆角/模糊由组件里的 `rounded-xl` / `backdrop-blur-[8px]` 给（v4 的 `backdrop-blur-sm` = 8px）。 */
+.react-flow__node [data-gallery-item] {
+  background-color: rgba(43, 43, 43, 0.4);
+  border-color: rgba(255, 255, 255, 0.06);
+}

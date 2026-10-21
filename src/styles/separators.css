@@ -1,0 +1,20 @@
+/* Shared separators use one semantic color while keeping local geometry.
+   ⚠️ `.ftb-divider`（节点工具栏的组间分隔线）**不在**这里：官方的是 `bg-primary-border`
+      （= 深色 `--color-zinc-600` = oklch(44.2% .017 285.786) / 浅色 `#daebfb`），
+      与 MTV 的 `--separator-color` 明显不同 ⇒ 颜色由 nodes.css 的 `.ftb-divider` 自己给 ✓ */
+/* ⚠️ `.avatar-menu-sep` 已从这里移出：它现在逐字对齐官方账号菜单的 `LNe`
+   （`border: 0.5px solid #fff1` + `my-2`，颜色/几何都由 `sidebar.css` 自己给），
+   留在这里会被 `background-color` 覆盖掉那条发丝线。 */
+.sidebar-sep-v3,
+.menu-rule,
+.canvas-ctx-menu .menu-sep,
+.wf-section-rule,
+.assets-chip-sep,
+.slash-command-divider,
+.multigrid-menu-divider,
+.matting-divider,
+.customgrid-bar-divider,
+.crop-bar-divider,
+.toolbar-edit-zone-divider {
+  background-color: var(--separator-color);
+}

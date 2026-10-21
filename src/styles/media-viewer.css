@@ -1,0 +1,261 @@
+/*
+ * media-viewer.css —— 官方「媒体查看器」（图片/视频分支）的几何与样式，逐字照抄
+ *
+ * 出处：EXE `zoom-slider-B3yfHu80.css`（`media-viewer` 全部落在 @0…@3918）
+ *   `.media-viewer__media-column` / `.__prompt` / `.__facts` / `.__history*`
+ *   + `@media(max-width:1100px)` 覆盖
+ * 其余（JSX 上的 Tailwind 类、`On` 动效常量）见 `components/nodes/shared/media/`。
+ *
+ * ⚠️ 官方这些规则**不引用主题 token**：颜色/尺寸全是硬编码（`#292a2d` / `#f5f5f5` /
+ * `#ffffff85` / `#ffffff8f` / `58·62·68px` / `gap:10px`），照抄即对齐 ✓
+ */
+
+/* ── 官方 `.media-viewer__media-column`（@3）── */
+.media-viewer__media-column {
+  --media-viewer-panel-gap: clamp(32px, 3vw, 48px);
+  --media-viewer-history-width: 76px;
+  --media-viewer-facts-width: clamp(176px, 15vw, 220px);
+  --media-viewer-viewport-gap: clamp(24px, 2vw, 48px);
+  --media-viewer-history-reserve: calc(
+    var(--media-viewer-history-width) + var(--media-viewer-panel-gap) + var(--media-viewer-viewport-gap)
+  );
+  --media-viewer-facts-reserve: calc(
+    var(--media-viewer-facts-width) + var(--media-viewer-panel-gap) + var(--media-viewer-viewport-gap)
+  );
+  --media-viewer-side-reserve: max(var(--media-viewer-history-reserve), var(--media-viewer-facts-reserve));
+  width: 100%;
+  max-width: calc(100vw - var(--media-viewer-side-reserve) - var(--media-viewer-side-reserve));
+}
+
+/* ── 官方 `.media-viewer__prompt`（@13）── */
+.media-viewer__prompt {
+  width: var(--media-viewer-frame-width);
+  margin-top: var(--media-viewer-prompt-offset);
+  margin-inline: auto;
+}
+
+/* ── 官方 `u8` 的 `W = $ && !T`：媒体列（提示词/历史/事实）在**检视(放大)态**淡出 ──
+   官方是给整条媒体列 `opacity: W`（图片本体在 `Xye` 里，是另一棵子树）；
+   MTV 的图片就在这一列里，给整列加 opacity 会把图一起压掉
+   ⇒ 改用 `--media-viewer-chrome-opacity`（在 `main.media-viewer__media-column` 上按 `W` 写）
+     让三个 chrome 类各自消费，视觉结果与官方一致。
+   时长/缓动 = 官方 `Iwe(f, Y, a)` 非文本分支：`On.returnButton.durationSeconds`(.42s) + `On.sharedMedia.ease`。 */
+.media-viewer__prompt,
+.media-viewer__facts,
+.media-viewer__history {
+  opacity: var(--media-viewer-chrome-opacity, 1);
+  transition: opacity 0.42s cubic-bezier(0.65, 0, 0.35, 1);
+}
+.media-viewer__media-column[data-media-viewer-preview='false'] .media-viewer__prompt,
+.media-viewer__media-column[data-media-viewer-preview='false'] .media-viewer__facts,
+.media-viewer__media-column[data-media-viewer-preview='false'] .media-viewer__history {
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .media-viewer__prompt,
+  .media-viewer__facts,
+  .media-viewer__history {
+    transition: none;
+  }
+}
+
+/* ── 官方 `.media-viewer__facts`（@17）── */
+.media-viewer__facts {
+  position: absolute;
+  top: var(--media-viewer-frame-top);
+  left: calc(var(--media-viewer-frame-left) + var(--media-viewer-frame-width) + var(--media-viewer-panel-gap));
+  width: var(--media-viewer-facts-width);
+}
+
+/* ── 官方 `.media-viewer__history`（@22）── */
+.media-viewer__history {
+  position: absolute;
+  top: var(--media-viewer-frame-top);
+  left: calc(var(--media-viewer-frame-left) - var(--media-viewer-history-width) - var(--media-viewer-panel-gap));
+  display: flex;
+  width: var(--media-viewer-history-width);
+  height: var(--media-viewer-frame-height);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-viewer__history-content {
+  display: flex;
+  width: 100%;
+  max-height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+}
+
+.media-viewer__history-count {
+  margin-bottom: 12px;
+  flex: none;
+  color: #ffffff85;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.media-viewer__history-list {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.media-viewer__history-list::-webkit-scrollbar {
+  display: none;
+}
+
+.media-viewer__history-item {
+  display: flex;
+  width: 58px;
+  aspect-ratio: 4 / 3;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0;
+  background: #292a2d;
+  opacity: 0.34;
+  cursor: pointer;
+  transition: width 0.16s ease, opacity 0.16s ease, border-color 0.16s ease;
+}
+.media-viewer__history-item:hover {
+  opacity: 0.8;
+}
+.media-viewer__history-item.is-near {
+  width: 62px;
+  opacity: 0.62;
+}
+.media-viewer__history-item[aria-current='true'] {
+  width: 68px;
+  border-color: #f5f5f5;
+  opacity: 1;
+}
+.media-viewer__history-item:focus-visible {
+  outline: none;
+}
+.media-viewer__history-edge:focus-visible {
+  outline: 2px solid #f5f5f5;
+  outline-offset: 3px;
+}
+.media-viewer__history-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.media-viewer__history-edge {
+  display: none;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #ffffff8f;
+  cursor: pointer;
+}
+.media-viewer__history-edge:disabled {
+  opacity: 0.22;
+  cursor: default;
+}
+
+.media-viewer__history[data-media-viewer-history-overflow] {
+  justify-content: flex-start;
+}
+.media-viewer__history[data-media-viewer-history-overflow] .media-viewer__history-edge {
+  display: flex;
+}
+.media-viewer__history[data-media-viewer-history-overflow] .media-viewer__history-content,
+.media-viewer__history[data-media-viewer-history-overflow] .media-viewer__history-list {
+  flex: 1;
+}
+
+@media (max-width: 1100px) {
+  .media-viewer__media-column {
+    --media-viewer-history-width: 56px;
+  }
+  .media-viewer__history-list {
+    gap: 8px;
+  }
+  .media-viewer__history-item {
+    width: 44px;
+  }
+  .media-viewer__history-item.is-near {
+    width: 48px;
+  }
+  .media-viewer__history-item[aria-current='true'] {
+    width: 52px;
+  }
+}
+
+/* ── 下面是 MTV 侧的外壳（官方用 Tailwind/portal 承担，这里落成类名）── */
+
+/* 查看器整层：官方 `yi.createPortal(..., document.body)`，外层可滚动 */
+.media-viewer__layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  min-height: 100%;
+  width: 100vw;
+  overflow-y: auto;
+  padding: 64px 32px 128px; /* 官方 `px-8 pb-32 pt-16` */
+}
+
+/* 官方根节点 className 在 `f||F`（文本 / 检视中或回退中）时切成 `overflow-hidden` */
+.media-viewer__layer[data-media-viewer-inspecting-image] {
+  overflow: hidden;
+}
+
+/* 官方黑底：与文本查看器同一条 `On.backdrop`（.44s · [.65,0,.35,1]） */
+.media-viewer__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #000;
+}
+
+/* 官方媒体容器：`relative h-[calc(100vh-240px)] min-h-[320px] w-full` */
+.media-viewer__frame {
+  position: relative;
+  height: calc(100vh - 240px);
+  min-height: 320px;
+  width: 100%;
+}
+
+/* 官方 `lbe` 的图片本体：`absolute inset-0 size-full select-none object-contain` */
+.media-viewer__media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  cursor: inherit;
+  transform-origin: center center;
+}
+
+/* 官方 chrome（回退按钮/操作条）的落点：`fixed bottom-7 left-1/2 z-30 -translate-x-1/2` */
+.media-viewer__chrome-bottom {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  z-index: 30;
+  translate: -50% 0;
+}

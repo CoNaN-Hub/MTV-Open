@@ -1,0 +1,17 @@
+/* MTV host: node, ui-btn, Select and NodeToolbarShell supply the shared UI.
+   The viewport scales with React Flow; only editing controls compensate 1/zoom. */
+.mockup-node-wrapper { overflow: visible; }
+.mockup-node { position: relative; padding: 0; }
+.mockup-content { position: absolute; inset: 8px; overflow: hidden; border-radius: inherit; }
+.mockup-viewport, .mockup-snapshot { display: block; width: 100%; height: 100%; object-fit: contain; }
+.mockup-viewport canvas { display: block; width: 100%; height: 100%; }
+.mockup-content.nodrag { cursor: var(--cursor-grab, grab); }
+.mockup-content.nodrag:active { cursor: var(--cursor-grabbing, grabbing); }
+.mockup-message { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; color: var(--theme-text-muted); font: inherit; font-size: var(--ui-font); }
+.mockup-toolbar, .mockup-dock { position: absolute; left: 50%; pointer-events: auto; width: max-content; max-width: calc(100vw - 32px); padding: 8px; border: 1px solid var(--white-alpha-12); border-radius: var(--ui-radius-xl); background: var(--theme-surface); color: var(--theme-text); font-family: inherit; transform: translateX(-50%) scale(var(--float-scale, var(--canvas-inv-zoom, 1))); }
+.mockup-toolbar { bottom: calc(100% + 36px * var(--float-scale, 1)); transform-origin: bottom center; display: flex; align-items: center; gap: 6px; }
+.mockup-dock { top: calc(100% + 14px * var(--float-scale, 1)); transform-origin: top center; }
+.mockup-devices { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.mockup-dock p { margin: 8px 4px 0; font-size: var(--ui-font-sm); line-height: 1.5; color: var(--theme-text-muted); text-align: center; }
+.mockup-toolbar input[type='range'] { width: 92px; accent-color: var(--accent-primary); }
+.mockup-angle { min-width: 32px; font-size: var(--ui-font); font-variant-numeric: tabular-nums; }

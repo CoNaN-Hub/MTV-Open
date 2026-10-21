@@ -1,0 +1,86 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   official-modal.css —— 官方「通用对话框」(`ea` / `Vas`) 的入场/出场动画。
+
+   官方出处：`E:\TapNow-0.4.66\resources\web\assets\index-BiTZf8mJ.js`
+     · `Vas=({modal:t,isTop:e})` @char6111955
+     · overlay `j9e` 类名逐字：`fixed inset-0 z-50 bg-black/80`
+         + `data-[state=open]:animate-in data-[state=closed]:animate-out`
+         + `data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0`
+     · content `H9e` 类名逐字：… + `data-[state=open]:animate-in data-[state=closed]:animate-out`
+         + `data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0`
+         + `data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95`
+         + `data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[52%]`
+         + `data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[40%]`
+
+   ⚠️ 为什么必须有这个文件：
+     官方那串 `data-[state=*]:animate-in / fade-in-0 / zoom-in-95 / slide-*` 全部来自
+     **tailwindcss-animate** 插件。MTV **没有装该插件**（`tailwind.config` 无 `animate` 插件、
+     `devDependencies` 里也没有）⇒ 那些类名在 MTV 里**一个都不会被生成**（惰性 class，等于没写）。
+     MTV `base.css` 里只有**无前缀**的 `.animate-in` / `.fade-in` / `.zoom-in-95` 三个垫片，
+     匹配不到官方的 `data-[state=open]:` 前缀形态。
+
+   ⇒ 这里按 **tailwindcss-animate 的默认值**把同一套动画手写出来（**逐值可核**）：
+     · `enter` / `exit` 关键帧与时长：插件默认 `--tw-enter-*` / `--tw-exit-*` 变量 +
+       `animation: <name> 150ms cubic-bezier(0.16, 1, 0.3, 1) both`
+     · `fade-in-0`  → `--tw-enter-opacity: 0`          （`fade-out-0` → `--tw-exit-opacity: 0`）
+     · `zoom-in-95` → `--tw-enter-scale: .95`           （`zoom-out-95` → `--tw-exit-scale: .95`）
+     · `slide-in-from-left-1/2`  → `--tw-enter-translate-x: -50%`
+       `slide-in-from-top-[40%]` → `--tw-enter-translate-y: 40%`
+     · `slide-out-to-left-1/2`   → `--tw-exit-translate-x: -50%`
+       `slide-out-to-top-[52%]`  → `--tw-exit-translate-y: -52%`
+     插件里 transform 是 `translate3d(x, y, 0) scale3d(s, s, s)`（**替代**元素自身的
+     `-translate-x-1/2 -translate-y-1/2`，所以动画期间 x/y 就是关键帧里的值本身）。
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes official-modal-enter-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes official-modal-exit-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* content 起点 = translate3d(-50%, 40%, 0) scale3d(.95, .95, .95) + opacity 0 */
+@keyframes official-modal-enter-dialog {
+  from {
+    opacity: 0;
+    transform: translate3d(-50%, 40%, 0) scale3d(0.95, 0.95, 0.95);
+  }
+}
+
+/* content 终点 = translate3d(-50%, -52%, 0) scale3d(.95, .95, .95) + opacity 0 */
+@keyframes official-modal-exit-dialog {
+  to {
+    opacity: 0;
+    transform: translate3d(-50%, -52%, 0) scale3d(0.95, 0.95, 0.95);
+  }
+}
+
+.official-modal-overlay[data-state='open'] {
+  animation: official-modal-enter-fade 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.official-modal-overlay[data-state='closed'] {
+  animation: official-modal-exit-fade 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.official-modal-content[data-state='open'] {
+  animation: official-modal-enter-dialog 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.official-modal-content[data-state='closed'] {
+  animation: official-modal-exit-dialog 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* `enterAnimation:"fade"` 时官方**去掉**全部 zoom/slide 类 ⇒ 只留淡入淡出 */
+.official-modal-content--fade[data-state='open'] {
+  animation: official-modal-enter-fade 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.official-modal-content--fade[data-state='closed'] {
+  animation: official-modal-exit-fade 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}

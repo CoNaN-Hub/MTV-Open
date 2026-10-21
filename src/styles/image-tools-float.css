@@ -1,0 +1,348 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   官方「多角度 / 打光」浮层面板 —— 1:1 复刻
+   ──────────────────────────────────────────────────────────────────────────
+   官方源码：`course-api-base-url-CGXqZmAy.js` @3074800 `_nt`（多角度）
+             `index-TabNyQNQ.js`（打光 `RelightFeature`，共用本文件的壳/滑块/开关）
+   ★ 面板**挂在卡片下方**：`absolute left-1/2 -translate-x-1/2 top-full mt-3`（不是上方）
+     ⇒ 这里以卡片（`.ma-host` 的父级 = 节点）为定位基准：`top: calc(100% + 12px)`。
+   ★ 所有颜色/字重/字号/hover 全部取官方 Tailwind 值（注释标出官方类名）。
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 多角度面板根：官方 `absolute bg-[#1A1A1A] rounded-2xl left-1/2 -translate-x-1/2 top-full mt-3 z-50
+   flex flex-col pointer-events-auto nodrag shadow-[0_20px_50px_rgba(0,0,0,0.6)] border border-white/10
+   w-[600px] overflow-hidden` */
+.ma-panel {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 12px);                 /* top-full mt-3 */
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: 600px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;                    /* rounded-2xl */
+  background: #1a1a1a;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 头：`flex items-center justify-between px-4 py-3` */
+.ma-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+/* 标题：`text-sm font-semibold text-white/90` */
+.ma-title { font-size: 14px; line-height: 20px; font-weight: 600; color: rgba(255, 255, 255, 0.9); }
+/* ✕：`p-1 hover:bg-white/10 rounded-md transition-colors text-white/40 hover:text-white` */
+.ma-close {
+  display: inline-flex;
+  padding: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+.ma-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+
+/* 体：`flex gap-4 p-4 pt-0` */
+.ma-body { display: flex; gap: 16px; padding: 0 16px 16px; }
+
+/* 左舞台：`w-[240px] h-[240px] border border-white/5` + `rgba(255,255,255,.03)` / 16px / perspective 1000px */
+.ma-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 240px;
+  height: 240px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  perspective: 1000px;
+}
+
+/* 立方体：`w-[60px] h-[60px] cursor-grab active:cursor-grabbing` + preserve-3d */
+.ma-cube {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  cursor: grab;
+  transform-style: preserve-3d;
+}
+.ma-cube:active { cursor: grabbing; }
+
+/* 面：`absolute w-full h-full flex items-center justify-center border backface-hidden select-none rounded-sm bg-[#222]`
+   front 额外 `bg-[#444] border-white/20 overflow-hidden` */
+.ma-cube-face {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;                     /* rounded-sm */
+  background: #222;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  user-select: none;
+}
+.ma-cube-face--front { background: #444; border-color: rgba(255, 255, 255, 0.2); overflow: hidden; }
+.ma-cube-image { width: 100%; height: 100%; object-fit: cover; }
+/* 其余面：`text-[10px] font-bold text-white/30` */
+.ma-cube-label { font-size: 10px; font-weight: 700; color: rgba(255, 255, 255, 0.3); }
+
+/* 重置：`absolute bottom-3 left-3 flex items-center gap-1 text-[11px] font-medium text-white/30
+   transition-colors hover:text-white/60` */
+.ma-reset {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.ma-reset:hover { color: rgba(255, 255, 255, 0.6); }
+.ma-reset[aria-disabled='true'] { pointer-events: none; opacity: 0.5; }
+
+/* 右列：`flex-1 flex flex-col justify-center` > `space-y-4` */
+.ma-right { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: center; }
+.ma-controls { display: flex; flex-direction: column; gap: 16px; }
+
+/* 官方 `QI` 滑块行：`flex items-center gap-3 w-full h-8` */
+.ma-slider { display: flex; align-items: center; gap: 12px; width: 100%; height: 32px; }
+/* 标签：`w-16 text-xs font-medium text-white/40` */
+.ma-slider-label { width: 64px; font-size: 12px; line-height: 16px; font-weight: 500; color: rgba(255, 255, 255, 0.4); }
+.ma-slider-track-wrap { position: relative; display: flex; flex: 1 1 auto; align-items: center; }
+/* 轨道：`w-full h-[1.5px] bg-white/10 rounded-full relative overflow-hidden` */
+.ma-slider-track { position: relative; width: 100%; height: 1.5px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.1); }
+.ma-slider-fill { position: absolute; top: 0; bottom: 0; background: #fff; }
+/* 滑点：`absolute w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.3)] pointer-events-none` */
+.ma-slider-thumb {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+/* 隐藏的原生 range：`absolute inset-0 w-full h-full opacity-0 appearance-none m-0 p-0 z-20 cursor-pointer` */
+.ma-slider-input {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+.ma-slider-input[aria-disabled='true'] { cursor: not-allowed; }
+/* 数值：`w-12 text-right text-xs font-semibold text-white/80 font-mono` */
+.ma-slider-value {
+  width: 48px;
+  text-align: right;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* 开关行：`flex items-center justify-between py-1` + 标签 `text-xs font-semibold text-white/50` */
+.ma-switch-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+.ma-switch-label { font-size: 12px; line-height: 16px; font-weight: 600; color: rgba(255, 255, 255, 0.5); }
+/* 官方 `su` = shadcn Switch（Radix）：轨道 `h-5 w-9 rounded-full`，thumb `h-4 w-4 rounded-full` */
+.ma-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 36px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #27272a;                    /* 官方实测未选：oklch(0.274 0.006 286.033) ≈ #27272a */
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.ma-switch[data-state='checked'] { background: #1fa2dc; }   /* --primary */
+.ma-switch[aria-disabled='true'] { pointer-events: none; opacity: 0.5; }
+.ma-switch-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #ffffff;                    /* 官方实测：thumb = 纯白 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);   /* shadcn shadow-xs */
+  transform: translateX(2px);
+  transition: transform 0.15s;
+}
+.ma-switch[data-state='checked'] .ma-switch-thumb { transform: translateX(18px); }
+
+/* 生成胶囊：官方 `Af` 传 `className="w-fit mt-4 justify-between self-end"` */
+.ma-generate { flex-shrink: 0; width: fit-content; margin-top: 24px; align-self: flex-end; }
+.ma-switch-row { min-height: 32px; }
+
+/* ── 打光（relight）左列：方位盘 + 方向预设 + 视角切换（官方数据：方位 45° 网格 / 仰角 [-90,-45,0,45,90]） ── */
+.rl-disc { position: relative; width: 200px; height: 200px; border-radius: 999px; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.03); cursor: grab; }
+.rl-disc:active { cursor: grabbing; }
+.rl-disc-image { width: 100%; height: 100%; object-fit: cover; opacity: .45; pointer-events: none; }
+/* 灯位点：官方灯色 #F3F9FC */
+.rl-disc-light { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 999px;
+  box-shadow: 0 0 10px rgba(243,249,252,0.85); pointer-events: none; }
+.rl-presets, .rl-rim-presets { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; margin-top: 8px; }
+.rl-preset { padding: 2px 8px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+  background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.6); font-size: 11px; cursor: pointer; }
+.rl-preset:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.rl-preset[data-state='on'] { background: rgba(255,255,255,0.2); color: #fff; }
+/* 视角切换：官方 `flex bg-white/5 rounded-lg p-0.5` + 选中 `bg-white/10 text-white`
+   + 按钮 `px-3 py-1 text-[11px] font-semibold rounded-md uppercase tracking-wider` */
+.rl-view-switch { display: inline-flex; padding: 2px; border-radius: 8px; background: rgba(255,255,255,0.05); }
+.rl-view-option { padding: 4px 12px; border: 0; border-radius: 6px; background: transparent;
+  color: rgba(255,255,255,0.4); font-size: 11px; line-height: 16px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; }
+.rl-view-option:hover { color: rgba(255,255,255,0.6); }
+.rl-view-option[data-state='on'] { background: rgba(255,255,255,0.1); color: #fff; }
+/* ── 打光右列（官方 `_nt` 同款结构）：宽 246 / 高 322、分组标题 text-sm font-medium、分隔线 h-px bg-border ── */
+.rl-right { display: flex; flex-direction: column; width: 246px; height: 322px; padding-top: 4px; }
+/* 官方三层分组：外层 `gap-3`（12）、「全局」`gap-2`（8）、「主光源」`gap-1`（4） */
+.rl-groups { display: flex; flex-direction: column; gap: 12px; }
+.rl-group-wide { display: flex; flex-direction: column; gap: 8px; }
+.rl-group { display: flex; flex-direction: column; gap: 4px; }
+.rl-section-title { font-size: 14px; line-height: 20px; font-weight: 500; color: #f5f5f5; }
+.rl-slider-title { display: block; margin-bottom: 2px; font-size: 14px; line-height: 20px; font-weight: 600; color: rgba(245,245,245,0.48); }
+.rl-divider { height: 1px; background: #ffffff1a; }
+/* 官方 `Vt` 方向格：`h-6 px-6 rounded-sm text-xs font-semibold`（实测 24 高 / radius 8 / 12px 600 / padding 0 24；
+   未选中 `bg-input/30 text-muted-foreground` = rgba(255,255,255,.045) + #7A7A7A；选中 `bg-input text-white` = rgba(255,255,255,.15)） */
+.rl-preset-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.rl-preset-cell { height: 24px; padding: 0 24px; border: 0; border-radius: 8px; background: rgba(255,255,255,0.045);
+  color: #7a7a7a; font-size: 12px; line-height: 16px; font-weight: 600; overflow: hidden; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: background-color .15s, color .15s; }
+.rl-preset-cell:hover { background: rgba(255,255,255,0.09); }
+.rl-preset-cell[data-state='on'] { background: rgba(255,255,255,0.15); color: #fff; box-shadow: -2px 1px 6.3px rgba(0,0,0,0.05); }
+.rl-preset-cell[aria-disabled='true'] { cursor: not-allowed; }
+.rl-rim-row { display: flex; align-items: center; justify-content: space-between; }
+.rl-rim-label { display: flex; align-items: center; gap: 4px; }
+.rl-rim-text { font-size: 14px; font-weight: 700; color: rgba(255,255,255,0.3); }
+.rl-rim-text.is-on { color: #fff; }
+/* 官方 ⓘ 只用 `help-circle` 图标本身：14px `text-white/30 cursor-help` */
+.rl-rim-info { display: inline-flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); cursor: help; }
+/* 官方 Switch（源码逐字：根 `peer inline-flex h-5 w-9 rounded-full shadow-xs` +
+   `data-[state=unchecked]:bg-zinc-800 data-[state=unchecked]:shadow-inner`，
+   打光处再传 `data-[state=checked]:bg-popover-foreground [&>span]:bg-foreground disabled:opacity-30`；
+   thumb `h-4 w-4 rounded-full bg-white shadow-sm` + `data-[state=unchecked]:translate-x-0 data-[state=checked]:translate-x-4`。
+   官方主题令牌实测：`--popover-foreground:#ccc` / `--foreground:#f5f5f5` / `--input:#ffffff26` / `--border:#ffffff1a`） */
+.rl-switch.ma-switch { background: #27272a; box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.05); }
+.rl-switch.ma-switch[data-state='unchecked'] { box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05); }
+.rl-switch.ma-switch[data-state='checked'] { background: #cccccc; }
+.rl-switch .ma-switch-thumb { background: #f5f5f5; transform: translateX(0);
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.102), 0 1px 2px -1px rgba(0, 0, 0, 0.102); }
+.rl-switch.ma-switch[data-state='checked'] .ma-switch-thumb { transform: translateX(16px); }
+.rl-switch.ma-switch[aria-disabled='true'] { opacity: 0.3; }
+
+/* ── 官方 `je` 档位滑块（逐字几何：132×22 轨道 + top:18 的 2×2 点 + 84×24 数值胶囊） ── */
+.rl-slider { display: flex; align-items: center; justify-content: space-between; }
+.rl-slider-track { position: relative; height: 22px; user-select: none; touch-action: none; cursor: pointer; }
+.rl-slider-track[aria-disabled='true'] { cursor: not-allowed; opacity: 0.6; }
+.rl-slider-bar { position: absolute; left: 0; top: 6px; width: 132px; height: 10px; padding: 2px;
+  border-radius: 18px; overflow: hidden; pointer-events: none;
+  background: rgba(255,255,255,0.09); backdrop-filter: blur(19px); }
+.rl-slider-bar.is-gradient { border-radius: 16px; background: rgba(173,176,178,0.10); }
+.rl-slider-gradient { position: absolute; inset: 2px; border-radius: 14px; }
+.rl-slider-cells { position: relative; display: flex; width: 100%; height: 100%; }
+.rl-slider-cell { flex: 1 1 0%; border-radius: 8px; transition: background-color .2s; }
+.rl-slider-dot { position: absolute; top: 18px; width: 2px; height: 2px; border-radius: 999px;
+  pointer-events: none; transition: opacity .2s; }
+.rl-slider-pill { display: flex; align-items: center; flex-shrink: 0; width: 84px; height: 24px; border-radius: 8px;
+  background: rgba(255,255,255,0.045); user-select: none; touch-action: none; cursor: ew-resize; }
+.rl-slider-pill[aria-disabled='true'] { cursor: not-allowed; opacity: 0.6; }
+.rl-slider-pill-inner { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 8px 0 12px; pointer-events: none; }
+.rl-slider-icon { display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;
+  flex-shrink: 0; color: #f5f5f5; }
+.rl-slider-value { font-size: 14px; line-height: 20px; font-weight: 500; color: #f5f5f5; }
+.rl-slider-suffix { font-size: 14px; line-height: 20px; font-weight: 600; color: rgba(245,245,245,0.34); }
+/* ── 打光左列：官方 three.js 灯架舞台 + 左下重置 + 底部「主光源」标签块 ── */
+/* 官方 `si` 标签块：`relative overflow-hidden flex items-center justify-center` +
+   `background:#212121; radius 12px 12px 0 0; outline 1px var(--border); height 22; padding 0 14`
+   —— `overflow:hidden` 是关键：底部 89×12 光晕条被裁进圆角内，不会溢出到左右/下方 */
+.rl-tab-chip { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center;
+  height: 22px; padding: 0 14px; border-radius: 12px 12px 0 0; background: #212121;
+  outline: 1px solid #ffffff1a; outline-offset: -1px;
+  color: #B4B4B4; font-size: 12px; font-style: italic; line-height: 16px; padding-top: 2px; text-transform: uppercase; }
+/* 底部 89×12 光晕条：opacity .33、blur 3.1px；颜色 = 官方 `B`（随色温），由内联 style 给 */
+.rl-tab-glare { position: absolute; left: 50%; transform: translateX(-50%); bottom: -5px; width: 89px; height: 12px;
+  border-radius: 999px; opacity: .33; filter: blur(3.1px); pointer-events: none; }
+.rl-generate { margin-top: auto; }
+/* ══ 打光面板：官方外壳几何（逐字：background:#1F1F1F / borderRadius:24 / padding:8；
+      ✕ `absolute right-2 top-2 p-1 hover:bg-white/10 rounded-md text-white/40 hover:text-white z-10`；
+      左列 `width:322 height:322 background:#2B2B2B borderRadius:16 overflow-hidden`；
+      重置 `absolute bottom-3 right-3 text-[11px] font-medium text-white/30 hover:text-white/60`；
+      标签块 `absolute bottom-0 left-1/2 -translate-x-1/2`）══ */
+.rl-panel {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 12px);
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  background: #1f1f1f;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.rl-panel > .ma-body { display: flex; gap: 16px; padding: 0; }
+.rl-close {
+  position: absolute; right: 8px; top: 8px; z-index: 10;
+  display: inline-flex; padding: 4px; border: 0; border-radius: 6px; background: transparent;
+  color: rgba(255,255,255,0.4); cursor: pointer; transition: color .15s, background-color .15s;
+}
+.rl-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+/* 官方左列：`relative shrink-0 overflow-hidden` + style 322×322 #2B2B2B radius16（无 flex） */
+.rl-stage {
+  position: relative; overflow: hidden;
+  width: 322px; height: 322px; flex-shrink: 0;
+  background: #2b2b2b; border-radius: 16px;
+}
+/* 官方内层包裹：`flex flex-col items-center pt-2` */
+.rl-stage-inner { display: flex; flex-direction: column; align-items: center; padding-top: 8px; }
+.rl-reset { position: absolute; right: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 4px;
+  padding: 0; border: 0; background: transparent; color: rgba(255,255,255,0.3);
+  font-size: 11px; font-weight: 500; cursor: pointer; transition: color .15s; }
+.rl-reset:hover { color: rgba(255,255,255,0.6); }
+.rl-reset[aria-disabled='true'] { cursor: not-allowed; opacity: .4; }
+/* 官方标签块外层：`absolute bottom-0 left-1/2 -translate-x-1/2` */
+.rl-tab-chip-wrap { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); }
+.rl-right { display: flex; flex-direction: column; width: 246px; height: 322px; padding-top: 4px; }
+/* 官方灯架：`flex flex-col items-center gap-1` + 256×256 `relative select-none` 画布宿主 */
+.rl-rig-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rl-rig { position: relative; user-select: none; }
+.rl-rig canvas { display: block; }

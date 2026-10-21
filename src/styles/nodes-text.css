@@ -1,0 +1,522 @@
+/* ============================================
+   Text Node — compact output, edit, wordcount, toolbar, fullscreen
+   ============================================ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   文本卡内容区 = **官方 `Vee`(@3386111) 容器 + `canvas-text-markdown` 排版**
+   （官方 CSS 出处：`zoom-slider-B3yfHu80.css` @3965）
+   官方容器：`relative flex h-full w-full cursor-default flex-col overflow-y-auto px-4 py-3`
+             `style={{ scrollbarWidth:'thin', scrollbarColor:'#ffffff20 transparent' }}`
+   官方排版（逐字要点）：
+     `.canvas-text-markdown{max-width:none;color:var(--foreground);font-family:var(--font-sans);
+        font-size:1rem;line-height:1.6;letter-spacing:normal;overflow-wrap:break-word}`
+     `p{margin:.25em 0;color:var(--popover-foreground);font-size:1rem;line-height:1.7}`
+     `h1{2em;border-bottom:1px solid var(--border)} h2{1.5em;border-bottom} h3{1.25em}`
+     `code{padding:.2em .4em;r3;background:var(--muted);font-family:var(--font-mono);font-size:.85em}`
+     `pre{margin:1em 0;padding:1em;overflow-x:auto;border:1px solid var(--border);r6;background:var(--muted)}`
+     `ul/ol{margin:.5em 0;padding-left:1.2em} li{margin:.15em 0;line-height:1.5}`
+   ⚠️ MTV 旧值 = `font-size:10px` + `padding:4px` + 纯文本 `pre-wrap` ✗ —— 与官方差一大截，已按源码改。
+   ══════════════════════════════════════════════════════════════════════ */
+.text-output-content.compact {
+  align-self: stretch;
+  /* ★ 官方 `Vee` 容器逐字（`zoom-slider-3ZcFvYQO.js` @3386148）：
+       `relative flex h-full w-full cursor-default flex-col overflow-y-auto px-4 py-3`（选中时追加 `nowheel`）
+     ⚠️ 官方是 **`display:flex; flex-direction:column`**，MTV 原来是 `display:block`
+        ⇒ block 布局下相邻块 margin **会折叠**（间距 = max(h1 mb, h2 mt)），
+          官方 flex 布局**不折叠**（间距 = h1 mb + h2 mt）⇒ 块间距只有官方的一半 ✗
+        ⇒ 按源码改成 flex column。 */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  /* 官方 `font-size:1rem`（16px）· 根行高 1.6（段落在下面单独 1.7）*/
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--theme-text);
+  overflow-wrap: break-word;
+  /* 官方 `px-4 py-3` = 左右 16 · 上下 12 */
+  padding: 12px 16px;
+  /* ★★ `white-space: normal` 必须显式写：`nodes.css:1054` 的基础规则
+     `.text-output-content{… white-space: pre-wrap …}` 是 MTV **纯文本卡片时代**留下的，
+     而 markdown → HTML 之后块与块之间会留下**字面的 `\n\n` 文本节点**
+     （实测 innerHTML：`<h1>一级标题\n</h1>\n\n\n<h2>…`，`childNodes` 里是 `TEXT:"\n\n"`）
+     ⇒ `pre-wrap` 把每对换行渲染成**两行空行**（≈51px）⇒ 卡片里 h1/h2/h3/p 之间全是大空隙、
+     内容直接溢出滚动、字号看着"比官方大一圈" ✗（用户：图1 官方卡片 / 图2 我的，同样内容不一样）
+     官方卡片是 ReactMarkdown（`UP` 组件）+ 正常空白折叠 ⇒ 块间距只由 CSS margin 决定 ✓ */
+  white-space: normal;
+  /* 官方 `Vee` 根类名 = `cursor-default`（不是文本光标；双击才编辑）*/
+  cursor: default;
+  /* 官方滚动条：`scrollbarWidth:'thin'` · `scrollbarColor:'#ffffff20 transparent'` */
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff20 transparent;
+  transition: background var(--transition-base), box-shadow var(--transition-base);
+}
+
+/* 官方 `canvas-text-markdown` 的元素级排版（MTV `renderMarkdown` 产出的标签集合一致） */
+/* ══════════════════════════════════════════════════════════════════════════
+   `.canvas-text-markdown` 排版 —— 官方 `zoom-slider-B3yfHu80.css` @3965 起**逐字**（38 条）
+   ★ 这一份同时服务**两个宿主**（与官方结构一致）：
+       · 卡片本体：官方 `Vee`（外层 `relative flex h-full w-full cursor-default flex-col overflow-y-auto px-4 py-3`）
+                   > `UP`（`<div class="canvas-text-markdown">`）> 各块
+       · 全屏编辑区：tiptap 根元素**本身就带** `canvas-text-markdown`（另外还挂了 `prose …`）
+   ⚠️ MTV 原来把同一套规则抄成 `.text-output-content.compact …` 一份、编辑区又手写一份，而且卡片那份抄的是
+      官方**前面**的 `.canvas-text-markdown h1{font-size:2em} h2{1.5em} h3{1.25em}`，
+      **漏掉同一文件后面的覆盖** `.canvas-text-markdown h1{font-size:2.5em} h2{2em} h3{1.5em}`
+      ⇒ 卡片里标题只有官方的一半大小 ✗（用户对照图1/图2 的直接原因）。现在统一成官方这一份、两边共用。
+   ⚠️ 官方用的设计令牌 MTV 有些没有（例如 `--muted-foreground` 实测为空）⇒ 每个 `var()` 都带兜底值：
+      令牌存在时用令牌，不存在时用官方暗色实测值。 */
+.canvas-text-markdown {
+  max-width: none;
+  color: var(--foreground, #f5f5f5);
+  font-family: var(--font-sans, Inter, -apple-system, BlinkMacSystemFont, sans-serif);
+  font-size: 1rem;
+  line-height: 1.6;
+  letter-spacing: normal;
+  overflow-wrap: break-word;
+}
+
+.canvas-text-markdown :is(h1, h2, h3) {
+  margin: 0.5em 0 0.3em;
+  color: var(--popover-foreground, #cccccc);
+  font-weight: 600;
+  line-height: 1.3;
+  scroll-margin-top: 1rem;
+}
+
+/* ★ 官方同一文件后面还有一组覆盖（就是它决定了实际 40/32/24px）：h1{2.5em} h2{2em} h3{1.5em} */
+.canvas-text-markdown h1 {
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  color: var(--foreground, #f5f5f5);
+  font-size: 2.5em;
+}
+
+.canvas-text-markdown h1:first-child { margin-top: 0; }
+
+.canvas-text-markdown h2 {
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  font-size: 2em;
+}
+
+.canvas-text-markdown h3 { font-size: 1.5em; }
+
+.canvas-text-markdown p {
+  margin: 0.25em 0;
+  color: var(--popover-foreground, #cccccc);
+  font-size: 1rem;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+
+.canvas-text-markdown strong { font-weight: 700; }
+.canvas-text-markdown em { font-style: italic; }
+
+.canvas-text-markdown :is(del, s) {
+  color: var(--muted-foreground, #7a7a7a);
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.canvas-text-markdown a,
+.canvas-text-markdown .canvas-text-markdown-link {
+  color: var(--primary, #1fa2dc);
+  font-weight: 500;
+  text-decoration: none;
+  overflow-wrap: break-word;
+}
+
+.canvas-text-markdown a:hover { text-decoration: underline; opacity: 0.8; }
+
+.canvas-text-markdown code {
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  background-color: var(--muted, rgba(255, 255, 255, 0.06));
+  color: var(--foreground, #f5f5f5);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+
+.canvas-text-markdown pre {
+  position: relative;
+  max-width: 100%;
+  margin: 1em 0;
+  padding: 1em;
+  overflow-x: auto;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  border-radius: 6px;
+  background-color: var(--muted, rgba(255, 255, 255, 0.06));
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.85em;
+  line-height: 1.45;
+}
+
+.canvas-text-markdown pre code {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--foreground, #f5f5f5);
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.canvas-text-markdown :is(ul, ol) {
+  margin: 0.5em 0;
+  padding-left: 1.2em;
+  overflow: visible;
+  list-style-position: outside;
+}
+
+.canvas-text-markdown ul { list-style-type: disc; }
+.canvas-text-markdown ol { list-style-type: decimal; }
+
+.canvas-text-markdown li {
+  display: list-item;
+  margin: 0.15em 0;
+  padding-left: 0.2em;
+  color: var(--popover-foreground, #cccccc);
+  font-size: 1rem;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.canvas-text-markdown li::marker {
+  color: var(--tap-text-3, #7a7a7a);
+  font-size: 1em;
+}
+
+.canvas-text-markdown li > p { display: inline; margin: 0; padding: 0; }
+.canvas-text-markdown li:last-child { margin-bottom: 0; }
+
+.canvas-text-markdown ul ul { margin: 0.1em 0; list-style-type: circle; }
+.canvas-text-markdown ul ul ul { list-style-type: square; }
+.canvas-text-markdown ol ol { margin: 0.1em 0; list-style-type: lower-alpha; }
+.canvas-text-markdown ol ol ol { list-style-type: lower-roman; }
+
+/* ★ round 103：本族（`--quote-*`）**官方逐字有整族 5 条**（报告 §10）——
+   `D:\DEEPSEEK\_official-css\vendor-pkg-canvas-DjxHVVpA.css` @8453 起 `.canvas-text-markdown blockquote`
+   里就是这 5 条一模一样的公式（@8453 text / @8529 accent / @8607 strong / @8679 code-bg / @8747 link），
+   消费点同文件 @8896 / @9061 / @9347 / @9451。MTV 只是给每个 `var()` 多加了一个 fallback。
+   ⇒ 按要求「去冗余」：**删掉 fallback**（官方原文没有 fallback），公式与值一字不变。
+   ⚠️ `var(--muted-foreground)` / `var(--foreground)` / `var(--muted)` / `var(--border)` 官方都**没有浅色层**
+   ⇒ MTV 浅色主题下这块仍取官方暗色值（报告 §10.4 已提示 `--quote-strong` 在浅底上偏淡）。
+   本轮按用户口径「浅色字面值不动」**未新增浅色覆盖**，已列入报告待裁决。 */
+.canvas-text-markdown blockquote {
+  --quote-text: color-mix(in srgb, var(--muted-foreground) 84%, transparent);
+  --quote-accent: color-mix(in srgb, var(--muted-foreground) 52%, transparent);
+  --quote-strong: color-mix(in srgb, var(--foreground) 85%, transparent);
+  --quote-code-bg: color-mix(in srgb, var(--muted) 30%, transparent);
+  --quote-link: color-mix(in srgb, var(--muted-foreground) 90%, transparent);
+  margin: 1em 0;
+  padding: 0 0 0 1.35em;
+  border-left: 1px solid var(--quote-accent);
+  background: transparent;
+}
+
+.canvas-text-markdown blockquote::before { content: none; }
+.canvas-text-markdown blockquote p { margin: 0; color: var(--quote-text); font-weight: 400; line-height: 1.8; }
+@supports (text-wrap: pretty) { .canvas-text-markdown blockquote p { text-wrap: pretty; } }
+.canvas-text-markdown blockquote p:not(:last-child) { margin-bottom: 0.4em; }
+.canvas-text-markdown blockquote :is(strong, b) { color: var(--quote-strong); }
+.canvas-text-markdown blockquote code { border-color: var(--border); background: var(--quote-code-bg); }
+.canvas-text-markdown blockquote :is(a, .canvas-text-markdown-link) { color: var(--quote-link); }
+
+.canvas-text-markdown hr {
+  clear: both;
+  height: 2px;
+  margin: 1.5em 0;
+  border: 0;
+  border-radius: 0;
+  background-color: var(--border, rgba(255, 255, 255, 0.06));
+}
+
+.canvas-text-markdown img { max-width: 100%; height: auto; }
+.text-output-edit {
+  align-self: stretch;
+  width: 100%;
+  min-height: 100%;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--theme-text);
+  background: var(--theme-bg);
+  border: 1px solid var(--node-text);
+  border-radius: 8px;
+  resize: none;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 6px;
+  font-family: inherit;
+}
+
+.text-output-edit::placeholder {
+  color: var(--theme-text-muted);
+}
+
+.text-node-empty-editable {
+  cursor: default;   /* 官方 `Vee` 的 `cursor-default`（原来 MTV 是文本光标 + hover 变色 ✗）*/
+}
+
+/* 官方空卡提示（`Vee`）：`text-[15px] leading-6 text-muted-foreground/80` = 15px/24px、#7a7a7a @80% */
+.text-node-edit-hint {
+  font-size: 15px;
+  line-height: 24px;
+  color: color-mix(in srgb, var(--muted-foreground, #7a7a7a) 80%, transparent);
+  opacity: 1;
+}
+
+/* 官方文本卡空态正文容器（`Vee` @3386000 逐字）：
+     `relative flex h-full w-full cursor-default flex-col overflow-y-auto px-4 py-3`
+     `style={{ scrollbarWidth:'thin', scrollbarColor:'#ffffff20 transparent' }}`
+   ⇒ **左上起笔 + 内距 px-4 py-3 + 细滚动条**；MTV 原来是 flex 居中（用户：「起笔不对」）✗ */
+.text-node .node-preview-placeholder {
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 12px 16px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff20 transparent;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   文本卡「放大面板」= 官方媒体查看器（MediaViewer）文本分支 —— 逐字对齐
+   出处：`Xve` @569138（外壳）· `sxe` @571990（文本分支）·
+        `zoom-slider-B3yfHu80.css` @3583（几何）
+   外壳两层：
+     ① `data-media-viewer-text-surface`：`fixed inset-0 z-0 overflow-hidden bg-card`
+        + `style.backgroundColor = 节点 data.color`；内含 `absolute inset-0 bg-black`
+        （官方动画终态 `tv()` 把黑层设成 `opacity:1` ⇒ **最终底色是黑**，卡片色只参与开场形变）
+     ② `data-media-viewer-dismiss-blocker`：`media-viewer__text-safe-zone fixed z-10 flex justify-center`
+        `pointer-events` 由 phase 控制（open 才可点）⇒ 点面板之外即关闭
+   几何（官方逐字）：
+     `.media-viewer__text-safe-zone{inset-inline:0;top:80px;bottom:96px;width:min(76vw,1440px);margin-inline:auto}`
+     `.media-viewer__text-panel{width:min(60vw,1120px)}`
+     `@media(max-width:900px){safe-zone:calc(100vw - 32px) · panel:100%}`
+   内容：视图态 `size-full overflow-y-auto px-10 py-8`（40/32）+ `.canvas-text-markdown`；
+        编辑态同 padding（官方 `contentClassName="… !px-10 !py-8"`）。
+   ══════════════════════════════════════════════════════════════════════ */
+.media-viewer__surface {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--card, #1f1f1f);   /* bg-card */
+}
+
+.media-viewer__black {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+
+.media-viewer__text-safe-zone {
+  position: fixed;
+  inset-inline: 0;
+  top: 80px;
+  bottom: 96px;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  width: min(76vw, 1440px);
+  margin-inline: auto;
+  pointer-events: auto;
+}
+
+.media-viewer__text-panel {
+  width: min(60vw, 1120px);
+  height: 100%;
+  overflow: hidden;
+  user-select: text;
+  color: var(--card-foreground, #ccc);   /* text-card-foreground */
+}
+
+.media-viewer__text-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 32px 40px;                    /* px-10 py-8 */
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff20 transparent;
+}
+
+/* 编辑态 = 官方 `canvas-text-markdown min-h-full !max-w-none !px-10 !py-8`（MTV 用 textarea） */
+.media-viewer__text-editor {
+  width: 100%;
+  min-height: 100%;
+  padding: 32px 40px;                    /* 与视图态同 padding（官方 `!px-10 !py-8`）*/
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--card-foreground, #ccc);
+  font-family: var(--font-sans, inherit);
+  font-size: 16px;                       /* canvas-text-markdown 根 1rem */
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: #ffffff20 transparent;
+}
+
+.media-viewer__text-editor::placeholder {
+  color: color-mix(in srgb, var(--muted-foreground, #7a7a7a) 80%, transparent);
+}
+
+@media (max-width: 900px) {
+  .media-viewer__text-safe-zone { width: calc(100vw - 32px); }
+  .media-viewer__text-panel { width: 100%; }
+}
+
+/* ── 官方 `mye` 底部操作条（`fixed bottom-7 left-1/2 z-30 -translate-x-1/2`）──
+   `On.actions = { enterDurationSeconds:.28, exitDurationSeconds:.16, offsetPixels:18, ease:[.22,1,.36,1] }`
+   容器 = 官方 `e$`(Dock, 类名 `media-viewer__text-actions`)：包里没定位到它的类名 ⇒
+   这里按查看器 chrome 的同一套 token（黑 60% + blur-lg + border-white/10 + 全圆角）落地。
+   按钮：复制全部 `size-9`(36px) `rounded-full p-0 text-white/75 hover:bg-white/[0.08] hover:text-white`；
+        格式化按钮 `h-7 w-7`(28px) 同上；激活态 `bg-white/[0.10] text-white`；
+        分隔线 `mx-1 h-5 w-px bg-white/10`。 */
+.media-viewer__actions-layer {
+  position: fixed;
+  bottom: 28px;                     /* bottom-7 */
+  left: 50%;
+  z-index: 30;
+  transform: translateX(-50%);
+}
+
+.media-viewer__text-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+
+.media-viewer__markdown-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+}
+
+.media-viewer__markdown-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.media-viewer__text-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;                      /* size-9（复制全部）*/
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75); /* text-white/75 */
+  cursor: pointer;
+  transition: background-color var(--dur-fast, 0.15s) ease, color var(--dur-fast, 0.15s) ease;
+}
+
+.media-viewer__text-action.is-small,
+.media-viewer__markdown-tools .media-viewer__text-action {
+  width: 28px;                      /* h-7 w-7 */
+  height: 28px;
+  color: rgba(255, 255, 255, 0.7);  /* text-white/70 */
+}
+
+.media-viewer__text-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.media-viewer__text-action.is-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.media-viewer__text-action-sep {
+  width: 1px;
+  height: 20px;                     /* h-5 */
+  margin: 0 4px;                    /* mx-1 */
+  background: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+/* Character count — bottom-right inside text node */
+.text-node-wordcount {
+  position: absolute;
+  right: 5px;
+  bottom: -12px;
+  font-size: 8px;
+  color: var(--theme-text-muted);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+  z-index: 2;
+}
+
+/* ============================================
+   Text Toolbar — above selected TextNode
+   ============================================ */
+/* ★ 文本节点工具栏**不再有任何自己的几何** ✗
+   （原来这里写着 `margin: 0 auto; gap: 4px;` 以及更早的 `top:-40px !important`）
+   位置/尺寸/间距/组/分隔线全部由共用规则给（`styles/nodes.css`）：
+     · 位置 = `.node-floating-toolbar { top: var(--float-top) }`（= 官方 `od` 的 `-min(48/zoom,60)`）
+     · 缩放 = `.node-floating-toolbar { transform: … scale(var(--float-scale)) }`（= 官方 `1/zoom`）
+     · 组 = `.ftb-zone`（gap 2px）· 分隔线 = `.ftb-divider`（1×18px，无 margin） */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   全屏文本编辑器（官方 tiptap）—— 占位符 + 编辑区排版
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ① 占位符规则 A（官方 `zoom-slider-B3yfHu80.css` @18924 逐字）：**任意**空块 → `#adb5bd` */
+.ProseMirror .is-editor-empty:first-child::before,
+.ProseMirror .is-node-empty::before,
+.ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+/* ② 占位符规则 B（官方 `index-DV4al4p1.css` 里 `p` 专属那条逐字，特异性更高 ⇒ 段落覆盖规则 A）：
+      `.tiptap p.is-editor-empty:first-child::before{color:var(--muted-foreground);content:attr(data-placeholder);
+                                                     float:left;pointer-events:none;height:0}`
+   ⚠️ 官方占位符颜色是**分档**的（9444 实测）：`p` = rgb(122,122,122)（= `--muted-foreground` `#7a7a7a`）；
+      `h1/h2/h3/ul/ol` = rgb(173,181,189)（= `#adb5bd`，就是规则 A 给的那个）。
+      我上一轮把两条一刀切成了 muted-foreground ✗（段落对了、标题/列表错了）
+   ⚠️ MTV 没有定义 `--muted-foreground`（实测 computed 为空）⇒ 必须带兜底值，否则 var() 解析失败退回继承色 */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted-foreground, #7a7a7a);
+  pointer-events: none;
+  height: 0;
+}
+
+/* ③ 官方编辑区**没有** `[contenteditable]` 的 hover/focus 底色
+      （`base.css` 那条全局规则是 MTV 自造的，会给编辑区画一层白底 ✗） */
+.canvas-text-markdown[contenteditable]:hover,
+.canvas-text-markdown[contenteditable]:focus {
+  background-color: transparent;
+}
+
+/* ④ 编辑区的 markdown 排版**不再单独写**：官方编辑区根元素本身就带 `canvas-text-markdown`
+      （`tiptap ProseMirror prose prose-sm dark:prose-invert … canvas-text-markdown`），
+      所以上面那份官方 `.canvas-text-markdown …` 规则**同一份就够**（卡片本体 + 编辑区共用）✓
+      （我上一轮手写的"按实测值逐条写死"的版本已删除 —— 那是绕远路，官方本来就是一套规则两个宿主。） */

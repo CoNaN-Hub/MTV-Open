@@ -1,0 +1,70 @@
+{
+    "build": {
+        "beforeDevCommand": "npm run dev",
+        "devUrl": "http://localhost:5180",
+        "beforeBuildCommand": "npm run build && npm run build:mcp-adapter",
+        "frontendDist": "../dist"
+    },
+    "productName": "MTV Open",
+    "version": "0.1.0",
+    "identifier": "io.github.mtvopen.desktop",
+    "plugins": {
+        "shell": {
+            "open": true
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": ["nsis"],
+        "createUpdaterArtifacts": false,
+        "resources": {
+            "resources/mtv-mcp.mjs": "mtv-mcp.mjs"
+        },
+      "icon": [
+        "icons/icon.ico",
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.png",
+        "icons/mtv-logo.svg"
+      ],
+        "windows": {
+            "nsis": {
+                "installerIcon": "icons/icon.ico",
+                "installMode": "currentUser",
+                "installerHooks": "windows/nsis-hooks.nsh",
+                "languages": [
+                    "English",
+                    "SimpChinese"
+                ]
+            }
+        }
+    },
+    "app": {
+        "withGlobalTauri": true,
+        "macOSPrivateApi": true,
+        "security": {
+            "csp": "default-src 'self'; script-src 'self' http://plugin-ui.localhost plugin-ui:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: asset: http://asset.localhost https://asset.localhost http: https:; media-src 'self' data: blob: asset: http://asset.localhost https://asset.localhost http: https:; connect-src 'self' data: blob: ipc: http://ipc.localhost https://ipc.localhost asset: http://asset.localhost https://asset.localhost http: https: ws: wss:; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'",
+            "assetProtocol": {
+                "enable": true,
+                "scope": [
+                    "$APPDATA/**"
+                ]
+            }
+        },
+        "windows": [
+            {
+                "title": "MTV 导演画布",
+                "width": 1420,
+                "height": 900,
+                "minWidth": 1000,
+                "minHeight": 700,
+                "decorations": true,
+                "transparent": false,
+                "resizable": true,
+                "shadow": true,
+                "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port=9333"
+            }
+        ]
+    }
+}

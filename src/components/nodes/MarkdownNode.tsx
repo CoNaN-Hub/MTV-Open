@@ -1,0 +1,375 @@
+﻿/**
+ * MarkdownNode 源节点 — 支持 .md 文件的编辑、预览与自动本地保存
+ */
+import { memo, useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { Handle, Position } from '@xyflow/react';
+import type { BaseNodeData } from '../../types';
+import NodeLabel from './shared/NodeLabel';
+import GooeyBtn from './shared/GooeyBtn';
+import FullscreenOverlay from '../shared/FullscreenOverlay';
+import { useNodeRename } from './shared/useNodeRename';
+import { useSourceFileUpload } from './shared/useSourceFileUpload';
+import { useAppStore } from '../../store/useAppStore';
+import { saveBinaryToProjectData } from '../../services/fileService';
+import AnimatedButton from '../shared/AnimatedButton';
+import { renderMarkdown } from '../../utils/renderMarkdown';
+import { textNodeHeight } from '../../utils/num';
+import { useT } from '../../i18n';
+
+function MarkdownNode({ id, data, selected }: { id: string; data: BaseNodeData; selected?: boolean }) {
+  const t = useT();
+  const updateNodeData = useAppStore((s) => s.updateNodeData);
+  const updateNodeDataTransient = useAppStore((s) => s.updateNodeDataTransient);
+  const commitToHistory = useAppStore((s) => s.commitToHistory);
+  const currentProjectId = useAppStore((s) => s.currentProjectId);
+  const showToast = useAppStore((s) => s.showToast);
+
+  // ── Edit / Preview toggle ──
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>(() => (
+    data.output ? 'preview' : 'edit'
+  ));
+
+  // ── Fullscreen ──
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fsViewMode, setFsViewMode] = useState<'edit' | 'preview'>('preview');
+  const fullscreenTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const contentEditActiveRef = useRef(false);
+
+  const finishContentEdit = useCallback(() => {
+    if (!contentEditActiveRef.current) return;
+    commitToHistory();
+    contentEditActiveRef.current = false;
+  }, [commitToHistory]);
+
+  const handleOpenFullscreen = useCallback(() => {
+    setFsViewMode('preview');
+    setIsFullscreen(true);
+  }, []);
+
+  const handleCloseFullscreen = useCallback(() => {
+    finishContentEdit();
+    setIsFullscreen(false);
+  }, [finishContentEdit]);
+
+  // ── Copy content ──
+  const [copied, setCopied] = useState(false);
+  const copyResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCopy = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const content = (data.output as string) || '';
+    if (!content) {
+      showToast(t('暂无文本可复制'), 'error');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      showToast(t('文本已复制'));
+      if (copyResetTimer.current) clearTimeout(copyResetTimer.current);
+      copyResetTimer.current = setTimeout(() => setCopied(false), 1500);
+    } catch {
+      showToast(t('复制失败，请手动复制'), 'error');
+    }
+  }, [data.output, showToast, t]);
+
+  // Auto-focus textarea when fullscreen opens in edit mode
+  useEffect(() => {
+    if (isFullscreen && fsViewMode === 'edit') {
+      requestAnimationFrame(() => {
+        const ta = fullscreenTextareaRef.current;
+        if (ta) {
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+      });
+    }
+  }, [isFullscreen, fsViewMode]);
+
+  // ── Upload ──
+  const { isUploading, handleUpload } = useSourceFileUpload('.md');
+
+  // ── 固定文件名（仅首次生成，之后始终覆写到同一文件）──
+  const savedFileNameRef = useRef<string>((data.fileName as string) || `markdown-${id}.md`);
+
+  const doSave = useCallback(async (content: string) => {
+    if (!content) return;
+    const fileName = savedFileNameRef.current;
+
+    try {
+      if (!currentProjectId) return;
+      const bytes = new TextEncoder().encode(content);
+      const result = await saveBinaryToProjectData(bytes, currentProjectId, fileName);
+      if (result) {
+        const resolvedName = result.filePath.split(/[/\\]/).pop() || fileName;
+        savedFileNameRef.current = resolvedName;
+        updateNodeDataTransient(id, {
+          fileName: resolvedName,
+          filePath: result.filePath,
+          status: 'success',
+        } as Partial<BaseNodeData>);
+      }
+    } catch {
+      // ignore save errors (non-Tauri environment etc.)
+    }
+  }, [currentProjectId, id, updateNodeDataTransient]);
+
+  const onUpload = useCallback(async () => {
+    const result = await handleUpload();
+    if (!result) return;
+
+    let textContent: string;
+    if (result.dataUrl.startsWith('data:text/')) {
+      const base64 = result.dataUrl.split(',')[1];
+      try {
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        textContent = new TextDecoder('utf-8').decode(bytes);
+      } catch {
+        textContent = atob(base64);
+      }
+    } else {
+      textContent = result.dataUrl;
+    }
+
+    const lineCount = textContent.split('\n').length;
+    const estimatedHeight = textNodeHeight(lineCount, 160);
+
+    // 使用上传文件的文件名
+    savedFileNameRef.current = result.fileName;
+
+    updateNodeData(id, {
+      output: textContent,
+      fileName: result.fileName,
+      label: result.fileName,
+      status: 'success',
+      nodeHeight: estimatedHeight,
+    } as Partial<BaseNodeData>);
+
+    // 立即保存到本地
+    doSave(textContent);
+  }, [id, handleUpload, updateNodeData, doSave]);
+
+  // ── Auto-save debounce ──
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ★ 旧数据兼容 —— 官方图片节点是 **333×250** ✓；MTV 上一版默认写的是 **280** ✗，
+     而 280 已持久化进画布数据 → 只改 fallback 无效（`data.nodeWidth` 有值就会赢 ✓）
+     实测证据：`.node-wrapper` 的 inline style 是 `width: 280px` ✗
+     → 这里把**旧默认值 280** 视为 **333** ✓（只针对这一个值，用户手动调过的其它宽度不动 ✓）*/
+  const storedWidth = data.nodeWidth as number | undefined;
+  const nodeWidth = storedWidth === 280 ? 333 : (storedWidth || 333);
+  const nodeHeight = (data.nodeHeight as number) || 200;
+
+  
+  // ── Content change (edit mode) with debounced auto-save ──
+  const handleContentChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      if (!contentEditActiveRef.current) {
+        commitToHistory();
+        contentEditActiveRef.current = true;
+      }
+      updateNodeDataTransient(id, { output: value } as Partial<BaseNodeData>);
+
+      // debounce auto-save: 1.5s after last keystroke
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = setTimeout(() => {
+        doSave(value);
+      }, 1500);
+    },
+    [commitToHistory, doSave, id, updateNodeDataTransient],
+  );
+
+  // ── Markdown preview HTML ──（memo：编辑时每次按键都会重渲染，避免全文重复解析）
+  const previewHtml = useMemo(() => renderMarkdown((data.output as string) || ''), [data.output]);
+
+  const { displayLabel, handleRename } = useNodeRename(id, data, t('Markdown 文档'));
+
+  return (
+    <>
+    <div className="node-wrapper relative" style={{ width: nodeWidth }}>
+      <NodeLabel
+        kind="ai-markdown"
+        label={displayLabel}
+        displayId={data.displayId as number | undefined}
+        nodeId={id}
+        onRename={handleRename}
+      />
+
+      <div
+        className={`node markdown-node ${selected ? 'selected' : ''}`}
+        style={{ height: nodeHeight }}
+      >
+        {/* Toolbar */}
+        <div className="markdown-node-toolbar">
+          <div className="flex items-center gap-1">
+            <AnimatedButton
+              type="button"
+              className={`markdown-mode-btn${viewMode === 'edit' ? ' active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setViewMode('edit'); }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+            </AnimatedButton>
+            <AnimatedButton
+              type="button"
+              className={`markdown-mode-btn${viewMode === 'preview' ? ' active' : ''}`}
+              onClick={(e) => { e.stopPropagation(); setViewMode('preview'); }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+              </svg>
+            </AnimatedButton>
+          </div>
+          <div className="flex items-center gap-1">
+            <AnimatedButton
+              type="button"
+              className="markdown-mode-btn"
+              disabled={isUploading}
+              onClick={(e) => { e.stopPropagation(); onUpload(); }}
+              data-tooltip={t('上传 .md 文件')}
+            >
+              {isUploading ? (
+                <div className="spinner-sm" />
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              )}
+            </AnimatedButton>
+            <AnimatedButton
+              type="button"
+              className="markdown-mode-btn"
+              onClick={handleCopy}
+              data-tooltip={copied ? t('已复制') : t('复制文本')}
+              aria-label={copied ? t('已复制') : t('复制文本')}
+            >
+              {copied ? (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              )}
+            </AnimatedButton>
+            <AnimatedButton
+              type="button"
+              className="markdown-mode-btn"
+              onClick={(e) => { e.stopPropagation(); handleOpenFullscreen(); }}
+              data-tooltip={t('全屏显示')}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+              </svg>
+            </AnimatedButton>
+          </div>
+        </div>
+
+        {/* Content area */}
+        <div className="markdown-node-content">
+          {viewMode === 'edit' ? (
+            <textarea
+              className="nodrag nowheel markdown-edit-area text-selection-source"
+              value={(data.output as string) || ''}
+              onChange={handleContentChange}
+              onBlur={finishContentEdit}
+              placeholder={t('# Markdown 文档&#10;&#10;点击上方按钮上传 .md 文件，或直接在此编辑…')}
+              spellCheck={false}
+            />
+          ) : (
+            <div className="markdown-preview-area">
+              {(data.output as string) ? (
+                <div
+                  className="markdown-rendered"
+                  dangerouslySetInnerHTML={{ __html: previewHtml }}
+                />
+              ) : (
+                <div className="node-preview-placeholder">
+                  {t('暂无内容 — 切换到编辑模式开始写作')}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Status bar */}
+        <span className="text-node-wordcount">
+          {((data.output as string) || '').length.toLocaleString()} {t('字')}
+        </span>
+
+        <Handle type="source" position={Position.Left} id="left" className="node-handle handle-source handle-text">
+          <GooeyBtn className="gooey-btn-left" hue={270} />
+        </Handle>
+        <Handle type="source" position={Position.Right} id="right" className="node-handle handle-source handle-text">
+          <GooeyBtn className="gooey-btn-right" hue={270} />
+        </Handle>
+      </div>
+
+          </div>
+
+    {/* Fullscreen overlay */}
+    <FullscreenOverlay
+      isOpen={isFullscreen}
+      onClose={handleCloseFullscreen}
+      title={(data.label as string) || t('Markdown 文档')}
+      headerContent={
+        <div className="fullscreen-toolbar">
+          <AnimatedButton
+            type="button"
+            className={`markdown-mode-btn${fsViewMode === 'edit' ? ' active' : ''}`}
+            onClick={() => setFsViewMode('edit')}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+          </AnimatedButton>
+          <AnimatedButton
+            type="button"
+            className={`markdown-mode-btn${fsViewMode === 'preview' ? ' active' : ''}`}
+            onClick={() => setFsViewMode('preview')}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+            </svg>
+          </AnimatedButton>
+        </div>
+      }
+    >
+      {fsViewMode === 'edit' ? (
+        <textarea
+          ref={fullscreenTextareaRef}
+          className="fullscreen-textarea"
+          value={(data.output as string) || ''}
+          onChange={handleContentChange}
+          onBlur={finishContentEdit}
+          spellCheck={false}
+        />
+      ) : (
+        <div className="fullscreen-md-view">
+          {(data.output as string) ? (
+            <div
+              className="markdown-rendered"
+              dangerouslySetInnerHTML={{ __html: previewHtml }}
+            />
+          ) : (
+            <div className="node-preview-placeholder" style={{ textAlign: 'center', padding: 40 }}>
+              {t('暂无内容')}
+            </div>
+          )}
+        </div>
+      )}
+    </FullscreenOverlay>
+    </>
+  );
+}
+
+export default memo(MarkdownNode);

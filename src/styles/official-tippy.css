@@ -1,0 +1,37 @@
+/**
+ * official-tippy.css —— 官方 tippy 弹层的**全部样式**（live 实测，CDP 9222）。
+ *
+ * ★ 关键事实（2026 年实测 live `app.tapnow.media/canvas/…`，规则从 `document.styleSheets` 逐条导出）：
+ *   官方**没有**引入 tippy 的核心样式表（`tippy.js/dist/tippy.css`）——
+ *   `.tippy-box{position:relative;background:#333;color:#fff;border-radius:4px;…}` 与
+ *   `.tippy-content{padding:5px 9px}`、`[data-tippy-root]{max-width:calc(100vw - 10px)}` **都不存在**。
+ *   实测只加载到下面这两组：
+ *
+ *   1) `vendor-packages-*.css`（全局共享样式，作用于**所有** tippy 弹层）：
+ *      ```css
+ *      .tippy-box { max-width: 400px !important; font-size: 14px; }
+ *      .tippy-box[data-theme~="slash-command"] { … }        // 另两个功能的主题，与 @ 弹层无关
+ *      .tippy-box[data-theme~="bubble-menu"] { … }
+ *      ```
+ *      ⚠️ `max-width: 400px !important` 会**盖掉 tippy 自己的内联 `max-width: 350px`**（`tippy.defaultProps.maxWidth`），
+ *      也就是说 live 上 `@` 建议弹层的 `.tippy-box` 实际被 400px 夹住（而弹层本体是 `w-[320px]`，所以看不出来）。
+ *   2) 一个内联 `<style>`，只有一条淡出规则（tippy 核心 CSS 的**唯一**残留）：
+ *      ```css
+ *      .tippy-box[data-animation="fade"][data-state="hidden"] { opacity: 0; }
+ *      ```
+ *
+ * ⇒ MTV 保持 1:1：**不 import `tippy.js/dist/tippy.css`**，只落这两条。
+ *   弹层的外观（背景/描边/圆角/阴影）由官方 `Ub` 自己的外表面承担
+ *   （`OP` + `PP`，见 `MentionSuggestionPanel.tsx`），与 live 一致。
+ */
+
+/* 官方 `vendor-packages-*.css` 的全局 tippy 夹取。 */
+.tippy-box {
+  max-width: 400px !important;
+  font-size: 14px;
+}
+
+/* 官方内联 `<style>` 里的淡出规则（tippy 核心 CSS 中唯一被保留的一条）。 */
+.tippy-box[data-animation='fade'][data-state='hidden'] {
+  opacity: 0;
+}

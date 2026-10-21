@@ -1,0 +1,812 @@
+/*
+ * settings-panel.css —— 官方设置面板（点右上角「0余额」打开的那个）的外壳与左栏导航，逐字照抄
+ *
+ * 官方出处：`course-api-base-url-CGXqZmAy.js` 的 `settings-modal`（i18n 命名空间 `settings` → `rKs`）
+ * + 9444 实测（2560×1370）。
+ *
+ * 官方对话框 class（实测原文）：
+ *   `fixed left-[50%] top-[50%] z-50 bg-popover text-popover-foreground min-w-[300px]
+ *    translate-x-[-50%] translate-y-[-50%] h-screen rounded-2xl sm:h-[85vh] w-full max-h-none
+ *    sm:max-h-[900px] max-w-[1400px] p-0! sm:p-2 gap-0 !bg-background border-2 border-border`
+ *   ⇒ 实测 1400×900 居中、bg `rgb(15,15,15)`、border `rgba(255,255,255,.1)`（2px）、圆角 16px、无阴影。
+ *   标题只有一个 `sr-only` 的 `<h2>Settings</h2>`（**没有可见标题栏**），标题由各面板自己给。
+ *
+ * 官方左栏 class（实测原文）：
+ *   `overflow-y-auto w-44 sm:w-56 bg-muted/50 flex flex-col p-4 m-0 rounded-l-2xl`
+ *   ⇒ 实测 224×896、pad 16px、左圆角 16px、`nav.space-y-3.flex-1`、
+ *     组 = `<div>`（组标题 + `<div class="space-y-1">` 若干项）。
+ *
+ * 官方组标题 / 导航项（实测原文）：
+ *   `px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider`
+ *   `w-full flex items-center gap-2 px-3 py-2 rounded-md transition-all text-left text-sm font-normal
+ *    text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground`
+ *   选中换成 `bg-sidebar-accent text-sidebar-accent-foreground`
+ *   ⇒ 项实测 192×36、行距 40px、图标 18×18（`size-[18px] stroke-1`）、文字 14px/#cfcece；
+ *     选中底 #262626、字 #fafafa。
+ *
+ * ⚠️ MTV 的 shadcn token 是 `var(--x)` 形式，Tailwind v3 **灌不进 `/NN` 透明度**
+ *    （`bg-muted/50`、`hover:bg-sidebar-accent/60` 会被静默丢掉）⇒ 这里按仓库惯例
+ *    用解析好的 rgba 落成普通 CSS（`--muted:#2b2b2b`、`--sidebar-accent:#262626`）。
+ */
+
+/* ── 对话框（官方 `settings-modal` 尺寸/圆角/边框/底色） ── */
+.settings-panel-dialog {
+  width: 100%;
+  max-width: 1400px;
+  min-width: 300px;
+  height: 100vh;
+  max-height: none;
+  flex-direction: row;
+  gap: 0;
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  background: #0f0f0f;
+  box-shadow: none;
+  overflow: hidden;
+}
+@media (min-width: 640px) {
+  .settings-panel-dialog {
+    height: 85vh;
+    max-height: 900px;
+  }
+}
+
+/* ── 左栏（官方 `w-44 sm:w-56 bg-muted/50 p-4 rounded-l-2xl`） ── */
+.settings-panel-nav {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 224px;
+  margin: 0;
+  padding: 16px;
+  overflow-y: auto;
+  border-radius: 16px 0 0 16px;
+  background: rgba(43, 43, 43, 0.5); /* 官方 `bg-muted/50`（`--muted:#2b2b2b`） */
+}
+/* ★ 左栏滚动条 = **原生细灰条**，不是 MTV 那条发蓝紫的全局悬浮滑条。
+   用户 2026 点名「这里的滑条颜色！！！」（`--scrollbar-thumb:#3a3a50`）。
+   照 `canvas-nav.css` 的 `.project-list` 定论：JSX 上 `data-overlay-scrollbar="off"` 关掉悬浮层，
+   `scrollbar-color` 把 Chromium 切到标准滚动条渲染路径；`scrollbar-width` 必须 `!important`
+   —— `index.css` 的 `[data-overlay-scrollbar][data-overlay-scrollbar]{scrollbar-width:none}`（0,2,0）
+   比 `.settings-panel-nav`（0,1,0）高一档。 */
+.settings-panel-nav {
+  scrollbar-color: rgb(64, 64, 64) transparent;
+  scrollbar-width: thin;
+}
+.settings-panel-nav[data-overlay-scrollbar='off'] {
+  scrollbar-width: thin !important;
+}
+.settings-panel-nav::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 0;
+}
+.settings-panel-nav::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: rgb(64, 64, 64);
+  background-clip: content-box;
+}
+.settings-panel-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.settings-panel-nav > nav {
+  flex: 1 1 auto;
+}
+.settings-panel-nav > nav > * + * {
+  margin-top: 12px; /* 官方 `space-y-3` */
+}
+.settings-panel-nav-group > * + * {
+  margin-top: 4px; /* 官方 `space-y-1` */
+}
+
+/* 官方 `px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider`
+   ⚠️ 官方那个 `tracking-wider` **实测算出来是 `normal`**（`letter-spacing: normal`）——
+   照实测写 0，不照类名写 0.05em。 */
+.settings-panel-nav-heading {
+  padding: 8px 12px;
+  color: #7a7a7a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: normal;
+  text-transform: uppercase;
+}
+
+/* 官方 `w-full flex items-center gap-2 px-3 py-2 rounded-md transition-all text-left text-sm font-normal`
+   ⚠️ 官方 `rounded-md` **实测算出来是 10px**（不是 Tailwind 默认的 6px）——照实测写 10px。 */
+.settings-panel-nav-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #cfcece; /* 官方 `--sidebar-foreground` */
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms;
+}
+.settings-panel-nav-item:hover {
+  background: rgba(38, 38, 38, 0.6); /* 官方 `hover:bg-sidebar-accent/60` */
+  color: #fafafa; /* 官方 `--sidebar-accent-foreground` */
+}
+.settings-panel-nav-item[aria-current='true'] {
+  background: #262626; /* 官方 `bg-sidebar-accent` */
+  color: #fafafa;
+}
+.settings-panel-nav-item:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* 官方给图标挂 `size-[18px] stroke-1`（Tailwind 扫不到 JSON 里的类名 ⇒ 这里显式声明）。
+   官方 SVG 的 path 自身**不带** stroke-width（除个别自带 1.2 的），靠 svg 上的 CSS 覆盖
+   它自己的 `stroke-width="2"` 属性 ⇒ 1px 描边。 */
+.settings-panel-nav-item svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  stroke-width: 1;
+}
+.settings-panel-nav-item > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* ── 右上角关闭键（官方 `common-dialog-close-btn`）
+     官方原文：`absolute right-4 top-4 inline-flex h-6 w-6 shrink-0 aspect-square cursor-pointer
+                items-center justify-center rounded-md p-0 ring-offset-background transition-opacity
+                hover:bg-input/80 …` + `<svg lucide-x size-4 text-[#CCCCCC] />` */
+.settings-panel-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  /* 官方 `common-dialog-close-btn` 是 `rounded-md`，实测 24×24 的圆角 = **10px** */
+  border-radius: 10px;
+  background: transparent;
+  color: #cccccc;
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+.settings-panel-close:hover {
+  background: rgba(255, 255, 255, 0.1); /* 官方 `hover:bg-input/80` */
+}
+.settings-panel-close:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ── 右栏（官方 `flex-1 overflow-hidden`，各面板自己给内边距） ── */
+.settings-panel-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ── 官方设置项行（画布设置那种 `section`） ──
+   官方原文：`flex w-full flex-col gap-4 border-b border-border/60 pb-5
+              sm:flex-row sm:items-center sm:justify-between sm:gap-8`
+   左侧 `div.min-w-0.space-y-1`：`h3.text-sm.font-medium.text-foreground`（14px/500）
+                              + `p.text-sm.text-muted-foreground`（14px/#7a7a7a） */
+.settings-row {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06); /* 官方 `border-border/60` */
+}
+@media (min-width: 640px) {
+  .settings-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+  }
+}
+.settings-row-label {
+  min-width: 0;
+}
+.settings-row-label > * + * {
+  margin-top: 4px;
+}
+.settings-row-title {
+  color: #f5f5f5;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.settings-row-desc {
+  color: #7a7a7a;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+/* 控件放不进官方那种两栏行时的变体（例：「画布背景」是带缩略图的网格 + 上传/透明度面板）
+   ⇒ 标题在上、控件在下，其余（分隔线 / `pb-5` / 间距）仍按官方 `section`。 */
+.settings-row--stacked,
+.settings-row--stacked.settings-row {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* ── 官方面板体（右栏内容） ──
+   官方「画布设置」的面板头 `h2` 实测落在 x=858、y=256：左栏右缘 806 ⇒ 相对对话框内容区左右 52px；
+   但 MTV 的 `.settings-content` 自己还带 12px `p-3` ⇒ 这里给 40px 才能落在同一个 x=858。 */
+.settings-pane-body {
+  padding: 32px 40px;
+}
+
+/* 官方面板头：`h2.text-lg.font-medium.leading-7.text-foreground` + `p.text-sm.text-muted-foreground`
+   （`header.space-y-1.5`） */
+.settings-pane-header > * + * {
+  margin-top: 6px;
+}
+.settings-pane-title {
+  color: #f5f5f5;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 28px;
+}
+.settings-pane-desc {
+  color: #7a7a7a;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+/* 官方分段控件：`role="radiogroup"` `flex w-fit shrink-0 gap-1 rounded-lg bg-muted/50 p-1`
+   选项 `flex h-9 min-w-24 cursor-pointer items-center justify-center gap-2 rounded-md px-3
+        text-sm font-medium transition-colors text-muted-foreground
+        hover:bg-background/60 hover:text-foreground` */
+.settings-segmented {
+  display: flex;
+  width: fit-content;
+  flex: none;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: rgba(43, 43, 43, 0.5); /* `bg-muted/50` */
+}
+.settings-segmented-option {
+  display: flex;
+  height: 36px;
+  min-width: 96px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #7a7a7a; /* `text-muted-foreground` */
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 150ms, color 150ms;
+}
+.settings-segmented-option:hover {
+  background: rgba(15, 15, 15, 0.6); /* `hover:bg-background/60` */
+  color: #f5f5f5;
+}
+.settings-segmented-option[aria-checked='true'] {
+  background: #262626;
+  color: #fafafa;
+}
+.settings-segmented-option > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* ── 官方「权限」面板（实测 9444） ──
+   官方原文：
+     · 分组卡片：`overflow-hidden rounded-xl border border-border/80 bg-muted/30`
+     · 模式选项：`flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors
+                  border-border/70 border-b`（选中行再加 `bg-white/[0.04]`）
+       图标 `width=18 height=18 stroke-width="1.75"`；标题 `text-[13px] font-medium leading-5`；
+       说明 `mt-0.5 text-[12px] leading-4 opacity-90`；选中时右侧一颗 `lucide-check`（16，stroke 2.25）
+       选中态文字/图标色用整套 **#E8871E**（官方「请求批准」那张卡就是这个橙）。
+     · 能力行：`flex items-start gap-3 px-4 py-3.5 border-border/70 border-b`
+       图标 18 / 标题 `font-medium text-foreground text-sm` / 说明 `text-muted-foreground text-xs leading-5`
+       右侧是 Switch（`h-5 w-9 rounded-full data-[state=checked]:bg-primary`）。
+       ⚠️ MTV 偏离：MTV 的审批口径是 `services/chat/policyEngine.ts` 的**固定矩阵**、不是用户开关
+       ⇒ 右侧换成只读口径徽章（不假装能开）。
+     · 「启动目录」卡片：`space-y-3 rounded-xl border border-border/80 bg-muted/20 px-4 py-4` */
+.settings-perm-group {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08); /* 官方 `border-border/80` */
+  border-radius: 12px;
+  background: rgba(43, 43, 43, 0.3); /* 官方 `bg-muted/30` */
+}
+.settings-perm-option {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+.settings-perm-option:last-child {
+  border-bottom: 0;
+}
+.settings-perm-option:hover {
+  background: rgba(43, 43, 43, 0.5); /* 官方未选中行 `hover:bg-muted/50` */
+}
+.settings-perm-option[aria-checked='true'] {
+  background: rgba(255, 255, 255, 0.04); /* 官方 `bg-white/[0.04]` */
+}
+.settings-perm-option > svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: none;
+  stroke-width: 1.75;
+}
+.settings-perm-option-body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.settings-perm-option-title {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+/* 官方：未选中 `text-muted-foreground`；选中 `opacity-90` + 橙色（内联 style 给） */
+.settings-perm-option-desc {
+  margin-top: 2px;
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 16px;
+}
+.settings-perm-option[aria-checked='true'] .settings-perm-option-desc {
+  opacity: 0.9;
+}
+.settings-perm-option-check {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: none;
+  stroke-width: 2.25;
+}
+/* 官方未选中时占位的那颗 `<span className="size-4 shrink-0" />` ——
+   **必须有**：少了它选中/未选中会让标题横向跑位（官方是用它对齐的）。 */
+.settings-perm-option-slot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: none;
+}
+
+.settings-perm-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.settings-perm-item:last-child {
+  border-bottom: 0;
+}
+.settings-perm-item > svg {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: none;
+  stroke-width: 1.75;
+  color: #7a7a7a; /* 官方 `text-muted-foreground` */
+}
+.settings-perm-item-body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.settings-perm-item-title {
+  color: #f5f5f5;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.settings-perm-item-desc {
+  margin-top: 4px;
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 20px;
+}
+/* 官方 `Pal` 的行内脚注：`div.pt-1.5`（6px 上内边距）——用来解释这一行的开关为什么不可拨 */
+.settings-perm-item-footer {
+  padding-top: 6px;
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+/* 官方 `Pal` 里的 Switch 带 `mt-0.5 shrink-0` */
+.settings-perm-item > .o-switch {
+  margin-top: 2px;
+  flex: none;
+}
+.settings-perm-badge {
+  margin-top: 2px;
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.settings-perm-badge[data-tone='auto'] {
+  background: rgba(18, 183, 106, 0.14);
+  color: #12b76a; /* 官方系统级授权那颗绿按钮同色 */
+}
+.settings-perm-badge[data-tone='confirm'] {
+  background: rgba(232, 135, 30, 0.16);
+  color: #e8871e; /* 官方「请求批准」那张卡的橙 */
+}
+.settings-perm-badge[data-tone='deny'] {
+  background: rgba(255, 255, 255, 0.06);
+  color: #cfcece;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   账户管理 →「个人简介」页（`components/settings/AccountSettings.tsx`）
+   **逐字对齐官方那一页的 JSX**（用户给的官方截图 = 图2）：
+     · 两栏            `flex flex-row items-start gap-6`
+     · 左：头像         `h-[180px] w-[180px] bg-muted shadow-sm` + 圆形
+                       + hover 遮罩 `absolute inset-0 rounded-full bg-black/60 text-white`
+                         （`opacity-0` → `group-hover:opacity-100`）+ `h-8 w-8` 相机图标
+                       + 空头像兜底 `text-2xl font-medium bg-primary text-primary-foreground`
+     · 右：表单列       `flex min-w-0 flex-1 flex-col gap-4`
+     · 每个字段         `flex flex-col gap-2`（标签在上、控件在下、间距 8px）
+     · 国家/城市        `grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3`
+     · 必填星号         `text-destructive`
+     · 错误行           `text-xs text-destructive`
+     · 「+」按钮         `absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 rounded-md
+                         text-muted-foreground hover:bg-white/10 hover:text-card-foreground`
+     · chip 移除钮      `rounded-full p-1 … hover:bg-white/10`
+   ════════════════════════════════════════════════════════════════════════ */
+.account-form {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 24px; /* gap-6 */
+  margin-top: 24px;
+}
+
+/* ── 头像（左栏）── */
+.account-avatar-group {
+  position: relative;
+  flex: 0 0 auto;
+  width: 180px;
+  height: 180px;
+}
+.account-avatar-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 180px;
+  height: 180px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--muted, #2b2b2b); /* 官方 `bg-muted` */
+  /* 官方 `shadow-sm`（TapNow 覆盖过的真值：两段 0.1 黑）*/
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+}
+.account-avatar-preview > img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover; /* 官方 `object-cover` */
+}
+/* 空头像：官方 `text-2xl font-medium bg-primary text-primary-foreground`（图2 那个蓝底 N）*/
+.account-avatar-fallback {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--primary-foreground, #fafafa);
+  background: var(--primary, #1fa2dc);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+.account-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.6); /* bg-black/60 */
+  color: #ffffff;
+  opacity: 0;
+  cursor: var(--cursor-pointer, pointer);
+  transition: opacity var(--transition-base);
+}
+.account-avatar-group:hover .account-avatar-overlay,
+.account-avatar-overlay:focus-visible {
+  opacity: 1;
+}
+/* 清除头像（官方没有这个按钮 —— MTV 本地资料需要一个「撤掉」的出口，藏小一点）*/
+.account-avatar-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  opacity: 0;
+  cursor: var(--cursor-pointer, pointer);
+  transition: opacity var(--transition-base);
+}
+.account-avatar-group:hover .account-avatar-remove {
+  opacity: 1;
+}
+
+/* ── 表单列（右栏）── */
+.account-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* gap-4 */
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.account-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* gap-2 */
+  min-width: 0;
+}
+.account-field-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  /* 官方标签皮肤 `v3` = `text-sm font-medium leading-5 text-muted-foreground`
+     ⇒ 是**灰的**（#7a7a7a），不是亮白。我之前写成 `--o-foreground`(#f5f5f5) 偏亮 ✗ */
+  color: var(--muted-foreground, #7a7a7a);
+}
+.account-required {
+  margin-left: 2px;
+  color: var(--destructive, #ff6163);
+}
+.account-field-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--destructive, #ff6163);
+}
+
+/* ── 字段皮肤：官方**共用**的 `L6`（Input / Textarea / SelectTrigger 同一套）──
+   官方真值（`index-BiTZf8mJ.js` 里 `L6="…"` 逐字）：
+     `rounded-lg border border-white/10 bg-white/5 shadow-none
+      focus:outline-none focus:ring-0 focus-visible:ring-0
+      text-sm font-normal leading-5 text-card-foreground
+      placeholder:text-xs placeholder:text-secondary-accent`
+   ⇒ 关键差异：**底是 `bg-white/5`（深色面板上 ≈ #1B1B1B），不是透明**；
+     圆角 `rounded-lg` = `var(--radius)` = 12px；无投影。
+   ⚠️ 用 `.account-fields .o-input`（0,2,0）压过 `.o-input`（0,1,0），
+     别再用 `o-select-trigger`（它是透明底 + 硬边 `--o-input`）。 */
+.account-fields .o-input,
+.account-fields .o-input--textarea {
+  height: 36px;
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+  color: var(--card-foreground, #fafafa);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.account-fields .o-input::placeholder,
+.account-fields .o-input--textarea::placeholder {
+  /* 官方 `placeholder:text-xs` —— 占位文案比正文小一号 */
+  font-size: 12px;
+  color: var(--muted-foreground, #7a7a7a);
+}
+.account-fields .o-input:focus-visible,
+.account-fields .o-input--textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.10);
+}
+
+/* 个人简介：官方 `h-40`(160px) + `resize-none` + `field-sizing-fixed` + `py-2.5 px-3`
+   ⇒ 框**高度固定、不可拖拽**（用户：「个人简介下面的框是固定的」）
+   ⚠️ 选择器必须够长：`.o-input--textarea` 是 `height:auto; min-height:64px; resize:vertical`，
+     而且 `official-controls.css` 在 `settings-panel.css` **之后**引入（同权重时后者赢）
+      ⇒ 只写 `.account-bio` 会被它压掉（实测：量到 64px + resize:vertical ✗）。 */
+.account-fields .o-input--textarea.account-bio {
+  height: 160px;
+  min-height: 160px;
+  resize: none;
+  padding: 10px 12px;
+  overflow-y: auto;
+}
+
+/* Select 触发器和上面输入框是**同一层皮肤**（官方给 SelectTrigger 也挂 `L6` + `w-full hover:bg-white/10`）*/
+.account-fields .ui-select--custom .ui-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 28px 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+  color: var(--card-foreground, #fafafa);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.account-fields .ui-select--custom .ui-select__trigger:hover {
+  background: rgba(255, 255, 255, 0.10); /* 官方 `hover:bg-white/10` */
+  border-color: rgba(255, 255, 255, 0.10);
+}
+.account-fields .ui-select--custom .ui-select__trigger:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.05);
+}
+.account-fields .ui-select--custom .ui-select__trigger .ui-select__trigger-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-fields .ui-select--custom .ui-select__chevron {
+  color: var(--muted-foreground, #7a7a7a);
+}
+
+/* ── 下拉弹层 ──
+   ★ 2026 改版：国家 / 城市 / 语言**不再是** MTV 的 `Select`，而是逐字复刻官方的
+     `OfficialCombobox`（`PSl`/`TSl`/语言 select）⇒ 弹层样式整块搬到
+     `src/styles/official-combobox.css`（`.o-combobox__panel` 等）✓
+     这里原来那套 `.account-menu`（`o-menu` 皮肤 + `!important` 压 Select 内联宽度）**已删** ——
+     它只是为了给「共享 Select 套官方壳」打补丁，复刻件上线后就是死代码 ✗ */
+.account-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 640px) {
+  .account-grid-2 {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+}
+
+/* ── 社交媒体：输入框 + 右侧「+」+ chip 列表 ── */
+.account-social-input {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.account-social-input .o-input {
+  padding-right: 40px; /* 给「+」让位 */
+}
+.account-social-add {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  z-index: 10;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 6px; /* rounded-md */
+  background: transparent;
+  color: var(--o-muted-foreground, #7a7a7a);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color var(--transition-base), color var(--transition-base);
+}
+.account-social-add:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--card-foreground, #fafafa);
+}
+.account-social-add:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.account-social-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.account-social-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 4px 4px 10px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 16px;
+  color: #cfcece;
+}
+.account-social-chip__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-social-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 4px; /* 官方 `p-1` */
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--o-muted-foreground, #7a7a7a);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color var(--transition-base), color var(--transition-base);
+}
+.account-social-chip__remove:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--card-foreground, #fafafa);
+}
+
+/* ── 显示入驻时间 ── */
+.account-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── 保存（官方成功提示 `profileSaveSuccess`）── */
+.account-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+

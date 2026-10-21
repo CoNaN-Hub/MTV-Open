@@ -1,0 +1,52 @@
+﻿import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [
+    react(),
+  ],
+  clearScreen: false,
+  server: {
+    port: 5180,
+    strictPort: true,
+    watch: {
+      ignored: [
+        "**/src-tauri/**",
+        "**/doc/**",
+        // 编辑器/脚本用「原子写」时会在源文件旁建 .<名字>.<pid>.<uuid>.tmpdir/ 临时目录，
+        // watcher 去 watch 那个 .tmp 会撞上 EBUSY 并让整个 Vite 进程崩溃（实测过多次）。
+        "**/.*.tmpdir/**",
+        "**/*.tmp",
+      ],
+    },
+    // 代理 ComfyUI 本体请求到本地服务，开发模式下绕过 CORS
+    proxy: {
+      '/api/comfyui/ws': {
+        target: 'http://127.0.0.1:8188',
+        ws: true,
+        // 保留页面的 Host 和 Origin，让 ComfyUI 继续校验两者一致。
+        // 不改写 Origin，跨站请求仍由 ComfyUI 拒绝。
+        changeOrigin: false,
+        rewrite: (path) => path.replace(/^\/api\/comfyui/, ''),
+      },
+      '/api/comfyui': {
+        target: 'http://127.0.0.1:8188',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/comfyui/, ''),
+      },
+    },
+  },
+  build: {
+    // 插件自定义界面是第二个入口：它跑在主窗口内的 sandboxed iframe 中。
+    rollupOptions: {
+      input: {
+        main: "index.html",
+        pluginUiHost: "plugin-ui-host.html",
+      },
+    },
+  },
+  optimizeDeps: {
+    entries: ["index.html", "plugin-ui-host.html"],
+  },
+});

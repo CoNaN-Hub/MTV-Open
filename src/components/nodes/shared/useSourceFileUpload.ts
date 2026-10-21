@@ -1,0 +1,27 @@
+/**
+ * useSourceFileUpload — 统一的源文件上传 hook，封装 loading 状态 + 文件选择 + 错误处理
+ */
+import { useState, useCallback } from 'react';
+import { useAppStore } from '../../../store/useAppStore';
+import { uploadSourceFileToProject } from '../../../services/fileService';
+import { startTransferBatch } from '../../../services/transferReporting';
+
+export function useSourceFileUpload(extensions: string) {
+  const currentProjectId = useAppStore((s) => s.currentProjectId);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleUpload = useCallback(async () => {
+    setIsUploading(true);
+    /* 官方：一次「上传」= 一批传输行（新批次会替换上一批已结束的行，不叠加） */
+    startTransferBatch(`upload:${Date.now().toString(36)}`);
+    try {
+      return await uploadSourceFileToProject(extensions, currentProjectId);
+    } catch {
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  }, [extensions, currentProjectId]);
+
+  return { isUploading, handleUpload };
+}

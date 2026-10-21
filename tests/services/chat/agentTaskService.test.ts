@@ -1,0 +1,132 @@
+import { IDBFactory } from 'fake-indexeddb';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AgentTask } from '../../../src/types/agent';
+
+beforeEach(() => {
+  Object.defineProperty(globalThis, 'indexedDB', {
+    configurable: true,
+    value: new IDBFactory(),
+  });
+  vi.resetModules();
+});
+
+function createInterruptedTask(): AgentTask {
+  const now = Date.now() - 1000;
+  return {
+    id: 'task-interrupted',
+    projectId: 'project-1',
+    conversationId: 'conversation-1',
+    userMessageId: 'message-1',
+    mode: 'collaborative',
+    goal: 'update canvas',
+    status: 'waiting_approval',
+    steps: [{
+      id: 'step-1',
+      taskId: 'task-interrupted',
+      index: 0,
+      kind: 'approval',
+      title: 'Update canvas',
+      status: 'waiting_approval',
+      createdAt: now,
+      updatedAt: now,
+      approval: {
+        id: 'approval-1',
+        kind: 'canvas_write',
+        status: 'pending',
+        summary: 'Canvas write requires approval',
+        requestedAt: now,
+      },
+    }],
+    modelRounds: 1,
+    toolCallCount: 1,
+    budget: {
+      maxModelRounds: 12,
+      maxToolCalls: 24,
+      maxParallelReadTools: 3,
+      maxReadRetries: 3,
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+describe('repairInterruptedAgentTasks', () => {
+  it('fails interrupted tasks and expires pending approvals after restart', async () => {
+    const service = await import('../../../src/services/chat/agentTaskService');
+    await service.saveAgentTask(createInterruptedTask());
+
+    const repairedIds = await service.repairInterruptedAgentTasks('project-1');
+    const repaired = await service.loadAgentTask('task-interrupted');
+
+    expect(repairedIds).toEqual(['task-interrupted']);
+    /* 官方没有 paused 状态，也没有「继续」入口 ⇒ 重启中断的任务直接收敛为 failed。 */
+    expect(repaired).toMatchObject({
+      status: 'failed',
+      errorCode: 'AGENT_INTERRUPTED_BY_RESTART',
+      steps: [{
+        status: 'failed',
+        errorCode: 'AGENT_INTERRUPTED_BY_RESTART',
+        approval: {
+          status: 'expired',
+          resolvedAt: expect.any(Number),
+        },
+      }],
+    });
+  });
+
+  it('leaves terminal tasks unchanged', async () => {
+    const service = await import('../../../src/services/chat/agentTaskService');
+    const completed = { ...createInterruptedTask(), id: 'task-completed', status: 'completed' as const };
+    await service.saveAgentTask(completed);
+
+    expect(await service.repairInterruptedAgentTasks('project-1')).toEqual([]);
+    expect(await service.loadAgentTask('task-completed')).toMatchObject({
+      status: 'completed',
+      steps: [{ status: 'waiting_approval', approval: { status: 'pending' } }],
+    });
+  });
+
+  it('normalizes diagnostics added after older task records were written', async () => {
+    const service = await import('../../../src/services/chat/agentTaskService');
+    const legacy = createInterruptedTask();
+    delete legacy.events;
+    delete legacy.metrics;
+    await service.saveAgentTask(legacy);
+
+    expect(await service.loadAgentTask(legacy.id)).toMatchObject({
+      events: [],
+      metrics: {
+        inputTokens: 0,
+        outputTokens: 0,
+        modelDurationMs: 0,
+        toolDurationMs: 0,
+      },
+    });
+  });
+
+  it('persists explicit Skill bindings while keeping legacy tasks distinguishable', async () => {
+    const service = await import('../../../src/services/chat/agentTaskService');
+    const bound = {
+      ...createInterruptedTask(),
+      id: 'task-bound-skill',
+      skillBindings: [{
+        skillId: 'skill-1',
+        name: 'Canvas audit',
+        version: '1.0.0',
+        content: '# Fixed instructions',
+        allowedTools: ['canvas_get_state'],
+      }],
+    };
+    await service.saveAgentTask(bound);
+    await service.saveAgentTask({ ...createInterruptedTask(), id: 'task-legacy' });
+
+    expect(await service.loadAgentTask(bound.id)).toMatchObject({
+      skillBindings: [{
+        skillId: 'skill-1',
+        content: '# Fixed instructions',
+        allowedTools: ['canvas_get_state'],
+      }],
+    });
+    expect((await service.loadAgentTask('task-legacy'))?.skillBindings).toBeUndefined();
+  });
+});

@@ -1,0 +1,142 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   PILE（堆叠）—— 官方 CSS 逐字。
+
+   官方出处：`E:\TapNow-0.4.66\resources\web\assets\zoom-slider-B3yfHu80.css`
+     · @43829  `.react-flow__node-pile…`
+     · @44083  `.react-flow__node.pile-member-anchor…`
+     · @44457  `.react-flow__node.pile-landing-node`
+     · @44610  `.react-flow__edge.pile-unstack-edge-waiting`
+     · @63162  `@keyframes pile-shimmer`
+     · @63242…@64937  8 条 `[data-pile-gallery-phase]` 画廊外围 chrome
+   全文件 44 处 `pile` 命中，全部在此覆盖（`official-pile-spec.md` §9 逐条核对过）。
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 官方：堆叠外壳**完全透明无边框**（不是分组那种 1px/2px 边框） */
+.react-flow__node-pile,
+.react-flow__node-pile:hover,
+.react-flow__node-pile.selected,
+.react-flow__node-pile:focus,
+.react-flow__node-pile:focus-visible {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* 官方：被吸收的成员变成**不可见锚点**（停在堆叠节点的位置/尺寸上，不吃指针） */
+.react-flow__node.pile-member-anchor,
+.react-flow__node.pile-member-anchor:hover,
+.react-flow__node.pile-member-anchor.selected,
+.react-flow__node.pile-member-anchor:focus,
+.react-flow__node.pile-member-anchor:focus-visible {
+  pointer-events: none !important;
+  opacity: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* 官方：解堆过渡期间「正在落地」的节点整块隐形 */
+.react-flow__node.pile-landing-node {
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+
+/* 官方：解堆过渡期间该边先隐形（`ict` 给端点挂类） */
+.react-flow__edge.pile-unstack-edge-waiting {
+  pointer-events: none;
+  opacity: 0;
+  transition: none;
+}
+
+/* 官方 @63162：成员预览「生成中」的扫光（配 `officialPile.ts` 里的 previewShimmer 类名） */
+@keyframes pile-shimmer {
+  0% {
+    transform: translate(0);
+  }
+  to {
+    transform: translate(300%);
+  }
+}
+
+/* ── 官方 @63242…@64937：画廊（全屏预览）外围 chrome ────────────────────────
+   8 条规则，逐字。`--pile-gallery-phase` ∈ `opening|open|closing`。 */
+[data-canvas-container] [data-pile-gallery-chrome] {
+  translate: 0 0;
+}
+
+[data-canvas-container][data-pile-gallery-phase] [data-pile-gallery-chrome] {
+  z-index: 70 !important;
+  transition: translate 0.28s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+[data-canvas-container][data-pile-gallery-phase='opening'] [data-pile-gallery-chrome],
+[data-canvas-container][data-pile-gallery-phase='open'] [data-pile-gallery-chrome] {
+  pointer-events: none !important;
+}
+
+[data-canvas-container][data-pile-gallery-phase='opening'] [data-pile-gallery-chrome='top-left'],
+[data-canvas-container][data-pile-gallery-phase='open'] [data-pile-gallery-chrome='top-left'] {
+  translate: calc(-100% - 24px) calc(-100% - 24px);
+}
+
+[data-canvas-container][data-pile-gallery-phase='opening'] [data-pile-gallery-chrome='top-right'],
+[data-canvas-container][data-pile-gallery-phase='open'] [data-pile-gallery-chrome='top-right'] {
+  translate: calc(100% + 24px) calc(-100% - 24px);
+}
+
+[data-canvas-container][data-pile-gallery-phase='opening'] [data-pile-gallery-chrome='left'],
+[data-canvas-container][data-pile-gallery-phase='open'] [data-pile-gallery-chrome='left'] {
+  translate: calc(-100% - 24px) 0;
+}
+
+[data-canvas-container][data-pile-gallery-phase='opening'] [data-pile-gallery-chrome='bottom-left'],
+[data-canvas-container][data-pile-gallery-phase='open'] [data-pile-gallery-chrome='bottom-left'] {
+  translate: calc(-100% - 24px) calc(100% + 24px);
+}
+
+[data-canvas-container][data-pile-gallery-phase='opening'] [data-pile-gallery-chrome='bottom-right'],
+[data-canvas-container][data-pile-gallery-phase='open'] [data-pile-gallery-chrome='bottom-right'] {
+  translate: calc(100% + 24px) calc(100% + 24px);
+}
+
+[data-canvas-container][data-pile-gallery-phase='closing'] [data-pile-gallery-chrome] {
+  transition-delay: 0.28s;
+}
+
+/* 官方 @64937：reduced-motion 时关掉整套 chrome 位移过渡 */
+@media (prefers-reduced-motion: reduce) {
+  [data-canvas-container][data-pile-gallery-phase] [data-pile-gallery-chrome] {
+    transition-duration: 0.01ms;
+    transition-delay: 0ms;
+  }
+}
+
+/* ============================================================================
+   堆叠工具条 —— 缩放层里的工具条必须回到**静态流**
+   ----------------------------------------------------------------------------
+   官方 `cPe`（zoom-slider-3ZcFvYQO.js @1477578）逐字类名：
+     `nodrag cursor-default w-fit h-12 p-1 rounded-full flex flex-nowrap items-center
+      justify-between bg-popover border z-10 whitespace-nowrap gap-1 text-white/90`
+     + `node-float-ui-visible`  ⇒ **没有任何定位工具类**（无 absolute / left-1/2 / top）。
+   内联 style 只有 `{"--float-y":"-100%","--float-offset":"12px",transformOrigin:"center bottom"}`。
+   `.node-float-ui-visible`（zoom-slider-B3yfHu80.css @59973）只给
+     `opacity:1; transform: translate(-50%) translateY(var(--float-y,0%)) scale(var(--float-scale,1))`。
+   ⇒ 官方定位 = 静态块 + translate(-50%,-100%)，**底边中点锚在缩放层原点**（`QZe`：`top:-38`、`size-0`、
+      `left-1/2`、`origin-bottom`）⇒ **卡片顶边 ↔ 工具条底边 = 38px**（画布单位）。
+
+   ⚠️ MTV 的 `.node-floating-toolbar`（styles/nodes.css）为了普通节点把**层级定位**揉进了同一个类：
+        `position:absolute; top: var(--float-top,-60px); left:50%`
+      它服务的是官方 `od`（普通节点浮层），但堆叠这里是官方 `QZe` **自己的**缩放层。
+      官方堆叠工具条自带的定位是 `nJe` 的 className `absolute left-0 top-0 z-20`
+      （zoom-slider-3ZcFvYQO.js @2983745 `l.jsx(qD,{…,scaleMode:"inherit",className:Z("absolute left-0 top-0 z-20",…)})`）
+      ⇒ **原点对齐缩放层左上角**（size-0 ⇒ 就是那个原点），再 `translate(-50%,-100%)` 把底边中点压上去。
+      而 `.node-floating-toolbar` 的 `top:var(--float-top)` + `left:50%` 会在这个基准上**再抬一次**：
+        工具条底边 = 卡片顶 − 38 − floatTop(≈48) ≈ 卡片顶 − 86  ✗（用户实测「纵向间距明显不对」）
+      ⇒ 这里把 `top`/`left` 归零（保留 `position:absolute`，与官方 `absolute` 一致）；
+        选择器 `[data-…] > .node-floating-toolbar` 特异度 (0,2,0) ⇒ 稳压单类名规则 ✓ */
+[data-pile-toolbar-scale-layer] > .node-floating-toolbar {
+  top: 0;
+  left: 0;
+}

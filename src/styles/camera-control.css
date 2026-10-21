@@ -1,0 +1,257 @@
+/* ============================================
+   摄影机控制（官方 Lens Combo）—— 逐字复刻官方类名
+   出处：zoom-slider-3ZcFvYQO.js（`Ant` / `Snt` / `k0` / `ynt` / `CH`）
+   官方原语是 tailwind 原子类，这里落成同名尺寸的语义类（值全部逐字对齐）。
+   ============================================ */
+
+/* ── Ant 触发组 ──
+   官方：`relative flex items-center h-9 rounded-lg transition-all duration-200
+          [open ? bg-white/[0.1] hover:bg-white/[0.1] : hover:bg-muted] active:bg-white/[0.1]
+          group/camera` */
+.cc-root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 36px; /* h-9 */
+  border-radius: 12px; /* rounded-lg */
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.cc-root:hover { background: var(--muted, #2b2b2b); } /* hover:bg-muted（官方 `--muted:#2b2b2b`）*/
+.cc-root:active,
+.cc-root.is-open { background: rgba(255, 255, 255, 0.1); } /* active / open: bg-white/[0.1] */
+
+/* 图标开关：`w-7 h-7 m-0.5 rounded-md`，图标 `w-5 h-5`
+   ⚠️ 官方 `enabled ? text-primary : text-foreground` 是给 **svg** 用的；
+      这里图标是**位图**（官方就是两张 PNG），所以"颜色"由 PNG 自己决定，不加滤镜。 */
+.cc-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; /* w-7 */
+  height: 28px;
+  margin: 2px; /* m-0.5 */
+  padding: 0;
+  border: 0;
+  border-radius: 10px; /* rounded-md */
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.cc-icon > img {
+  width: 20px; /* w-5 */
+  height: 20px;
+  display: block;
+  user-select: none;
+  transition: all 0.3s; /* duration-300 */
+}
+.cc-icon:disabled { cursor: not-allowed; opacity: 0.5; }
+
+/* 文字按钮：`flex items-center h-8 px-0 pr-2 text-sm font-medium whitespace-nowrap text-white` */
+.cc-text {
+  display: flex;
+  align-items: center;
+  height: 32px; /* h-8 */
+  padding: 0 8px 0 0; /* px-0 pr-2 */
+  border: 0;
+  background: transparent;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px; /* text-sm */
+  font-weight: 500; /* font-medium */
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+/* 官方：开启时名字 `max-w-[80px] truncate inline-block` */
+.cc-text__label.is-truncate {
+  display: inline-block;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 关闭小叉：`absolute -top-1 -right-1 w-4 h-4 bg-black rounded-full opacity-0
+   group-hover/camera:opacity-100` */
+.cc-close {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: #000000;
+  color: #ffffff;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.cc-root:hover .cc-close { opacity: 1; }
+
+/* ── Tooltip（官方 `qr` = TooltipContent，side="top"）
+   `px-3 py-2 pt-2.5 rounded-lg
+    shadow-[0px_4px_16px_rgba(0,0,0,0.16),inset_0px_0.5px_0px_rgba(255,255,255,0.16)]
+    [background:rgba(51,51,51,0.80)] [backdrop-filter:blur(28px)]` */
+.cc-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: 10px 12px 8px; /* pt-2.5 px-3 pb-2 */
+  border-radius: 12px; /* rounded-lg */
+  background: rgba(51, 51, 51, 0.8);
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+  box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.16), inset 0px 0.5px 0px rgba(255, 255, 255, 0.16);
+  pointer-events: none;
+}
+.cc-tooltip__row { display: flex; align-items: center; gap: 6px; } /* gap-1.5 */
+.cc-tooltip__thumb { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; } /* w-9 h-9 */
+.cc-tooltip__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.cc-tooltip__name { font-size: 12px; font-weight: 600; color: var(--foreground, #f5f5f5); } /* text-xs font-semibold */
+.cc-tooltip__state { font-size: 12px; font-weight: 500; color: var(--muted-foreground, #7a7a7a); }
+.cc-tooltip__state.is-on { color: var(--primary, #1fa2dc); } /* text-primary */
+.cc-tooltip__combo { margin: 4px 0 0; font-size: 10px; color: var(--muted-foreground, #7a7a7a); } /* text-[10px] mt-1 */
+
+/* ── Snt 弹层（Lens Combo）
+   `bg-popover/95 backdrop-blur-sm rounded-xl border border-border p-4 shadow-2xl` */
+.cc-panel {
+  width: max-content;
+  padding: 16px; /* p-4 */
+  border: 1px solid var(--popover-border, rgba(255, 255, 255, 0.1)); /* border-border */
+  border-radius: 16px; /* rounded-xl = calc(var(--radius) + 4px) = 12 + 4 = 16px */
+  background: color-mix(in srgb, var(--popover, #262626) 95%, transparent); /* bg-popover/95 */
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow: var(--cc-shadow-2xl, 0 25px 50px -12px rgba(0, 0, 0, 0.25));
+  color: var(--card-foreground, #fafafa);
+}
+.cc-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px; /* mb-4 */
+}
+.cc-panel__title { font-size: 14px; font-weight: 500; } /* text-sm font-medium */
+.cc-panel__save {
+  padding: 4px 12px; /* px-3 py-1 */
+  border: 0;
+  border-radius: 10px; /* rounded-md */
+  background: var(--muted, #2b2b2b);
+  color: var(--muted-foreground, #7a7a7a);
+  font-family: inherit;
+  font-size: 12px; /* text-xs */
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.cc-panel__save:hover { background: color-mix(in srgb, var(--muted, #2b2b2b) 80%, transparent); color: var(--card-foreground, #fafafa); }
+
+.cc-panel__row { display: flex; align-items: center; justify-content: center; gap: 16px; } /* gap-4 */
+/* 分隔线：`w-0.5 bg-foreground/10 h-20 mb-9` */
+.cc-panel__sep {
+  width: 2px;
+  height: 80px;
+  margin-bottom: 36px; /* mb-9 —— 与选择窗对齐（窗下还有 label） */
+  background: color-mix(in srgb, var(--card-foreground, #fafafa) 10%, transparent);
+  flex-shrink: 0;
+}
+
+/* 弹层定位：`Xr` 是 radix content，官方 `side="top" align="center" sideOffset={8}`
+   ⇒ 锚点 = 触发器**顶边中点**（JS 给的 left/top 就是它），这里再上移自身高度。*/
+.cc-popover {
+  position: fixed;
+  z-index: 300;
+  transform: translate(-50%, -100%);
+}
+
+/* ── k0 选择器 ──
+   官方：`flex flex-col items-center`（禁用 `opacity-50 pointer-events-none`）*/
+.cc-picker { display: flex; flex-direction: column; align-items: center; }
+.cc-picker.is-disabled { opacity: 0.5; pointer-events: none; }
+.cc-picker__row { display: flex; align-items: center; gap: 8px; } /* gap-2 */
+.cc-picker__arrow { display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
+.cc-picker__chevron { color: var(--theme-text-muted, #7a7a7a); transition: all 0.2s; }
+.cc-picker__chevron.is-active { color: var(--foreground, #f5f5f5); }
+.cc-picker__chevron--left { transform: rotate(90deg); }
+.cc-picker__chevron--right { transform: rotate(-90deg); }
+
+/* 窗口（`relative`，高 = PREVIEW_HEIGHT*2 + itemSize）*/
+.cc-picker__window { position: relative; }
+/* 选中框：`absolute left-0 right-0 rounded-2xl bg-muted/80 transition-all duration-200
+   bg-cover bg-center` + 选中时 `ring-1 ring-gray-300/50` + inset 阴影 */
+.cc-picker__frame {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 16px; /* rounded-2xl */
+  background-color: color-mix(in srgb, var(--muted, #2b2b2b) 80%, transparent);
+  background-size: cover;
+  background-position: center;
+  transition: all 0.2s;
+  pointer-events: none;
+}
+.cc-picker__frame.is-active {
+  box-shadow: 0 0 0 1px rgba(209, 213, 219, 0.5), inset 0 0 8px 2px rgba(156, 163, 175, 0.15);
+}
+.cc-picker__clip { position: absolute; inset: 0; overflow: hidden; border-radius: 16px; }
+.cc-picker__list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition-property: transform;
+  transition-timing-function: ease-out;
+}
+.cc-picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.cc-picker__media { position: relative; display: flex; align-items: center; justify-content: center; height: 100%; width: 100%; }
+/* 选中 64×64 全亮 / 相邻 48×48 半透明（官方 `w-16 h-16 opacity-100` : `w-12 h-12 opacity-50`）*/
+.cc-picker__img { object-fit: contain; width: 48px; height: 48px; opacity: 0.5; transition-property: all; }
+.cc-picker__img.is-selected { width: 64px; height: 64px; opacity: 1; }
+/* 徽标：`absolute bottom-0 left-1/2 -translate-x-1/2 text-muted-foreground/80 text-[10px]
+   font-bold uppercase px-2 pt-0.5 rounded-t-[4px] bg-background/80` */
+.cc-picker__badge {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px 0;
+  border-radius: 4px 4px 0 0;
+  background: color-mix(in srgb, var(--background, #0f0f0f) 80%, transparent);
+  color: color-mix(in srgb, var(--muted-foreground, #7a7a7a) 80%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-transform: uppercase;
+  transition-property: opacity;
+  box-shadow: inset 0 0 8px 2px rgba(156, 163, 175, 0.15);
+}
+/* 无图项（焦段）：`font-semibold transition-all`，选中 `text-foreground text-lg` / 否则 `text-muted-foreground text-sm` */
+.cc-picker__text { font-weight: 600; user-select: none; font-size: 14px; color: var(--muted-foreground, #7a7a7a); transition-property: all; }
+.cc-picker__text.is-selected { font-size: 18px; color: var(--foreground, #f5f5f5); }
+/* label：`text-xs font-medium mt-4 max-w-[120px] text-center truncate` */
+.cc-picker__label {
+  margin-top: 16px;
+  max-width: 120px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--foreground, #f5f5f5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition-property: opacity;
+}
+.cc-picker__label.is-fading { opacity: 0; }

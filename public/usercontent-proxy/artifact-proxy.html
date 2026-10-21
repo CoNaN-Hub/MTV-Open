@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>artifact-proxy</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+      }
+      #artifact {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      官方 `artifact-proxy.html` 在 MTV 侧的**本地实现**。
+
+      官方那份是 CDN 资源（`KP("artifact-proxy.html")`，见
+      `src/services/chat/widgetProxyUrl.ts`，官方 `uce` @675688 逐字），MTV 没有该资源 ⇒
+      在本地域名下 `officialWidgetProxyUrl()` 落到 `/usercontent-proxy/artifact-proxy.html`
+      时会是 404、iframe 里什么都没有（`HtmlPreview` 的沙箱就永远是空白）。
+
+      协议**逐字**来自官方 `HW`（`vendor-packages-jvPqKqU8.js` @10155，MTV 的复刻见
+      `src/components/chat/HtmlPreview.tsx` 的 `HtmlSandboxRenderer`）：
+        1. 代理页 → 宿主：`{type:"proxy-ready"}`
+        2. 宿主 → 代理页：`{type:"render", html, nonce}`
+        3. 代理页 → 宿主：`{type:"rendered", nonce}`
+
+      宿主侧的两条判据（照官方）：
+        · `proxy-ready` 只校验 `event.source === iframe.contentWindow`；
+        · `rendered` 校验 `nonce` 相等。
+      宿主给 iframe 的 sandbox 是 **`allow-scripts`（没有 `allow-same-origin`）**
+      ⇒ 本页处于不透明源，不能访问宿主，也不能读任何同源资源 ⇒ 内容必须全部内联。
+    -->
+    <script>
+      (function () {
+        var renderedNonce = null;
+
+        function notify(type, extra) {
+          var message = { type: type };
+          if (extra) {
+            for (var key in extra) {
+              if (Object.prototype.hasOwnProperty.call(extra, key)) message[key] = extra[key];
+            }
+          }
+          try {
+            // 官方宿主用 `"*"` 发过来，这里同样用 `"*"` 回（本页无法得知宿主源）。
+            parent.postMessage(message, '*');
+          } catch (error) {
+            /* 宿主已销毁：忽略 */
+          }
+        }
+
+        function render(html, nonce) {
+          renderedNonce = nonce;
+          var previous = document.getElementById('artifact');
+          if (previous && previous.parentNode) previous.parentNode.removeChild(previous);
+
+          var frame = document.createElement('iframe');
+          frame.id = 'artifact';
+          // 与宿主 iframe 同一套放开项：产物页自己要能跑脚本 / 交互。
+          frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-modals allow-popups allow-downloads');
+          frame.setAttribute('referrerpolicy', 'no-referrer');
+          frame.setAttribute('title', 'artifact');
+          // `srcdoc` 让产物页拿到独立文档，代理页本身保持存活才能继续回 `rendered`。
+          frame.srcdoc = typeof html === 'string' ? html : '';
+          frame.addEventListener('load', function () {
+            notify('rendered', { nonce: nonce });
+          });
+          document.body.appendChild(frame);
+
+          // 兜底：`load` 不触发时（例如空文档被优化成不发事件）也要回一次 `rendered`，
+          // 否则宿主会在 `Pge = 1e4` ms 后把状态判成 `error`（官方超时常量）。
+          setTimeout(function () {
+            if (renderedNonce === nonce) notify('rendered', { nonce: nonce });
+          }, 0);
+        }
+
+        window.addEventListener('message', function (event) {
+          var data = event.data;
+          if (!data || typeof data !== 'object' || data.type !== 'render') return;
+          render(data.html, data.nonce);
+        });
+
+        notify('proxy-ready');
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,629 @@
+/**
+ * canvas-nav.css —— 画布左上角导航（项目药丸 + 切换画布下拉）**1:1 对齐官方**。
+ *
+ * ★ 取值来源：官方**构建产物原文**（`page-CBD1_45g.css`，即 CDP 9222 实测页面里加载的那张表，
+ *   2026 官方重新部署后的 hash），下面注释里写「官方原文」的声明都是**逐字**搬的，不是自己量的。
+ *   类名也照抄官方（`.canvas-control` / `.brand-trigger` / `.control-divider` /
+ *   `.title-control` / `.title-rename-slot` / `.title-label-trigger` / `.title-menu-trigger` /
+ *   `.project-menu` / `.project-toolbar` / `.project-search` / `.project-list` / `.project-row` /
+ *   `.project-thumbnail` / `.project-copy` / `.project-check` / `.project-folder` / `.folder-row` /
+ *   `.folder-glyph` / `.folder-label` / `.folder-count` / `.folder-children` / `.folder-empty` /
+ *   `.project-empty` / `.project-menu-footer` / `.project-create`），方便以后直接与官方 diff。
+ *
+ * ⚠️ 用户 2026 的逐条反馈，对本文件的：
+ *   1. **行是居中排的** ⇒ 官方 `.project-row,.folder-row` 里有 `text-align:left`（下一节逐字抄了）；
+ *   2. **没有文件夹 / 文件夹不能展开** ⇒ 官方有 `.project-folder` / `.folder-row` /
+ *      `.folder-children`（左侧 20px 处一条 1px 竖线 `:before`）+ 嵌套行 `.project-row.is-nested`
+ *      （`padding-left:36px`），见下面「文件夹树」一节；
+ *   3. **滑条颜色 / 粗细 / hover 不对** ⇒ 官方这里是**原生细滚动条**
+ *      （`.project-list{scrollbar-width:thin;scrollbar-color:#404040 transparent}`；官方全局
+ *       `::-webkit-scrollbar` 只声明了 `width:8px;height:8px`，它那 track/thumb/hover 三条写的是
+ *       `hsl(var(--secondary))` —— 值无效会被丢弃 ⇒ 实际生效的就是上面那行标准属性）。
+ *      MTV 默认走自绘 overlay 滚动条（`index.css` 的 `*{scrollbar-width:none}` +
+ *      `.overlay-scrollbar-thumb`，色值 `--scrollbar-thumb:#3a3a50` 发蓝紫）⇒ 列表必须显式 opt-out
+ *      （JSX 上加 `data-overlay-scrollbar="off"`，正是 `OverlayScrollbarLayer` 的
+ *       `DISCOVERY_EXCLUSION_SELECTOR`）。
+ *
+ * ⚠️ 官方 pill 结构（实测 DOM @ 2560×1370 视口）：
+ *   div.absolute z-30 …top-4 left-4  (16,16,213×40)
+ *     div.canvas-header-chrome
+ *       div.canvas-control  (height40 · pad 0 6 · r13 · bg #171717 · shadow 0 8px 28px rgba(0,0,0,.2))
+ *         button.brand-trigger.control-button[aria-label="返回工作空间"]  (29×28, 内含 24×24 的 logo)
+ *         span.control-divider                                            (1×16, margin 0 6, bg #2f2f2f)
+ *         div.title-control  (159 宽)
+ *           span.title-rename-slot (28 高)
+ *             span.title-rename-surface   ← 重命名态才浮现的底(inset 0, border 白18%, bg #101010)
+ *             button.title-label-trigger.control-button[aria-label="重命名画布"] > span.title-label
+ *           button.title-menu-trigger.control-button[aria-label="切换画布"] > svg.title-menu-chevron
+ *
+ * ⚠️ 官方 pill 里**没有**「+ 新建画布」—— 它在**下拉菜单页脚**（`.project-menu-footer > .project-create`）。
+ *    用户 2026 明确：「『+』是 MTV 自己的，不要」。
+ */
+
+/* ══════════════════════════════════════════════════════════
+   pill 容器（MTV 沿用自己的类名 `.canvas-nav-bar`，值 = 官方 `.canvas-control`）
+   ⚠️ 原来 MTV 写 `gap: 13px` + `button:hover { background: rgb(36,36,36) }`（0.3s），
+      官方是 **gap 0**（间距由 `.control-divider` 的 `margin: 0 6px` 给）
+      + 按钮 hover `rgba(255,255,255,.055)`（0.15s），**画布名按钮 hover 保持透明**（只把文字提亮到纯白）。
+   ══════════════════════════════════════════════════════════ */
+.canvas-nav-bar {
+  height: 40px;
+  padding: 0 6px;
+  gap: 0;
+  border-radius: 13px;
+  background: rgb(23, 23, 23);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+}
+
+/* 官方原文：.control-button */
+.canvas-nav-bar .control-button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+/* 官方原文：.control-button:hover,.control-button.is-active */
+.canvas-nav-bar .control-button:hover,
+.canvas-nav-bar .control-button.is-active {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+/* 官方原文：.control-button:focus-visible:not(.is-active) */
+.canvas-nav-bar .control-button:focus-visible:not(.is-active) {
+  box-shadow: 0 0 0 2px rgb(22, 119, 255), 0 0 0 4px rgba(22, 119, 255, 0.2);
+}
+
+/* ── 品牌按钮（logo）── 官方原文：.brand-trigger / .brand-mark-window
+   ★ 用户 2026：logo 从静态方图换成**火焰动画版**并放大 24 → 32
+   ⇒ 按钮由 28 长到 36（= 32 + 上下各 2 内边距），画布胶囊本身 40 高，仍留 2px 余量。 */
+.canvas-nav-bar .brand-trigger {
+  display: flex;
+  height: 36px;
+  align-items: center;
+  gap: 6px;
+  padding: 2px;
+  border-radius: 8px;
+}
+
+.canvas-nav-bar .brand-mark-window {
+  position: relative;
+  display: grid;          /* MTV：非方形 logo 需要居中（官方 logo 是方的，block 也看不出差别） */
+  place-items: center;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  /* ⚠️ 原来是 `overflow: hidden`（静态方图时代，用来裁掉超出窗口的部分）。
+     换成火焰 logo 后必须去掉：官方 `LogoShader` 的着色器层按 `inset: -46.154%` 铺开，
+     四周那 24% 是**留给点火爆发/湍流的舞台**，裁掉就会切掉火焰的羽流与烟雾。
+     窗口仍是 32×32 的方形占位，火焰本体正好落在其中，只是爆发的余量不再被裁。 */
+  flex: 0 0 32px;
+}
+
+/* ⚠️ 这里原来有一条 `.brand-mark-window img, .brand-mark-window svg { max-width/max-height: 24px }`
+   —— 那是给**静态方图**用的（保证 MTV 那个宽扁 logo 按原始宽高比缩放进 24×24 并居中）。
+   现在窗口里放的是火焰组件，它自带尺寸（表面 32×32、内部静态图层 100%×100%），
+   而这条选择器（0,2,1）会**压过** `.brand-flame-button__image{width:100%}`（0,1,0）
+   ⇒ 静态图层会被缩成 max 24px 错位。故整条删除，尺寸完全交给组件。 */
+
+/* 官方原文：.control-divider */
+.canvas-nav-bar .control-divider {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  flex: 0 0 1px;
+  background: rgb(47, 47, 47);
+}
+
+/* ══════════════════ 标题区 —— 官方原文 `.title-*` 一族逐字 ══════════════════ */
+
+/* 官方原文：.title-control */
+.canvas-nav-bar .title-control {
+  position: relative;
+  display: flex;
+  width: 159px;
+  min-width: 0;
+  align-items: center;
+  overflow: visible;
+}
+
+/* 官方原文：.title-menu-trigger（含 color:#8b8b8b） */
+.canvas-nav-bar .title-menu-trigger {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  padding: 0;
+  border-radius: 8px;
+  color: rgb(139, 139, 139);
+}
+
+/* 官方原文：.title-menu-chevron / .title-menu-trigger.is-active .title-menu-chevron */
+.canvas-nav-bar .title-menu-chevron {
+  transition: transform 0.16s ease;
+}
+
+.canvas-nav-bar .title-menu-trigger.is-active .title-menu-chevron {
+  transform: rotate(180deg);
+}
+
+/* 官方原文：.title-rename-slot */
+.canvas-nav-bar .title-rename-slot {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  height: 28px;
+  flex: 1;
+  align-items: center;
+}
+
+/* 官方原文：.title-rename-surface */
+.canvas-nav-bar .title-rename-surface {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgb(16, 16, 16);
+  pointer-events: none;
+  will-change: opacity;
+}
+
+/* 官方原文：.title-input,.title-label-trigger */
+.canvas-nav-bar .title-input,
+.canvas-nav-bar .title-label-trigger {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  flex: 1;
+  padding: 0 6px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: rgb(232, 232, 232);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  letter-spacing: -0.018em;
+  text-align: left;
+}
+
+/* 官方原文：.title-label-trigger */
+.canvas-nav-bar .title-label-trigger {
+  border-radius: 8px;
+  cursor: text;
+}
+
+/* 官方原文：.title-label-trigger:hover,.title-label-trigger.control-button:hover,.title-label-trigger.is-active
+   ⇒ 画布名按钮 hover **不换底色**（与旁边两颗按钮不同，只把文字提亮） */
+.canvas-nav-bar .title-label-trigger:hover,
+.canvas-nav-bar .title-label-trigger.control-button:hover,
+.canvas-nav-bar .title-label-trigger.is-active {
+  background: transparent;
+}
+
+/* 官方原文：.title-label-trigger:hover .title-label */
+.canvas-nav-bar .title-label-trigger:hover .title-label {
+  color: rgb(255, 255, 255);
+}
+
+/* 官方原文：.title-label */
+.canvas-nav-bar .title-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 官方原文：.title-input */
+.canvas-nav-bar .title-input {
+  appearance: none;
+  border-radius: 8px;
+  color: rgb(255, 255, 255);
+  caret-color: rgb(255, 255, 255);
+}
+
+/* ══════════════════════════════════════════════════════════
+   切换画布下拉（官方 `.project-menu` 面板）
+   官方外层是 Radix popover（`forceMount` + `data-side="bottom" data-align="start"`、
+   `z-[10001]`、`data-[state=closed]:pointer-events-none`），**常驻挂载**；
+   面板本身是 `motion.div`（spring damping38/stiffness520，
+   `initial/exit {opacity:0,scale:.98,y:-4}`）⇒ **入场/退场动画由 framer-motion 负责，
+   这里不能再写 `@keyframes`**（会被行内 transform 覆盖、还会多跑一份）。
+   位置：实测菜单外框 (16,58) 300×391 —— left 对齐**药丸**左边、top = 药丸底 + 2px。
+   ══════════════════════════════════════════════════════════ */
+.canvas-nav-menu-anchor {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 2px);
+  z-index: 10001;
+  /* 官方 `data-[state=closed]:pointer-events-none` */
+  pointer-events: none;
+}
+
+.canvas-nav-menu-anchor[data-state='open'] {
+  pointer-events: auto;
+}
+
+/* 官方原文：.project-menu */
+.project-menu {
+  width: 300px;
+  padding: 8px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(18, 18, 18, 0.94);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.58), inset 0 1px rgba(255, 255, 255, 0.043);
+  font-size: 14px;
+  transform-origin: left top;
+  user-select: none;
+}
+
+/* 官方原文：.project-toolbar */
+.project-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 官方原文：.project-search / :focus-within */
+.project-search {
+  display: flex;
+  min-width: 0;
+  height: 32px;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgb(122, 122, 122);
+  transition: background-color 0.14s ease;
+}
+
+.project-search:focus-within {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.project-search input {
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: rgb(221, 221, 221);
+  font-size: 14px;
+  font-weight: 450;
+}
+
+.project-search input::placeholder {
+  color: rgb(110, 110, 110);
+}
+
+.project-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* 官方原文：.project-list
+   ★ 用户 2026：「滑条也不对 颜色不对 粗细不对 hover 颜色不对」⇒ 这里必须是**原生细滚动条**。
+   · `scrollbar-width:thin` + `scrollbar-color` 会把 Chromium 切到**标准滚动条**渲染路径，
+     并**忽略** `::-webkit-scrollbar`（含 MTV 全局那条 `display:none`）⇒ 官方那行逐字生效；
+   · 同时 JSX 上给列表加 `data-overlay-scrollbar="off"`，让 MTV 的自绘 overlay 滚动条
+     （`--scrollbar-thumb:#3a3a50`，发蓝紫、hover 变色）不再接管这个列表。 */
+.project-list {
+  display: flex;
+  max-height: 292px;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgb(64, 64, 64) transparent;
+  scrollbar-width: thin;
+}
+
+/* ⚠️ 这行 `!important` 是**必须的**，别删：
+   MTV 为了接管滚动条，在 `index.css` 里写了
+   `[data-overlay-scrollbar][data-overlay-scrollbar]{scrollbar-width:none}`
+   —— **两个属性选择器**（specificity 0,2,0）比 `.project-list`（0,1,0）高一档，
+   而且它在打包顺序里排在 `canvas-nav.css` 之后 ⇒ 不加 `!important` 的话
+   `scrollbar-width` 会被压回 `none`（实测：列表干脆没有滚动条，`offsetWidth-clientWidth === 0`）。
+   `scrollbar-color` 没人抢，所以不需要 `!important`。 */
+.project-list[data-overlay-scrollbar='off'] {
+  scrollbar-width: thin !important;
+}
+
+/* MTV 兜底：万一标准属性不被支持（老内核），退化成官方那套极简 webkit 滚动条 */
+.project-list::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+
+.project-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.project-list::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgb(64, 64, 64);
+}
+
+.project-list::-webkit-scrollbar-thumb:hover {
+  background: rgb(90, 90, 90);
+}
+
+/* 官方原文：.project-row,.folder-row —— ★ `text-align:left` 就是用户说的「名字被居中」的修正 */
+.project-row,
+.folder-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
+  outline: none;
+  background: transparent;
+  color: rgb(236, 236, 236);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+}
+
+/* 官方原文：.project-row:hover,.folder-row:hover */
+.project-row:hover,
+.folder-row:hover {
+  background: rgba(255, 255, 255, 0.043);
+  color: rgb(236, 236, 236);
+}
+
+/* 官方原文：.project-row:focus-visible,.folder-row:focus-visible,.project-create:focus-visible */
+.project-row:focus-visible,
+.folder-row:focus-visible,
+.project-create:focus-visible {
+  box-shadow: 0 0 0 2px rgb(22, 119, 255), 0 0 0 4px rgba(22, 119, 255, 0.2);
+}
+
+/* 官方原文：.project-row:disabled,.folder-row:disabled,.project-create:disabled */
+.project-row:disabled,
+.folder-row:disabled,
+.project-create:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* 官方原文：.project-row.is-nested —— 文件夹里的子画布缩进 36px（与左侧竖线对齐） */
+.project-row.is-nested {
+  min-height: 40px;
+  padding-left: 36px;
+}
+
+/* 官方原文：.project-row.is-selected / :hover */
+.project-row.is-selected {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgb(246, 246, 246);
+}
+
+.project-row.is-selected:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 官方原文：.project-thumbnail / img / .is-placeholder */
+.project-thumbnail {
+  display: grid;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgb(16, 16, 16);
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.project-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.project-thumbnail.is-placeholder {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* 官方原文：.project-row.is-selected .project-thumbnail / .is-placeholder */
+.project-row.is-selected .project-thumbnail {
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.project-row.is-selected .project-thumbnail.is-placeholder {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* 官方原文：.project-copy */
+.project-copy {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: rgb(236, 236, 236);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 官方原文：.project-check */
+.project-check {
+  margin-left: auto;
+  color: rgb(243, 243, 243);
+}
+
+/* ══════════════════ 文件夹树 —— 官方原文 `.project-folder` / `.folder-*` ══════════════════ */
+
+/* 官方原文：.project-folder */
+.project-folder {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* 官方原文：.folder-row svg —— 文件夹里的图标统一 #9a9a9a */
+.folder-row svg {
+  color: rgb(154, 154, 154);
+}
+
+/* 官方原文：.folder-glyph / .folder-glyph svg（两个图标叠在同一格，靠 opacity 切换） */
+.folder-glyph {
+  position: relative;
+  display: grid;
+  box-sizing: border-box;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  place-items: center;
+}
+
+.folder-glyph svg {
+  grid-area: 1 / 1;
+}
+
+/* 官方原文：.folder-glyph-hover{opacity:0} + hover/focus-visible 互换 */
+.folder-glyph-hover {
+  opacity: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .folder-row:hover .folder-glyph-rest,
+  .folder-row:focus-visible .folder-glyph-rest {
+    opacity: 0;
+  }
+
+  .folder-row:hover .folder-glyph-hover,
+  .folder-row:focus-visible .folder-glyph-hover {
+    opacity: 1;
+  }
+}
+
+/* 官方原文：.folder-label */
+.folder-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 官方原文：.folder-count / .folder-row:hover .folder-count */
+.folder-count {
+  margin-left: auto;
+  color: rgb(122, 122, 122);
+  font-size: 11px;
+  font-weight: 450;
+  font-variant-numeric: tabular-nums;
+}
+
+.folder-row:hover .folder-count {
+  color: rgb(154, 154, 154);
+}
+
+/* 官方原文：.folder-children / .folder-children-gap / .folder-children:before
+   `:before` 就是截图里子画布左侧那条 1px 竖线（left:20px，正是 `.folder-glyph` 的中心） */
+.folder-children {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.folder-children-gap {
+  flex: 0 0 8px;
+}
+
+.folder-children::before {
+  position: absolute;
+  top: 4px;
+  bottom: 8px;
+  left: 20px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  content: '';
+}
+
+/* 官方原文：.folder-empty / .project-empty */
+.folder-empty {
+  min-height: 32px;
+  padding: 6px 8px 6px 36px;
+  color: rgb(106, 106, 106);
+  font-size: 11px;
+}
+
+.project-empty {
+  display: flex;
+  min-height: 88px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  color: rgb(106, 106, 106);
+  font-size: 11px;
+}
+
+/* 官方原文：.project-menu-footer / .project-create */
+.project-menu-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+  margin-top: 4px;
+  padding: 4px 2px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.project-create {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(208, 208, 208);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.project-create:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgb(242, 242, 242);
+}
+
+.project-create svg {
+  color: rgb(138, 138, 138);
+}
+
+.project-create:hover svg {
+  color: rgb(216, 216, 216);
+}

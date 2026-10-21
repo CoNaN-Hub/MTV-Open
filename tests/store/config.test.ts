@@ -1,0 +1,1092 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { AppConfig, ProviderModelSelection } from '../../src/types';
+import type { ConfigSaveOptions, LoadedConfig } from '../../src/services/storageService';
+import { ConfigConflictError, configWithoutSecrets } from '../../src/services/configPatch';
+import {
+  getConfiguredModelGroups,
+  getGeneralModelGroups,
+  getMediaModelOptions,
+} from '../../src/components/nodes/shared/defaultModels';
+
+const fileMocks = vi.hoisted(() => {
+  const loadConfig = vi.fn();
+  return {
+    loadConfig,
+    // 凭据改由凭据存储托管后，store 走 loadConfigWithSecrets；沿用 loadConfig 的桩数据
+    loadConfigWithSecrets: vi.fn<(_options?: { allowSecretReadFailure?: boolean }) => Promise<LoadedConfig>>(async () => ({
+      config: await loadConfig(),
+      missingSecrets: [] as string[],
+    })),
+    loadProjectsList: vi.fn(async () => [] as Array<Record<string, unknown>>),
+    loadProjectData: vi.fn(async () => null as Record<string, unknown> | null),
+    saveProject: vi.fn(async (record: { id: string }) => record.id),
+    saveConfig: vi.fn<(config: unknown, options?: ConfigSaveOptions) => Promise<string[]>>(async () => []),
+    setBaseDataDir: vi.fn(),
+    syncAuthorizedDirectories: vi.fn(async () => undefined),
+  };
+});
+
+vi.mock('../../src/services/fileService', () => fileMocks);
+
+import { useAppStore } from '../../src/store/useAppStore';
+
+beforeEach(() => {
+  useAppStore.setState(useAppStore.getInitialState(), true);
+  fileMocks.loadConfig.mockReset();
+  fileMocks.loadConfigWithSecrets.mockReset();
+  fileMocks.loadConfigWithSecrets.mockImplementation(async () => ({
+    config: await fileMocks.loadConfig(),
+    missingSecrets: [],
+  }));
+  fileMocks.saveConfig.mockReset();
+  fileMocks.saveConfig.mockResolvedValue([]);
+  fileMocks.loadProjectsList.mockReset();
+  fileMocks.loadProjectsList.mockResolvedValue([]);
+  fileMocks.loadProjectData.mockReset();
+  fileMocks.loadProjectData.mockResolvedValue(null);
+  fileMocks.saveProject.mockClear();
+  fileMocks.setBaseDataDir.mockClear();
+  fileMocks.syncAuthorizedDirectories.mockReset();
+  fileMocks.syncAuthorizedDirectories.mockResolvedValue(undefined);
+});
+
+describe('config hydration guard', () => {
+  it('keeps failed edits dirty and clears the error only after a successful retry', async () => {
+    fileMocks.loadConfig.mockResolvedValue({ theme: 'dark', providers: {} });
+    await useAppStore.getState().loadConfig();
+    useAppStore.getState().updateConfig({ theme: 'light' });
+    fileMocks.saveConfig.mockRejectedValueOnce(new Error('fixture-private'));
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow('设置保存失败');
+    expect(useAppStore.getState()).toMatchObject({ configDirty: true, configSaveStatus: 'error', config: { theme: 'light' } });
+    await useAppStore.getState().saveConfig();
+    expect(useAppStore.getState()).toMatchObject({ configDirty: false, configSaveStatus: 'saved', configSaveError: null });
+  });
+
+  it('saves a later reversal after the first pending operation', async () => {
+    fileMocks.loadConfig.mockResolvedValue({ theme: 'dark', providers: {} });
+    await useAppStore.getState().loadConfig();
+    let finish!: () => void;
+    fileMocks.saveConfig.mockImplementationOnce(() => new Promise((resolve) => { finish = () => resolve([]); }));
+    useAppStore.getState().updateConfig({ theme: 'light' });
+    const first = useAppStore.getState().saveConfig();
+    await Promise.resolve();
+    useAppStore.getState().updateConfig({ theme: 'dark' });
+    const second = useAppStore.getState().saveConfig();
+    finish(); await first; await second;
+    expect(fileMocks.saveConfig.mock.calls[1][1]?.changes).toContainEqual({ path: ['theme'], before: 'light', after: 'dark' });
+    expect(useAppStore.getState()).toMatchObject({ configDirty: false, config: { theme: 'dark' } });
+  });
+
+  it('reports conflicts without replacing local edits and resets the baseline on reload', async () => {
+    fileMocks.loadConfig.mockResolvedValue({ language: 'zh-CN', providers: {} });
+    await useAppStore.getState().loadConfig();
+    useAppStore.getState().updateConfig({ language: 'en-US' });
+    fileMocks.saveConfig.mockRejectedValueOnce(new ConfigConflictError());
+    await expect(useAppStore.getState().saveConfig()).rejects.toBeInstanceOf(ConfigConflictError);
+    expect(useAppStore.getState()).toMatchObject({ configSaveStatus: 'conflict', configDirty: true, config: { language: 'en-US' } });
+    fileMocks.loadConfig.mockResolvedValue({ language: 'ja-JP', providers: {} });
+    await useAppStore.getState().loadConfig();
+    expect(useAppStore.getState()).toMatchObject({ configSaveStatus: 'idle', configDirty: false, config: { language: 'ja-JP' } });
+  });
+
+  it('preserves edits made during loading while adopting the new disk baseline', async () => {
+    let finish!: (config: unknown) => void;
+    fileMocks.loadConfig.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const loading = useAppStore.getState().loadConfig();
+    await Promise.resolve();
+    useAppStore.getState().updateConfig({ language: 'en-US' });
+    finish({ theme: 'light', language: 'ja-JP', providers: {} }); await loading;
+    expect(useAppStore.getState()).toMatchObject({ configDirty: true, config: { theme: 'light', language: 'en-US' }, configEditBaseline: { language: 'ja-JP' } });
+  });
+
+  it('marks only explicit credential changes and keeps plaintext out of baselines', async () => {
+    fileMocks.loadConfig.mockResolvedValue({ providers: { a: { name: 'A', apiKey: 'fixture-key', apiKeyRef: 'secret:provider/a' } } });
+    await useAppStore.getState().loadConfig();
+    useAppStore.getState().updateConfig({ theme: 'light' });
+    await useAppStore.getState().saveConfig();
+    expect(fileMocks.saveConfig.mock.calls[0][1]?.secretChanges).toEqual({});
+    useAppStore.getState().setProviderKey('a', 'replacement-key');
+    await useAppStore.getState().saveConfig();
+    expect(Object.keys(fileMocks.saveConfig.mock.calls[1][1]?.secretChanges ?? {})).toEqual(['a']);
+    expect(JSON.stringify(useAppStore.getState().configEditBaseline)).not.toContain('replacement-key');
+    expect(configWithoutSecrets(useAppStore.getState().config)).toEqual(useAppStore.getState().configEditBaseline);
+  });
+
+  it('allows ordinary saves after credential-only errors and retains references in editor drafts', async () => {
+    const config = { providers: { a: { name: 'A', apiKeyRef: 'secret:provider/a' } } };
+    fileMocks.loadConfigWithSecrets.mockResolvedValueOnce({ config, persistedConfig: config, unreadSecrets: ['a'], missingSecrets: [] });
+    await useAppStore.getState().loadConfig();
+    expect(useAppStore.getState().configHydrated).toBe(true);
+    useAppStore.getState().saveProviderConfig('a', { name: '改名', apiKey: '' });
+    await useAppStore.getState().saveConfig();
+    expect(useAppStore.getState().config.providers.a.apiKeyRef).toBe('secret:provider/a');
+    expect(fileMocks.saveConfig.mock.calls[0][1]?.secretChanges).toEqual({});
+    expect(useAppStore.getState().configSecretReadErrors).toEqual(['a']);
+  });
+
+  it('rejects every failed save with a sanitized error', async () => {
+    useAppStore.setState({ configHydrated: true });
+    fileMocks.saveConfig.mockRejectedValue(new Error('private-path-and-secret'));
+    await expect(useAppStore.getState().saveConfig({ throwOnError: true }))
+      .rejects.toThrow('设置保存失败');
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow();
+  });
+
+  it('rejects strict saves before hydration without writing defaults', async () => {
+    await expect(useAppStore.getState().saveConfig({ throwOnError: true }))
+      .rejects.toThrow('配置尚未完成加载');
+    expect(fileMocks.saveConfig).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes persisted config from credentials that remain session-only', async () => {
+    useAppStore.setState({ configHydrated: true });
+    fileMocks.saveConfig.mockResolvedValue(['private-provider-id']);
+    await expect(useAppStore.getState().saveConfig({ throwOnError: true }))
+      .rejects.toThrow('配置已保存，但凭据存储不可用');
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow();
+  });
+
+  it('reports a directory synchronization failure after persistence separately', async () => {
+    useAppStore.setState({ configHydrated: true });
+    fileMocks.syncAuthorizedDirectories.mockRejectedValue(new Error('private-directory'));
+    await expect(useAppStore.getState().saveConfig({ throwOnError: true }))
+      .rejects.toThrow('配置已保存，但目录授权同步失败');
+    expect(fileMocks.saveConfig).toHaveBeenCalledOnce();
+  });
+
+  it('does not hide a session-only credential warning when directory synchronization also fails', async () => {
+    useAppStore.setState({ configHydrated: true });
+    fileMocks.saveConfig.mockResolvedValue(['private-ref']);
+    fileMocks.syncAuthorizedDirectories.mockRejectedValue(new Error('private-directory'));
+    await expect(useAppStore.getState().saveConfig({ throwOnError: true }))
+      .rejects.toThrow(/目录授权同步失败.*API Key 仅本次会话有效/);
+  });
+
+  it('does not overwrite edits made while config persistence is pending', async () => {
+    useAppStore.setState({ configHydrated: true });
+    fileMocks.saveConfig.mockImplementationOnce(async () => {
+      useAppStore.getState().updateConfig({ theme: 'light' });
+      return [];
+    });
+    await useAppStore.getState().saveConfig({ throwOnError: true });
+    expect(useAppStore.getState().config.theme).toBe('light');
+  });
+
+  it('blocks persistence until the saved config has been loaded', async () => {
+    useAppStore.getState().updateConfig({ baseDataDir: 'new-default-path' });
+
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow();
+
+    expect(useAppStore.getState().configHydrated).toBe(false);
+    expect(fileMocks.saveConfig).not.toHaveBeenCalled();
+  });
+
+  it('allows persistence after loading and preserves saved paths', async () => {
+    fileMocks.loadConfig.mockResolvedValue({
+      providers: {},
+      theme: 'dark',
+      comfyUIUrl: 'http://127.0.0.1:8188',
+      comfyUIPath: '',
+      generalModels: [],
+      baseDataDir: 'existing-root',
+      assetFolders: ['existing-assets'],
+    });
+
+    await useAppStore.getState().loadConfig();
+    await useAppStore.getState().saveConfig();
+
+    expect(useAppStore.getState().configHydrated).toBe(true);
+    expect(fileMocks.saveConfig.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      baseDataDir: 'existing-root',
+      assetFolders: ['existing-assets'],
+    }));
+  });
+
+  it('defaults to the last project and preserves the project library startup preference', async () => {
+    expect(useAppStore.getState().config.startupView).toBe('last-project');
+    fileMocks.loadConfig.mockResolvedValue({
+      providers: {},
+      theme: 'dark',
+      startupView: 'project-library',
+    });
+
+    await useAppStore.getState().loadConfig();
+    await useAppStore.getState().saveConfig({ silent: true });
+
+    expect(useAppStore.getState().config.startupView).toBe('project-library');
+    expect(fileMocks.saveConfig.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      startupView: 'project-library',
+    }));
+  });
+
+  it('shares project library visibility through the UI store', () => {
+    expect(useAppStore.getState().projectLibraryOpen).toBe(false);
+
+    useAppStore.getState().setProjectLibraryOpen(true);
+
+    expect(useAppStore.getState().projectLibraryOpen).toBe(true);
+  });
+
+  it('silently persists the selected assistant model without a success toast', async () => {
+    fileMocks.loadConfig.mockResolvedValue({ providers: {}, theme: 'dark' });
+    await useAppStore.getState().loadConfig();
+    useAppStore.getState().updateConfig({ assistantModelId: 'volcengine/doubao-seed' });
+
+    await useAppStore.getState().saveConfig({ silent: true });
+
+    expect(fileMocks.saveConfig.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      assistantModelId: 'volcengine/doubao-seed',
+    }));
+    expect(useAppStore.getState().toast.visible).toBe(false);
+  });
+
+  it('keeps persistence blocked when loading the saved config fails', async () => {
+    fileMocks.loadConfig.mockRejectedValue(new Error('private-path-and-secret'));
+
+    await expect(useAppStore.getState().loadConfig()).rejects.toThrow('已阻止覆盖原配置');
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow();
+
+    expect(useAppStore.getState().configHydrated).toBe(false);
+    expect(fileMocks.saveConfig).not.toHaveBeenCalled();
+    expect(useAppStore.getState().toast).toMatchObject({
+      visible: true,
+      type: 'error',
+      message: expect.stringContaining('已阻止覆盖原配置'),
+    });
+    expect(useAppStore.getState().toast.message).not.toContain('private-path-and-secret');
+  });
+
+  it('explains that a newer database requires a newer application without enabling writes', async () => {
+    fileMocks.loadConfig.mockRejectedValue(new DOMException('private-database-path', 'VersionError'));
+
+    await expect(useAppStore.getState().loadConfig()).rejects.toThrow('较新版本');
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow();
+
+    expect(useAppStore.getState().configHydrated).toBe(false);
+    expect(fileMocks.saveConfig).not.toHaveBeenCalled();
+    expect(useAppStore.getState().toast.message).toContain('较新版本');
+    expect(useAppStore.getState().toast.message).not.toContain('private-database-path');
+  });
+
+  it('blocks saves while reloading and restores the saved providers after a failed read', async () => {
+    const savedConfig = {
+      providers: { retained: { name: '已有连接', apiKey: 'test-only-key' } },
+      theme: 'light',
+    };
+    fileMocks.loadConfig.mockResolvedValue(savedConfig);
+    await useAppStore.getState().loadConfig();
+    const previousConfig = useAppStore.getState().config;
+    let rejectReload!: (error: Error) => void;
+    fileMocks.loadConfig.mockReturnValueOnce(new Promise((_resolve, reject) => {
+      rejectReload = reject;
+    }));
+
+    const reloading = useAppStore.getState().loadConfig();
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow();
+    expect(fileMocks.saveConfig).not.toHaveBeenCalled();
+    rejectReload(new Error('read interrupted'));
+    await expect(reloading).rejects.toThrow('已阻止覆盖原配置');
+
+    expect(useAppStore.getState().config).toBe(previousConfig);
+    expect(useAppStore.getState().configHydrated).toBe(false);
+
+    await useAppStore.getState().loadConfig();
+    await useAppStore.getState().saveConfig();
+    expect(fileMocks.saveConfig).toHaveBeenCalledOnce();
+    expect(fileMocks.saveConfig.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining(savedConfig));
+  });
+
+  it('allows first-run settings to be saved when the configuration is genuinely absent', async () => {
+    fileMocks.loadConfig.mockResolvedValue(null);
+
+    await useAppStore.getState().loadConfig();
+    await useAppStore.getState().saveConfig();
+
+    expect(useAppStore.getState().configHydrated).toBe(true);
+    expect(fileMocks.saveConfig).toHaveBeenCalledOnce();
+  });
+
+  it('blocks default writes when the real persistence service cannot read an existing config', async () => {
+    const persistence = await import('../../src/services/storageService');
+    const repository = await import('../../src/services/indexedDbService');
+    const saved = { theme: 'light', providers: { retained: { name: '已有连接', apiKey: '' } } };
+    await repository.saveConfigToDb(saved);
+    fileMocks.loadConfigWithSecrets.mockImplementation(persistence.loadConfigWithSecrets);
+    vi.spyOn(IDBObjectStore.prototype, 'get').mockImplementationOnce(() => {
+      throw new DOMException('read interrupted', 'UnknownError');
+    });
+
+    await expect(useAppStore.getState().loadConfig()).rejects.toThrow('已阻止覆盖原配置');
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow();
+
+    expect(useAppStore.getState().configHydrated).toBe(false);
+    expect(fileMocks.saveConfig).not.toHaveBeenCalled();
+    await expect(repository.loadConfigFromDb()).resolves.toEqual(saved);
+
+    await useAppStore.getState().loadConfig();
+    expect(useAppStore.getState().configHydrated).toBe(true);
+    expect(useAppStore.getState().config.providers).toEqual(saved.providers);
+  });
+
+  it('stops project initialization when its data-directory configuration cannot be loaded', async () => {
+    for (const action of [
+      'loadWorkflows', 'loadPresets', 'loadSkills', 'loadSubAgentProfiles',
+      'loadCustomStyles', 'loadToolbarLayouts', 'loadPlugins',
+    ] as const) {
+      vi.spyOn(useAppStore.getState(), action).mockResolvedValue(undefined);
+    }
+    fileMocks.loadConfig.mockRejectedValue(new Error('configuration read failed'));
+
+    await useAppStore.getState().initFromDb();
+
+    expect(useAppStore.getState().configHydrated).toBe(false);
+    expect(useAppStore.getState().projectLoadStatus).toBe('error');
+    expect(fileMocks.loadProjectsList).not.toHaveBeenCalled();
+    expect(fileMocks.loadProjectData).not.toHaveBeenCalled();
+    expect(fileMocks.saveProject).not.toHaveBeenCalled();
+    expect(fileMocks.saveConfig).not.toHaveBeenCalled();
+  });
+
+  it('keeps persistence enabled when only directory authorization sync fails', async () => {
+    fileMocks.loadConfig.mockResolvedValue({ providers: {}, theme: 'dark' });
+    fileMocks.syncAuthorizedDirectories.mockRejectedValue(new Error('sync failed'));
+
+    await useAppStore.getState().loadConfig();
+    await expect(useAppStore.getState().saveConfig()).rejects.toThrow();
+
+    expect(useAppStore.getState().configHydrated).toBe(true);
+    expect(fileMocks.saveConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it('migrates legacy model connection fields and persists only provider references', async () => {
+    fileMocks.loadConfig.mockResolvedValue({
+      providers: {},
+      theme: 'dark',
+      generalModels: [{
+        id: 'legacy-model',
+        name: '旧模型',
+        openaiUrl: 'https://legacy.example/v1',
+        anthropicUrl: '',
+        modelId: 'legacy-chat',
+        apiKey: 'legacy-secret',
+        category: 'text',
+      }, {
+        id: 'legacy-model-2',
+        name: '旧模型二',
+        openaiUrl: 'https://legacy.example/v1',
+        anthropicUrl: 'https://legacy.example/anthropic',
+        modelId: 'legacy-chat-2',
+        apiKey: 'legacy-secret',
+        category: 'text',
+      }],
+    });
+
+    await useAppStore.getState().loadConfig();
+    const migrated = useAppStore.getState().config;
+    const model = migrated.generalModels?.[0];
+    expect(model?.providerConfigId).toMatch(/^custom-/);
+    expect(model).not.toHaveProperty('apiKey');
+    expect(model).not.toHaveProperty('openaiUrl');
+    expect(model).not.toHaveProperty('anthropicUrl');
+    expect(migrated.providers[model!.providerConfigId]).toMatchObject({
+      apiKey: 'legacy-secret',
+      baseUrl: 'https://legacy.example/v1',
+    });
+    // anthropicUrl 从未参与请求，只有它不同的旧模型应并进同一条连接而不是各建一条
+    expect(Object.keys(migrated.providers).filter((id) => id.startsWith('custom-'))).toHaveLength(1);
+
+    await useAppStore.getState().saveConfig();
+    const saved = fileMocks.saveConfig.mock.calls[0]?.[0] as AppConfig | undefined;
+    expect(JSON.stringify(saved?.generalModels)).not.toContain('legacy-secret');
+    expect(saved?.generalModels?.[0]).toEqual(model);
+  });
+
+  it('migrates the legacy GRSAI default URL without changing custom endpoints', async () => {
+    fileMocks.loadConfig.mockResolvedValue({
+      providers: {
+        grsai: {
+          name: 'GRSAI',
+          apiKey: 'grsai-secret',
+          baseUrl: 'https://api.grsai.com/',
+          catalogId: 'grsai',
+        },
+        'grsai-v1': {
+          name: 'GRSAI V1',
+          apiKey: 'grsai-v1-secret',
+          baseUrl: 'https://api.grsai.com/v1/',
+          catalogId: 'grsai',
+        },
+        'grsai-global': {
+          name: 'GRSAI Global',
+          apiKey: 'grsai-global-secret',
+          baseUrl: 'https://grsaiapi.com/v1/',
+          catalogId: 'grsai',
+        },
+        'grsai-custom': {
+          name: 'GRSAI Custom',
+          apiKey: 'custom-secret',
+          baseUrl: 'https://gateway.example/grsai',
+          catalogId: 'grsai',
+        },
+      },
+      theme: 'dark',
+      generalModels: [],
+    });
+
+    await useAppStore.getState().loadConfig();
+
+    expect(useAppStore.getState().config.providers.grsai.baseUrl).toBe(
+      'https://grsai.dakka.com.cn/v1',
+    );
+    expect(useAppStore.getState().config.providers['grsai-v1'].baseUrl).toBe(
+      'https://grsai.dakka.com.cn/v1',
+    );
+    expect(useAppStore.getState().config.providers['grsai-global'].baseUrl).toBe(
+      'https://grsai.dakka.com.cn/v1',
+    );
+    expect(useAppStore.getState().config.providers['grsai-custom'].baseUrl).toBe(
+      'https://gateway.example/grsai',
+    );
+  });
+
+  it('syncs custom provider models without copying credentials or addresses', () => {
+    useAppStore.getState().saveProviderConfig('custom-current', {
+      name: '当前连接',
+      apiKey: 'provider-only-secret',
+      baseUrl: 'https://current.example/v1',
+      catalogId: 'custom-openai',
+      selectedModels: [{
+        id: 'current-image',
+        name: '当前图片模型',
+        category: 'image',
+        provider: 'custom-current',
+        imageReferenceRequestMode: 'edits-multipart',
+      }, {
+        id: 'current-chat',
+        name: '当前文本模型',
+        category: 'text',
+        provider: 'custom-current',
+        contextWindow: 262_144,
+      }],
+    });
+
+    const model = useAppStore.getState().config.generalModels?.[0];
+    expect(model).toMatchObject({
+      modelId: 'current-image',
+      providerConfigId: 'custom-current',
+      imageReferenceRequestMode: 'edits-multipart',
+    });
+    expect(useAppStore.getState().config.generalModels?.[1]).toMatchObject({
+      modelId: 'current-chat',
+      contextWindow: 262_144,
+    });
+    expect(model).not.toHaveProperty('apiKey');
+    expect(model).not.toHaveProperty('openaiUrl');
+    expect(model).not.toHaveProperty('anthropicUrl');
+  });
+
+  it('syncs editable video capabilities into the unified model runtime', async () => {
+    useAppStore.getState().saveProviderConfig('custom-video', {
+      name: '视频连接',
+      apiKey: 'provider-only-secret',
+      baseUrl: 'https://video.example/v1',
+      catalogId: 'custom-openai',
+      selectedModels: [{
+        id: 'custom-video-model',
+        name: '自定义视频模型',
+        category: 'video',
+        provider: 'custom-video',
+        videoCapability: {
+          ratios: ['16:9', '9:16'],
+          defaultRatio: '16:9',
+          resolutions: ['720p', '1080p'],
+          defaultResolution: '1080p',
+          frameRates: [24, 30],
+          defaultFrameRate: 24,
+          minDuration: 4,
+          maxDuration: 12,
+          defaultDuration: 6,
+        },
+      }],
+    });
+
+    expect(useAppStore.getState().config.generalModels?.[0]?.videoCapability).toEqual({
+      ratios: ['16:9', '9:16'],
+      defaultRatio: '16:9',
+      resolutions: ['720p', '1080p'],
+      defaultResolution: '1080p',
+      frameRates: [24, 30],
+      defaultFrameRate: 24,
+      minDuration: 4,
+      maxDuration: 12,
+      defaultDuration: 6,
+    });
+
+    // 保存/加载都会过 sanitizeGeneralModel，能力声明必须原样留在通用模型上
+    fileMocks.loadConfig.mockResolvedValue(useAppStore.getState().config);
+    await useAppStore.getState().loadConfig();
+    expect(useAppStore.getState().config.generalModels?.[0]?.videoCapability?.frameRates)
+      .toEqual([24, 30]);
+
+    useAppStore.getState().saveProviderConfig('custom-video', {
+      ...useAppStore.getState().config.providers['custom-video'],
+      selectedModels: [{
+        id: 'custom-video-model',
+        name: '自定义视频模型',
+        category: 'video',
+        provider: 'custom-video',
+      }],
+    });
+
+    expect(useAppStore.getState().config.generalModels?.[0]?.videoCapability).toBeUndefined();
+  });
+
+  it('defaults performance mode off, migrates the legacy compatibility flag, and applies changes immediately', async () => {
+    const rootAttributes = new Set<string>();
+    vi.stubGlobal('document', {
+      documentElement: {
+        dataset: {},
+        toggleAttribute: (name: string, enabled: boolean) => {
+          if (enabled) rootAttributes.add(name);
+          else rootAttributes.delete(name);
+        },
+      },
+    });
+
+    expect(useAppStore.getState().config.performanceMode).toBe(false);
+    expect(rootAttributes.has('data-performance-mode')).toBe(false);
+
+    fileMocks.loadConfig.mockResolvedValue({
+      providers: {},
+      theme: 'dark',
+      graphicsCompatibilityMode: true,
+    });
+
+    await useAppStore.getState().loadConfig();
+
+    expect(useAppStore.getState().config.performanceMode).toBe(true);
+    expect(useAppStore.getState().config).not.toHaveProperty('graphicsCompatibilityMode');
+    expect(rootAttributes.has('data-performance-mode')).toBe(true);
+
+    await useAppStore.getState().saveConfig({ silent: true });
+    expect(fileMocks.saveConfig.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({
+      performanceMode: true,
+    }));
+    expect(fileMocks.saveConfig.mock.calls[0]?.[0]).not.toHaveProperty('graphicsCompatibilityMode');
+
+    useAppStore.getState().updateConfig({ performanceMode: false });
+
+    expect(rootAttributes.has('data-performance-mode')).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it('syncs and clears xAI manifest models through the unified model runtime', () => {
+    useAppStore.getState().saveProviderConfig('xai', {
+      name: 'xAI / Grok 官方',
+      apiKey: 'xai-secret',
+      baseUrl: 'https://api.x.ai/v1',
+      catalogId: 'xai',
+      selectedModels: [{
+        id: 'grok-imagine-video',
+        name: 'Grok Imagine Video（文生视频）',
+        category: 'video',
+        provider: 'xai',
+        executionProfile: {
+          preset: 'custom',
+          protocol: {
+            version: 2,
+            mode: 'async',
+            submit: { method: 'POST', path: '/videos/generations' },
+            response: { type: 'json', taskIdPath: 'request_id' },
+            poll: {
+              method: 'GET',
+              path: '/videos/{{submit.request_id}}',
+              response: {
+                statusPath: 'status',
+                successValues: ['done'],
+                failureValues: ['failed', 'expired'],
+                result: { urlPath: 'video.url' },
+              },
+            },
+          },
+        },
+      }],
+    });
+
+    expect(useAppStore.getState().config.generalModels).toEqual([
+      expect.objectContaining({
+        modelId: 'grok-imagine-video',
+        category: 'video',
+        providerConfigId: 'xai',
+        executionProfile: expect.objectContaining({ preset: 'custom' }),
+      }),
+    ]);
+    expect(useAppStore.getState().config.generalModels?.[0]).not.toHaveProperty('apiKey');
+
+    useAppStore.getState().saveProviderConfig('xai', {
+      name: 'xAI / Grok 官方',
+      apiKey: 'xai-secret',
+      baseUrl: 'https://api.x.ai/v1',
+      catalogId: 'xai',
+      selectedModels: [],
+    });
+
+    expect(useAppStore.getState().config.generalModels).toEqual([]);
+  });
+
+  it('syncs Google media manifests without copying its API key', () => {
+    useAppStore.getState().saveProviderConfig('google', {
+      name: 'Google Gemini 官方',
+      apiKey: 'google-secret',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      catalogId: 'google',
+      selectedModels: [{
+        id: 'gemini-3.1-flash-tts-preview',
+        name: 'Gemini 3.1 Flash TTS（Kore / WAV）',
+        category: 'audio',
+        provider: 'google',
+        executionProfile: {
+          preset: 'custom',
+          protocol: {
+            version: 2,
+            mode: 'sync',
+            submit: { method: 'POST', path: '/v1beta/interactions', pathMode: 'origin' },
+            response: {
+              type: 'json',
+              result: {
+                base64Path: 'steps.*.content.*.data',
+                mimeType: 'audio/wav',
+                base64Transform: {
+                  type: 'pcm-s16le-to-wav',
+                  sampleRate: 24000,
+                  channels: 1,
+                },
+              },
+            },
+          },
+        },
+      }],
+    });
+
+    expect(useAppStore.getState().config.generalModels).toEqual([
+      expect.objectContaining({
+        modelId: 'gemini-3.1-flash-tts-preview',
+        category: 'audio',
+        providerConfigId: 'google',
+        executionProfile: expect.objectContaining({ preset: 'custom' }),
+      }),
+    ]);
+    expect(useAppStore.getState().config.generalModels?.[0]).not.toHaveProperty('apiKey');
+  });
+
+  it('syncs Sora2U media models into the unified model runtime', () => {
+    useAppStore.getState().saveProviderConfig('sora2u', {
+      name: 'Sora2U',
+      apiKey: 'sk_sora_secret',
+      baseUrl: 'https://sora2u.com',
+      catalogId: 'sora2u',
+      selectedModels: [{
+        id: 'seedance-2.5',
+        name: 'Seedance 2.5',
+        category: 'video',
+        provider: 'sora2u',
+        videoCapability: {
+          minDuration: 5,
+          maxDuration: 30,
+          maxImageReferences: 30,
+          maxVideoReferences: 10,
+          maxAudioReferences: 10,
+        },
+        executionProfile: {
+          preset: 'custom',
+          protocol: {
+            version: 2,
+            mode: 'async',
+            submit: { method: 'POST', path: '/api/v1/videos' },
+            response: { type: 'json', taskIdPath: 'task.id' },
+            poll: {
+              method: 'GET',
+              path: '/api/v1/videos/{{submit.task.id}}',
+              response: {
+                statusPath: 'task.status',
+                successValues: ['completed'],
+                failureValues: ['failed', 'canceled'],
+                result: { urlPath: 'task.video_url' },
+              },
+            },
+          },
+        },
+      }],
+    });
+
+    expect(useAppStore.getState().config.generalModels).toEqual([
+      expect.objectContaining({
+        modelId: 'seedance-2.5',
+        category: 'video',
+        providerConfigId: 'sora2u',
+        videoCapability: expect.objectContaining({ maxDuration: 30 }),
+        executionProfile: expect.objectContaining({ preset: 'custom' }),
+      }),
+    ]);
+    expect(useAppStore.getState().config.generalModels?.[0]).not.toHaveProperty('apiKey');
+  });
+
+  it('clears every model reference owned by a removed provider', async () => {
+    localStorage.setItem('canvas-model-prefs', JSON.stringify({
+      'ai-text': 'general/provider-text',
+      'ai-image': 'apimart/image-model',
+      'ai-video': 'other/video-model',
+    }));
+    const otherProjectRecord = {
+      id: 'other-project',
+      name: '其他项目',
+      createdAt: 2,
+      updatedAt: 2,
+      settings: {
+        defaultModels: {
+          video: 'apimart/video-model',
+          audio: 'other/audio-model',
+        },
+      },
+      nodes: [
+        {
+          id: 'other-provider-node',
+          data: { label: '待清理', type: 'ai-video', model: 'apimart/video-model', provider: 'apimart' },
+        },
+        {
+          id: 'other-kept-node',
+          data: { label: '保留', type: 'ai-audio', model: 'other/audio-model', provider: 'other' },
+        },
+      ],
+      edges: [],
+    };
+    fileMocks.loadProjectsList.mockResolvedValue([{
+      id: otherProjectRecord.id,
+      name: otherProjectRecord.name,
+      createdAt: otherProjectRecord.createdAt,
+      updatedAt: otherProjectRecord.updatedAt,
+      settings: otherProjectRecord.settings,
+    }]);
+    fileMocks.loadProjectData.mockResolvedValue(otherProjectRecord);
+    useAppStore.setState({
+      config: {
+        providers: {
+          apimart: {
+            name: 'APIMart',
+            apiKey: 'secret',
+            catalogId: 'apimart',
+            selectedModels: [{
+              id: 'image-model',
+              name: '图片模型',
+              category: 'image',
+              provider: 'apimart',
+            }],
+          },
+          other: { name: '其他厂商', apiKey: 'kept' },
+        },
+        theme: 'dark',
+        generalModels: [
+          {
+            id: 'provider-text',
+            name: '厂商文本模型',
+            modelId: 'text-model',
+            category: 'text',
+            providerConfigId: 'apimart',
+          },
+          {
+            id: 'other-text',
+            name: '其他文本模型',
+            modelId: 'other-text-model',
+            category: 'text',
+            providerConfigId: 'other',
+          },
+        ],
+        assistantModelId: 'provider-text',
+        assistantImageModelId: 'apimart/image-model',
+        assistantVideoModelId: 'other/video-model',
+      },
+      projects: [
+        {
+          id: 'current-project',
+          name: '当前项目',
+          createdAt: 1,
+          updatedAt: 1,
+          settings: {
+            defaultModels: {
+              text: 'general/provider-text',
+              image: 'other/image-model',
+            },
+          },
+        },
+        {
+          id: 'other-project',
+          name: '其他项目',
+          createdAt: 2,
+          updatedAt: 2,
+          settings: {
+            defaultModels: {
+              video: 'apimart/video-model',
+              audio: 'other/audio-model',
+            },
+          },
+        },
+      ],
+      currentProjectId: 'current-project',
+      projectName: '当前项目',
+      projectLoadStatus: 'ready',
+      nodes: [
+        {
+          id: 'general-node',
+          type: 'ai-text',
+          position: { x: 0, y: 0 },
+          data: { label: '通用模型', type: 'ai-text', model: 'general/provider-text', provider: 'general' },
+        },
+        {
+          id: 'provider-node',
+          type: 'ai-image',
+          position: { x: 10, y: 10 },
+          data: { label: '厂商模型', type: 'ai-image', model: 'apimart/image-model', provider: 'apimart' },
+        },
+        {
+          id: 'kept-node',
+          type: 'ai-video',
+          position: { x: 20, y: 20 },
+          data: { label: '保留模型', type: 'ai-video', model: 'other/video-model', provider: 'other' },
+        },
+      ],
+      edges: [],
+      groups: [],
+      history: [],
+      historyIndex: -1,
+    });
+
+    await useAppStore.getState().removeProviderConfig('apimart');
+
+    const state = useAppStore.getState();
+    expect(state.config.providers).not.toHaveProperty('apimart');
+    expect(state.config.generalModels?.map((model) => model.id)).toEqual(['other-text']);
+    expect(state.config.assistantModelId).toBeUndefined();
+    expect(state.config.assistantImageModelId).toBeUndefined();
+    expect(state.config.assistantVideoModelId).toBe('other/video-model');
+    expect(state.projects[0].settings?.defaultModels).toEqual({ image: 'other/image-model' });
+    expect(state.projects[1].settings?.defaultModels).toEqual({ audio: 'other/audio-model' });
+    expect(state.nodes.map((node) => ({ model: node.data.model, provider: node.data.provider }))).toEqual([
+      { model: undefined, provider: undefined },
+      { model: undefined, provider: undefined },
+      { model: 'other/video-model', provider: 'other' },
+    ]);
+    expect(state.history).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem('canvas-model-prefs') || '{}')).toEqual({
+      'ai-video': 'other/video-model',
+    });
+    expect(fileMocks.saveProject).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'current-project',
+      nodes: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'general-node',
+          data: expect.objectContaining({ model: undefined, provider: undefined }),
+        }),
+      ]),
+    }));
+    expect(fileMocks.saveProject).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'other-project',
+      settings: { defaultModels: { audio: 'other/audio-model' } },
+      nodes: expect.arrayContaining([
+        expect.objectContaining({
+          id: 'other-provider-node',
+          data: expect.objectContaining({ model: undefined, provider: undefined }),
+        }),
+      ]),
+    }));
+    expect(fileMocks.loadProjectData).toHaveBeenCalledWith('other-project');
+  });
+
+  it('keeps RunningHub standard model references when only workflow credentials are removed', async () => {
+    useAppStore.setState({
+      config: {
+        providers: {
+          'runninghub-model': { name: 'RunningHub 模型', apiKey: 'model-key' },
+          runninghub: { name: 'RunningHub 工作流', apiKey: 'workflow-key' },
+        },
+        theme: 'dark',
+        assistantImageModelId: 'runninghub/nanobanana',
+      },
+      nodes: [{
+        id: 'runninghub-node',
+        type: 'ai-image',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'RunningHub 模型',
+          type: 'ai-image',
+          model: 'runninghub/nanobanana',
+          provider: 'runninghub',
+        },
+      }],
+      history: [],
+      historyIndex: -1,
+    });
+
+    await useAppStore.getState().removeProviderConfig('runninghub');
+
+    const state = useAppStore.getState();
+    expect(state.config.providers).toHaveProperty('runninghub-model');
+    expect(state.config.providers).not.toHaveProperty('runninghub');
+    expect(state.config.assistantImageModelId).toBe('runninghub/nanobanana');
+    expect(state.nodes[0].data).toMatchObject({
+      model: 'runninghub/nanobanana',
+      provider: 'runninghub',
+    });
+    expect(state.history).toHaveLength(0);
+  });
+});
+
+/**
+ * 「这条连接的模型清单要不要镜进 `generalModels`」= **定义驱动**（`connectionOwnsModelList`），
+ * 不再是 `['custom-openai','cccapi','xai','google','sora2u']` 这份写死的名单。
+ *
+ * 根因（用户落盘配置实证）：新加的内置厂商「土豆」的 `catalogId` 不在名单里 ⇒
+ * 35 条 `selectedModels` 一条都没镜进 `generalModels`（`generalModels: []`）⇒
+ * 四类候选（文本/图像/视频/音频）同时归零 ⇒ 节点卡片只显示「选择模型」、Agent 无模型可选。
+ */
+describe('连接自有模型清单 → generalModels（definition-driven）', () => {
+  /** 与用户实测同类：四种分类各自都有（数量不追求一致，形状一致）。 */
+  const TUDOU_SELECTIONS: ProviderModelSelection[] = [
+    { id: 'gpt-5.5', name: 'GPT-5.5', category: 'text', provider: 'tudou' },
+    { id: 'gemini-3-pro', name: 'Gemini 3 Pro', category: 'text', provider: 'tudou' },
+    { id: 'gpt-image-2.5-flare-async', name: 'GPT Image 2.5 Flare', category: 'image', provider: 'tudou' },
+    { id: 'gemini-nano-banana-2.1', name: 'Nano Banana 2.1', category: 'image', provider: 'tudou' },
+    { id: 'suno-v5', name: 'Suno v5', category: 'audio', provider: 'tudou' },
+    { id: 'seedance-2.5', name: 'Seedance 2.5', category: 'video', provider: 'tudou' },
+  ];
+
+  function tudouConnection(selectedModels = TUDOU_SELECTIONS) {
+    return {
+      name: '土豆',
+      apiKey: 'placeholder-key-not-real',
+      catalogId: 'tudou',
+      baseUrl: 'https://api.ai-tudou.net/v1',
+      visibleModelCategories: ['text', 'image', 'video', 'audio'],
+      selectedModels,
+    };
+  }
+
+  it('★ 土豆：selectedModels 镜进 generalModels，且文本/图像/视频/音频四类候选各自非空', () => {
+    useAppStore.getState().saveProviderConfig('tudou', tudouConnection());
+
+    const config = useAppStore.getState().config;
+    expect(config.generalModels?.map((model) => [model.providerConfigId, model.category])).toEqual([
+      ['tudou', 'text'],
+      ['tudou', 'text'],
+      ['tudou', 'image'],
+      ['tudou', 'image'],
+      ['tudou', 'audio'],
+      ['tudou', 'video'],
+    ]);
+
+    /* ★ 节点下拉的候选链：`ModelSelector` 用的就是这两个函数（品牌分组 + 通用模型分组）。 */
+    const media = getMediaModelOptions(config.generalModels ?? [], config);
+    for (const mediaKind of ['image', 'video', 'audio'] as const) {
+      const options = media.filter((option) => option.mediaKind === mediaKind);
+      expect(options.length, `${mediaKind} 候选`).toBeGreaterThan(0);
+      /* 通用通路的候选带的是 `connectionId`（由 `withConnectionAvailability` 标注），
+         不是 `providerConfigId` —— 断言它 = 这条候选确实来自土豆那条连接。 */
+      expect(options.every((option) => option.connectionId === 'tudou'), mediaKind).toBe(true);
+    }
+    const mediaValues = media.map((option) => option.value);
+    expect(mediaValues).toEqual(expect.arrayContaining(
+      config.generalModels.filter((model) => model.category !== 'text').map((model) => `general/${model.id}`),
+    ));
+
+    const textValues = getGeneralModelGroups(config.generalModels ?? [], config, 'ai-text')
+      .flatMap((group) => group.models).map((model) => model.value);
+    expect(textValues).toEqual(expect.arrayContaining(
+      config.generalModels.filter((model) => model.category === 'text').map((model) => `general/${model.id}`),
+    ));
+
+    /* 土豆**不在**静态品牌分组里（`defaultModelGroups` 只有 apimart / volcengine / grsai /
+       dreamina / runninghub）⇒ 「generalModels」是它唯一的候选来源。这正是不镜像就全空的理由。 */
+    expect(getConfiguredModelGroups(config, 'ai-image').some((group) => group.id === 'tudou')).toBe(false);
+  });
+
+  it('既有 5 个走 general 通路的 catalog 行为不变（判定看 catalogId 的定义，不看连接 key）', () => {
+    for (const catalogId of ['custom-openai', 'cccapi', 'xai', 'google', 'sora2u']) {
+      useAppStore.setState(useAppStore.getInitialState(), true);
+      const connectionId = `conn-${catalogId}`;
+      useAppStore.getState().saveProviderConfig(connectionId, {
+        name: catalogId,
+        apiKey: 'placeholder-key-not-real',
+        catalogId,
+        selectedModels: [{
+          id: `${catalogId}-text`,
+          name: `${catalogId} 文本模型`,
+          category: 'text',
+          provider: connectionId,
+        }],
+      });
+      expect(
+        useAppStore.getState().config.generalModels?.map((model) => model.modelId),
+        catalogId,
+      ).toEqual([`${catalogId}-text`]);
+    }
+  });
+
+  it('有静态品牌分组的厂商**不**被镜像（否则下拉会同时出现品牌分组与通用分组两份）', () => {
+    for (const catalogId of ['apimart', 'volcengine', 'grsai', 'dreamina']) {
+      useAppStore.setState(useAppStore.getInitialState(), true);
+      useAppStore.getState().saveProviderConfig(catalogId, {
+        name: catalogId,
+        apiKey: 'placeholder-key-not-real',
+        catalogId,
+        selectedModels: [{
+          id: `${catalogId}-image`,
+          name: `${catalogId} 图片模型`,
+          category: 'image',
+          provider: catalogId,
+        }],
+      });
+      expect(useAppStore.getState().config.generalModels, catalogId).toEqual([]);
+    }
+  });
+
+  it('加载期自愈：已落盘的连接（勾了模型但 generalModels 为空）在配置落地时补回镜像', async () => {
+    const persisted = {
+      theme: 'dark',
+      generalModels: [],
+      providers: { tudou: tudouConnection() },
+    };
+    fileMocks.loadConfig.mockResolvedValue(persisted);
+    await useAppStore.getState().loadConfig();
+
+    const options = fileMocks.loadConfigWithSecrets.mock.calls.at(-1)?.[0] as unknown as {
+      normalize?: (config: unknown) => AppConfig;
+    } | undefined;
+    const normalize = options?.normalize;
+    expect(normalize).toBeTypeOf('function');
+
+    const healed = normalize!(structuredClone(persisted));
+    expect(healed.generalModels?.map((model) => model.category)).toEqual(
+      ['text', 'text', 'image', 'image', 'audio', 'video'],
+    );
+    expect(healed.generalModels?.every((model) => model.providerConfigId === 'tudou')).toBe(true);
+
+    /* 幂等：已经镜像过的配置不再补一次（`storageService` 看见 normalize 有改动就回写数据库
+       ⇒ 这里必须「没缺口就一个字段都不动」，否则每次启动都会回写一次）。 */
+    expect(normalize!(structuredClone(healed)).generalModels).toEqual(healed.generalModels);
+    expect(normalize!(structuredClone(healed)).generalModels).toHaveLength(persisted.providers.tudou.selectedModels.length);
+
+    /* 有静态品牌分组的厂商**不**被自愈补进来 */
+    const apimartOnly = normalize!({
+      theme: 'dark',
+      generalModels: [],
+      providers: {
+        apimart: {
+          name: 'apimart',
+          apiKey: 'placeholder-key-not-real',
+          catalogId: 'apimart',
+          selectedModels: [{ id: 'gpt-5', name: 'GPT-5', category: 'text', provider: 'apimart' }],
+        },
+      },
+    });
+    expect(apimartOnly.generalModels).toEqual([]);
+  });
+});

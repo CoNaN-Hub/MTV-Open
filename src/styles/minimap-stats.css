@@ -1,0 +1,181 @@
+/* ============================================
+   小地图节点统计 — 悬浮小地图时的数量浮层
+   只引用 base.css 的变量，明暗主题自动适配
+   ============================================ */
+
+/* 小地图的**弹出位置** —— 照官方实测：
+     官方小地图 199×149 @ 距左 16 · **距下 59**
+     59 = 40(左下控制条高) + 15(panel margin) + 4(容器 mb-1) ✓
+     → 即**弹在左下控制条的正上方**（MTV 原来是右下角 ✗）
+   官方结构：
+     div.react-flow__panel > div.relative w-[200px] h-[150px] mb-1
+       > div.absolute inset-0 rounded-lg overflow-hidden
+         > svg.react-flow__minimap（!w-full !h-full !m-0 撑满）
+   本体底色官方 = rgba(24,24,27,0.92) */
+/* ★ 同一 Panel 内的上下堆叠（官方结构）：
+     官方打开小地图后左下 Panel 由 293×40 → **293×194**
+     194 = 150(小地图) + 4(mb-1) + 40(控制条) ✓
+     小地图距左 16 / 距下 59 · 横向与控制条仅差 1px
+   ★★ 官方那层**深色圆角面板**（原来 MTV 完全缺失 ✗，实测官方）：
+       div 200×150 · bg **rgba(24,24,27,0.9)**（oklch(0.168415 0 0 / 0.9)）
+                   · **radius 12px** · **border 1px rgba(255,255,255,0.1)** */
+.minimap-stats-zone {
+  position: relative;
+  width: 200px;
+  height: 150px;
+  margin: 0 0 4px; /* 官方容器的 mb-1 = 4px */
+  z-index: 6;
+  box-sizing: border-box;
+  /* 官方**原始值**就是 oklch，直接照抄 ✓（CSS 原生支持 oklch）
+     oklch(0.168415 0 0 / 0.9) ≈ sRGB #0d0d0d —— **比内层 svg 更暗** ✓
+     （我曾错换算成 rgba(24,24,27,0.9) ✗ ≈ #18181b，太亮了 ✗）
+     → 外层暗 + 内层稍亮(rgba(24,24,27,0.92)) 才是官方"内嵌浅色区域"的观感 ✓ */
+  background: oklch(0.168415 0 0 / 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px; /* 官方 rounded-lg */
+  overflow: hidden; /* 官方容器是 rounded-lg + overflow-hidden */
+}
+
+/* ⚠️ 必须 `!important`：MiniMap 的根元素**同时带有 `react-flow__minimap` 和
+   `react-flow__panel` 两个类**，会被 `.react-flow__panel { margin: 15px !important }`
+   命中 —— 于是它在我这个容器里又偏移了 15px（实测 left 30 / 距下 74，应 15 / 59）✗
+   官方是把 MiniMap 的定位交给外层容器、本体 margin 归零（`!m-0`）✓
+   ★★ 官方结构里 MiniMap 根是 **199×149**，比外层容器 **小 1px**：
+        div.relative w-[200px] h-[150px] mb-1          ← 200×150
+          └ div.absolute inset-0 rounded-lg overflow-hidden   ← **无底色**
+              └ div.react-flow__minimap  199×149     ← **有底色 rgba(24,24,27,.92)**
+        → 让出的 1px 露出更暗的外层底色 → 形成官方那条「内嵌描线」✓
+          （MTV 原来是 100% 铺满 ✗ → 完全没有这条线 ✗ 用户反馈的正是它 ✓） */
+.minimap-stats-zone > .react-flow__minimap {
+  /* margin 归零 —— 外层 zone 自带 `border: 1px`，内容盒天然内缩 1px ✓
+     （这里再给 1px margin 会变成 **2px** ✗ 实测踩过）
+     → MiniMap 根 = 198×148、四周各让 1px，露出更暗的外层底色 = 官方那条内嵌线 ✓ */
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  /* 官方本体底色 **rgba(24,24,27,0.92)** · **圆角 0**（圆角由外层容器给）✓
+     MTV 原来是 rgb(43,43,43) + r16 ✗ —— 这就是"颜色不对"的来源 ✓
+     注：React Flow 的 `bgColor` prop 是**画布背景图案色**，不是小地图底色 ✗ */
+  background: rgba(24, 24, 27, 0.92) !important;
+  border-radius: 0 !important;
+}
+
+/* 小屏不再需要单独抬高 —— 位置现在由左下 Panel 的 flex-col 布局决定（官方结构） */
+@media (max-width: 900px) {
+  .minimap-stats-zone {
+    width: 160px;
+    height: 120px;
+  }
+}
+
+.minimap-stats-card {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  min-width: 152px;
+  padding: 8px 10px;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  background: var(--theme-surface);
+  box-shadow: var(--glass-shadow-floating);
+  color: var(--theme-text);
+  font-size: 12px;
+  line-height: 1.5;
+  pointer-events: none;
+  animation: minimap-stats-in 140ms ease-out;
+}
+
+.minimap-stats-card__title {
+  margin-bottom: 6px;
+  color: var(--theme-text-secondary);
+  font-size: 11px;
+}
+
+.minimap-stats-card__empty {
+  color: var(--theme-text-muted);
+}
+
+.minimap-stats-card__list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.minimap-stats-card__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.minimap-stats-card__dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--theme-text-muted);
+}
+
+.minimap-stats-card__dot.is-text { background: var(--node-text-light); }
+.minimap-stats-card__dot.is-image { background: var(--node-image-light); }
+.minimap-stats-card__dot.is-video { background: var(--node-video-light); }
+.minimap-stats-card__dot.is-audio { background: var(--node-audio-light); }
+.minimap-stats-card__dot.is-panorama { background: var(--node-panorama-light); }
+.minimap-stats-card__dot.is-markdown { background: var(--node-markdown-light); }
+.minimap-stats-card__dot.is-animation { background: var(--accent-primary); }
+.minimap-stats-card__dot.is-director { background: var(--accent-primary); }
+.minimap-stats-card__dot.is-shotlist { background: var(--warning-light); }
+.minimap-stats-card__dot.is-plugin { background: var(--node-text-light); }
+.minimap-stats-card__dot.is-note { background: var(--accent-primary); }
+.minimap-stats-card__dot.is-group { background: var(--theme-text-muted); }
+
+.minimap-stats-card__label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--theme-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.minimap-stats-card__count {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--theme-text);
+}
+
+.minimap-stats-card__total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--separator-color);
+  font-weight: 600;
+}
+
+@keyframes minimap-stats-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimap-stats-card {
+    animation: none;
+  }
+}
+
+/* 左下堆叠容器（小地图在上、控制条在下）—— 官方同一 Panel 内 flex-col */
+.canvas-control-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}

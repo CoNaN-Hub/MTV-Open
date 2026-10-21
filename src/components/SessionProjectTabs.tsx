@@ -1,0 +1,251 @@
+/**
+ * SessionProjectTabs 会话项目切换栏 — 记录本次应用运行期间访问过的项目，
+ * 在窗口顶部中央提供不持久化的快捷切换入口。
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Icon } from '@iconify/react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { useShallow } from 'zustand/react/shallow';
+import { useAppStore } from '../store/useAppStore';
+import { seriesOwnerId } from '../store/store.utils';
+import type { CanvasProject } from '../types';
+import ProjectSettingsPopover from './ProjectSettingsPopover';
+
+const MAX_SESSION_PROJECTS = 5;
+const SESSION_PROJECT_IDS_KEY = 'canvas-session-project-ids';
+
+function loadSessionProjectIds(currentProjectId: string | null): string[] {
+  let storedIds: string[] = [];
+  try {
+    const stored = sessionStorage.getItem(SESSION_PROJECT_IDS_KEY);
+    const parsed: unknown = stored ? JSON.parse(stored) : [];
+    if (Array.isArray(parsed)) {
+      storedIds = parsed.filter((id): id is string => typeof id === 'string');
+    }
+  } catch { /* Use the current project only. */ }
+
+  return currentProjectId
+    ? [currentProjectId, ...storedIds.filter((id) => id !== currentProjectId)].slice(0, MAX_SESSION_PROJECTS)
+    : storedIds.slice(0, MAX_SESSION_PROJECTS);
+}
+
+function saveSessionProjectIds(ids: string[]): void {
+  try {
+    sessionStorage.setItem(SESSION_PROJECT_IDS_KEY, JSON.stringify(ids));
+  } catch { /* Session history is best-effort UI state. */ }
+}
+
+export default function SessionProjectTabs() {
+  const { projects, currentProjectId, switchProject } = useAppStore(
+    useShallow((state) => ({
+      projects: state.projects,
+      currentProjectId: state.currentProjectId,
+      switchProject: state.switchProject,
+    })),
+  );
+  // 标签按顶层项目算：打开的是某一集时，高亮的仍然是它所属的剧集。
+  const activeProjectId = currentProjectId
+    ? seriesOwnerId(projects, currentProjectId)
+    : null;
+  const [openedProjectIds, setOpenedProjectIds] = useState<string[]>(
+    () => loadSessionProjectIds(activeProjectId),
+  );
+  const [switchingProjectId, setSwitchingProjectId] = useState<string | null>(null);
+  const [settingsProjectId, setSettingsProjectId] = useState<string | null>(null);
+  const tabListRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const prefersReducedMotion = useReducedMotion();
+  const layoutTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { type: 'spring' as const, bounce: 0, duration: 0.35 };
+
+  useEffect(() => useAppStore.subscribe((state, previousState) => {
+    const nextProjectId = state.currentProjectId;
+    if (!nextProjectId || nextProjectId === previousState.currentProjectId) return;
+    const nextTabId = seriesOwnerId(state.projects, nextProjectId);
+    setOpenedProjectIds((ids) => {
+      const nextIds = [
+        nextTabId,
+        ...ids.filter((id) => id !== nextTabId),
+      ].slice(0, MAX_SESSION_PROJECTS);
+      saveSessionProjectIds(nextIds);
+      return nextIds;
+    });
+  }), []);
+
+  const openedProjects = useMemo(() => {
+    const projectById = new Map(projects.map((project) => [project.id, project]));
+    const orderedIds = activeProjectId
+      ? [activeProjectId, ...openedProjectIds.filter((id) => id !== activeProjectId)]
+      : openedProjectIds;
+    // 记录里可能留着分集 id（项目转成剧集之前记下的），统一归到顶层项目再去重。
+    const seen = new Set<string>();
+    const opened: CanvasProject[] = [];
+    for (const id of orderedIds) {
+      const topLevelId = seriesOwnerId(projects, id);
+      const project = projectById.get(topLevelId);
+      if (!project || seen.has(topLevelId)) continue;
+      seen.add(topLevelId);
+      opened.push(project);
+      if (opened.length >= MAX_SESSION_PROJECTS) break;
+    }
+    return opened;
+  }, [activeProjectId, openedProjectIds, projects]);
+  // 设置面板改的是当前画布的创作基线，所以始终跟着当前分集走，而不是剧集。
+  const currentProject = projects.find((project) => project.id === currentProjectId) ?? null;
+  const settingsOpen = !!activeProjectId && settingsProjectId === activeProjectId;
+  const closeSettings = useCallback(() => setSettingsProjectId(null), []);
+
+  useEffect(() => {
+    tabListRef.current
+      ?.querySelector<HTMLElement>('[aria-selected="true"]')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [activeProjectId]);
+
+  const handleSwitch = async (projectId: string) => {
+    if (projectId === activeProjectId || switchingProjectId) return;
+    closeSettings();
+    setSwitchingProjectId(projectId);
+    try {
+      await switchProject(projectId);
+    } finally {
+      setSwitchingProjectId(null);
+    }
+  };
+
+  if (openedProjects.length === 0) return null;
+
+  return (
+    <div
+      className="group/session fixed left-1/2 top-3 z-[150] max-w-[min(72vw,640px)]
+                 -translate-x-1/2 select-none sm:max-w-[min(52vw,640px)]"
+    >
+      <span
+        aria-hidden="true"
+        className={`pointer-events-none absolute left-1/2 top-1 h-0.5 w-8 -translate-x-1/2
+                    rounded-full bg-muted-foreground/35 transition-opacity duration-150 ${
+                      settingsOpen
+                        ? 'opacity-0'
+                        : 'group-hover/session:opacity-0 group-focus-within/session:opacity-0'
+                    }`}
+      />
+      <nav
+        aria-label="最近打开的项目"
+        className={`app-header max-w-full rounded-2xl border border-border bg-secondary/60 p-1
+                    shadow-lg shadow-black/30 backdrop-blur-xl
+                    transition-[transform,opacity] duration-200 ease-out will-change-transform
+                    motion-reduce:transition-opacity ${
+                      settingsOpen
+                        ? 'translate-y-0 opacity-100 pointer-events-auto'
+                        : '-translate-y-[calc(100%+0.5rem)] opacity-0 pointer-events-none group-hover/session:translate-y-0 group-hover/session:opacity-100 group-hover/session:pointer-events-auto group-focus-within/session:translate-y-0 group-focus-within/session:opacity-100 group-focus-within/session:pointer-events-auto'
+                    }`}
+      >
+        <div
+          ref={tabListRef}
+          role="tablist"
+          className="flex max-w-full items-center gap-1 overflow-x-auto overscroll-x-contain
+                     [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {openedProjects.map((project) => {
+            const isActive = project.id === activeProjectId;
+            const isSwitching = project.id === switchingProjectId;
+
+            return (
+              <motion.div
+                key={project.id}
+                layout="position"
+                role="presentation"
+                transition={{ layout: layoutTransition }}
+                className="relative flex min-w-0 shrink-0 items-center overflow-hidden rounded-xl"
+              >
+                {isActive ? (
+                  <motion.span
+                    layoutId="session-project-active-tab"
+                    aria-hidden="true"
+                    transition={layoutTransition}
+                    className="absolute inset-0 rounded-xl bg-[var(--white-alpha-06)] shadow-sm shadow-black/20
+                               ring-1 ring-inset ring-[var(--border-subtle)]"
+                  />
+                ) : null}
+                <motion.button
+                  whileTap={switchingProjectId === null ? { scale: 0.97 } : undefined}
+                  transition={{ scale: { duration: 0.1, ease: 'easeOut' } }}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-busy={isSwitching}
+                  aria-label={`切换到项目：${project.name}`}
+                  data-tooltip={project.name}
+                  disabled={switchingProjectId !== null}
+                  onClick={() => { void handleSwitch(project.id); }}
+                  className={`group relative z-10 flex h-8 min-w-0 max-w-40 shrink-0 items-center gap-2
+                              rounded-lg px-3 text-xs font-medium leading-none
+                              transition-[color,background-color,opacity] duration-150 disabled:cursor-wait ${
+                                isActive
+                                  ? 'text-foreground'
+                                  : 'text-text-text-tertiary hover:bg-accent hover:text-text-text-secondary'
+                              }`}
+                >
+                  <span className="relative z-10 grid h-2.5 w-2.5 shrink-0 place-items-center">
+                    {isSwitching ? (
+                      <span
+                        aria-hidden="true"
+                        className="h-2.5 w-2.5 animate-spin rounded-full border border-text-text-tertiary/30
+                                   border-t-primary motion-reduce:animate-none"
+                      />
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        className={`h-1.5 w-1.5 rounded-full transition-[background-color,box-shadow] duration-150 ${
+                          isActive
+                            /* 2026 round 95：原 MTV 靛蓝（`indigo` 色族 400 底 + 500/50 阴影）
+                               ⇒ 官方 `--primary` + 官方中性阴影刻度。 */
+                            ? 'bg-primary shadow-sm shadow-black/50'
+                            : 'bg-muted-foreground/30 group-hover:bg-muted-foreground/60'
+                        }`}
+                      />
+                    )}
+                  </span>
+                  <span className="relative z-10 truncate">{project.name}</span>
+                </motion.button>
+                {isActive ? (
+                  <motion.button
+                    ref={settingsButtonRef}
+                    type="button"
+                    aria-label="打开当前项目设置"
+                    aria-expanded={settingsOpen}
+                    aria-controls="project-settings-popover"
+                    data-tooltip="项目设置"
+                    disabled={switchingProjectId !== null}
+                    initial={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    whileTap={{ scale: 0.94 }}
+                    transition={layoutTransition}
+                    onClick={() => setSettingsProjectId((openProjectId) => (
+                      openProjectId === activeProjectId ? null : activeProjectId
+                    ))}
+                    className={`relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-r-xl border-l
+                                border-[var(--separator-color)] transition-colors disabled:cursor-wait ${
+                                  settingsOpen
+                                    ? 'bg-primary/15 text-accent-primary'
+                                    : 'text-text-text-tertiary hover:bg-accent hover:text-text-text-secondary'
+                                }`}
+                  >
+                    <Icon icon="lucide:settings-2" className="h-3.5 w-3.5" />
+                  </motion.button>
+                ) : null}
+              </motion.div>
+            );
+          })}
+        </div>
+      </nav>
+      <ProjectSettingsPopover
+        key={settingsOpen ? currentProjectId ?? 'open' : 'closed'}
+        isOpen={settingsOpen}
+        project={currentProject}
+        anchorRef={settingsButtonRef}
+        onClose={closeSettings}
+      />
+    </div>
+  );
+}

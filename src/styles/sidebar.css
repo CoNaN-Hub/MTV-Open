@@ -1,0 +1,1120 @@
+/* ============================================
+   Sidebar v3 — fixed left icon bar
+   ── 已对齐 TapNow 官方画布左侧竖条实测值 ──
+   官方容器实测：**bg rgb(28,28,28) · radius 32px · 1px rgba(255,255,255,.1) · padding 6px · 宽 53**；
+        图标色 rgb(207,206,206)；**hover：bg rgb(38,38,38) · 图标 rgb(250,250,250)**；
+        首个是 **40×40 白色圆按钮**（bg #F5F5F5 · 图标 #0F0F0F，右上 8×8 圆点徽标），hover 前后不变；
+        其余 **38×38 · radius 10px · 透明底**；尾部 **16×1 分隔线** + **40×40 圆头像**（bg rgb(43,43,43) · 1px 白 10%）；
+        tooltip 贴**右侧** 4px。
+   本项目的原有功能（画布/项目、资产、角色库、输出历史、AI 助手、设置）**全部保留**，只换外观。
+   ============================================ */
+
+/* 竖条令牌 —— 官方只有深色实测值；浅色主题取反相高对比（画布是浅色，白圆会消失）
+   ★ round 103：本族**整族 1:1 命中官方 shadcn `--sidebar*` 一族**（报告 §4，最干净的一族）。
+   下表每条都是「MTV 原来那个 rgb() 换算成 hex = 官方令牌逐字值」
+   （`D:\DEEPSEEK\_official-css\index-BroFpZiQ.css`）：
+     rgb(28,28,28)=#1c1c1c→`--sidebar`(@740691) · rgba(255,255,255,.1)=#ffffff1a→`--sidebar-border`(@740874)
+     rgb(43,43,43)=#2b2b2b→`--muted`(@740106) · rgb(207,206,206)=#cfcece→`--sidebar-foreground`(@740711)
+     rgb(250,250,250)=#fafafa→`--sidebar-primary`(@740742) · rgb(38,38,38)=#262626→`--sidebar-accent`(@740809)
+     rgb(245,245,245)=#f5f5f5→`--foreground`(@739710) · rgb(15,15,15)=#0f0f0f→`--background`(@739657)
+     rgb(122,122,122)=#7a7a7a→`--muted-foreground`(@740124) · rgb(144,196,229)=#90c4e5→`--accent-primary`(@740411)
+   ⇒ 视觉**零变化**。
+   ⚠️ 官方 CSS 里也有 `--rail-` 前缀（×4：@93656/@93687/@93737/@93766），但那是官方横向 chip 条的
+   **宽度**参数 `--rail-max` / `--rail-screen-gutter`（定义在 JS inline style 里，**只有宽度没有颜色**），
+   与 MTV 左侧竖条无关，**不要误接**。
+   ⚠️ `[data-theme='light'] .sidebar-floating` 那一段（本文件紧随其后）是 MTV 的浅色入口，
+   官方这几个令牌**没有浅色层** ⇒ 用户口径 A 档：**逐字保留，不跟着换**。 */
+.sidebar-floating {
+  --rail-bg: var(--sidebar);
+  --rail-border: var(--sidebar-border);
+  --rail-divider: var(--sidebar-border);
+  --rail-avatar-bg: var(--muted);
+  --rail-icon: var(--sidebar-foreground);
+  --rail-icon-hover: var(--sidebar-primary);
+  --rail-hover-bg: var(--sidebar-accent);
+  --rail-primary-bg: var(--foreground);
+  --rail-primary-fg: var(--background);
+  --rail-primary-bg-hover: var(--muted);
+  --rail-primary-fg-hover: var(--muted-foreground);
+  --rail-badge: var(--accent-primary);
+  /* 节点面板（官方实测）
+     ★ round 103：族名 `--node-picker` 官方 0 命中，按官方同刻度落到官方语义令牌（报告 §6）：
+       #18181b→`--sidebar`(#1c1c1c，官方左栏/面板底) · #3f3f46→`--border`(#ffffff1a，官方面板实际描边)
+       rgb(122,122,122)→`--muted-foreground`(@740124 逐字) · rgb(204,204,204)→`--popover-foreground`(#ccc 逐字)
+       rgba(64,64,64,.5)/.4→官方 `--accent:#404040`(@740362) 的 50% / 40%
+     ⚠️ 浅色段（紧随其后的 `[data-theme='light'] .sidebar-floating`）保持 MTV 字面值。 */
+  --node-picker-bg: var(--sidebar);
+  --node-picker-border: var(--border);
+  --node-picker-muted: var(--muted-foreground);
+  --node-picker-title: var(--popover-foreground);
+  --node-picker-hover: color-mix(in oklab, var(--accent) 50%, transparent);
+  --node-picker-icon-bg: color-mix(in oklab, var(--accent) 40%, transparent);
+}
+
+[data-theme='light'] .sidebar-floating {
+  --rail-bg: #ffffff;
+  --rail-border: rgba(51, 54, 77, 0.1);
+  --rail-divider: rgba(51, 54, 77, 0.1);
+  --rail-avatar-bg: #e4e8f2;
+  --rail-icon: #6e7488;
+  --rail-icon-hover: #33364d;
+  --rail-hover-bg: rgba(51, 54, 77, 0.08);
+  --rail-primary-bg: #33364d;
+  --rail-primary-fg: #ffffff;
+  --rail-primary-bg-hover: #e4e8f2;
+  --rail-primary-fg-hover: #6e7488;
+  --rail-badge: #3b82f6;
+  --node-picker-bg: #ffffff;
+  --node-picker-border: rgba(51, 54, 77, 0.15);
+  --node-picker-muted: #6e7488;
+  --node-picker-title: #33364d;
+  --node-picker-hover: rgba(51, 54, 77, 0.08);
+  --node-picker-icon-bg: rgba(51, 54, 77, 0.06);
+}
+
+.sidebar-floating {
+  position: absolute;
+  /* 官方实测：left 15px · **垂直居中**（1000 高视口下 331..668，中心恰为 50%） */
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* ⚠️ 保持 6px —— 官方是**两层** gap：
+       竖条本体 `gap-1`(4px) 只作用于「顶部 / 主体 / 底部」三个区块之间；
+       主体按钮之间是内层容器 `flex flex-col **gap-1.5**(6px)`。
+     MTV 没有那层容器（按钮直接铺在竖条里），所以这里 6px 正好等于官方的**主体间距 6px** ✓
+     （官方实测 y=55/99/143/187/231 → 间隔 44 = 38 + 6 ✓；MTV 也是 44 ✓）
+     曾误改成 4 ✗ —— 会让按钮间距变 42 ✗。区块间那 2px 差异待加容器时一并处理。 */
+  gap: 6px;
+  width: 53px;
+  padding: 6px;
+  /* 官方容器实测：bg rgb(28,28,28) · radius 32px · 1px rgba(255,255,255,.1) · padding 6px */
+  background: var(--rail-bg);
+  border: 1px solid var(--rail-border);
+  border-radius: 32px;
+  box-shadow: none;
+  /* 切换悬浮/停靠时平滑滑动。
+     ★ 2026 追加 `translate` / `opacity`：历史面板打开时竖条要「滑出 + 淡出」（用户反馈①），
+       时长/缓动沿用这里**既有**的 0.42s + `--ease-spring`（不新造 token）。 */
+  transition:
+    left 0.42s var(--ease-spring),
+    translate 0.42s var(--ease-spring),
+    opacity 0.42s var(--ease-spring);
+}
+
+/* ── 历史面板打开 ⇒ 左侧竖条让位（用户反馈①）────────────────────────────────
+   官方画布页**没有**左侧竖条（9444 实测：左侧只有 `div.canvas-control`(16,16,213,40) 与左下控制条），
+   所以这条没有官方 DOM 可抄；MTV 用自己的竖条 + 它既有的 0.42s token 做「滑出 + 淡出」，
+   位移量直接复用官方画廊飞出用的同一条 `calc(-100% - 24px)`（nodes-pile.css 的
+   `[data-pile-gallery-phase]` 规则），关闭时原路返回。
+   ⚠️ 选择器要盖过下面那条 `[data-tauri-window][data-sidebar-floating] .sidebar-floating{left:-30px}`
+      （0,3,0），所以这里同时写两种宿主形态（各自算特异性）。 */
+[data-canvas-container][data-history-panel-open] [data-pile-gallery-chrome='left'],
+[data-canvas-container][data-history-panel-open][data-tauri-window][data-sidebar-floating] [data-pile-gallery-chrome='left'] {
+  translate: calc(-100% - 24px) 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Tauri + 悬浮开启：侧边栏半露在透明边条外（悬浮态）。
+   关闭悬浮（无 data-sidebar-floating）时回落到 left:15px 停靠态。 */
+[data-tauri-window][data-sidebar-floating] .sidebar-floating {
+  left: -30px;
+}
+
+/* Sidebar button base — 官方 38×38 · radius 10px */
+.sidebar-btn-v3 {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--rail-icon);
+  border-radius: 10px;
+  cursor: var(--cursor-pointer, pointer);
+  /* 官方：color / background-color .15s cubic-bezier(.4,0,.2,1)（Tailwind transition-colors） */
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+  position: relative;
+}
+/* 官方竖条 hover 时**不改尺寸**（Design.md §12.1：hover 不加缩放） */
+.sidebar-btn-v3:hover {
+  color: var(--rail-icon-hover);
+  background: var(--rail-hover-bg);
+}
+.sidebar-btn-v3 .ico-normal {
+  display: block;
+}
+.sidebar-btn-v3 .ico-hover {
+  display: none;
+}
+/* ⚠️ 「添加节点 +」按钮**不换图标**，而是**同一个图标旋转 45°** ——
+    官方源码实测（点开前后 dump + 图标的 class）：
+      打开前 `… tabler-icon-plus **rotate-0**  transition-transform duration-300 !size-5`
+      打开后 `… tabler-icon-plus **rotate-45** transition-transform duration-300 !size-5`
+    MTV 原来做成了 hover/active 时 `display:none` 换 `ico-hover` ✗（用户反馈"旋转动画没有了"）
+    → 这里只对 .add-btn-v3 关闭换图标逻辑，改用官方旋转 ✓ */
+.sidebar-btn-v3.add-btn-v3 .ico-normal {
+  display: block !important;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.sidebar-btn-v3.add-btn-v3:hover .ico-normal,
+.sidebar-btn-v3.add-btn-v3.active .ico-normal {
+  display: block !important;
+  transform: rotate(45deg);
+}
+.sidebar-btn-v3.add-btn-v3 .ico-hover {
+  display: none !important;
+}
+.sidebar-btn-v3:not(.add-btn-v3):hover .ico-normal,
+.sidebar-btn-v3:not(.add-btn-v3).active .ico-normal {
+  display: none;
+}
+.sidebar-btn-v3:not(.add-btn-v3):hover .ico-hover,
+.sidebar-btn-v3:not(.add-btn-v3).active .ico-hover {
+  display: block;
+  color: var(--rail-icon-hover);
+}
+
+/* Add button — 官方首个按钮：40×40 圆 · bg #F5F5F5 · 图标 #0F0F0F
+   hover（面板展开态）：**反相**成 bg rgb(43,43,43) · 图标 rgb(122,122,122)，图标由 + 换成 ✕ */
+.add-btn-v3 {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--rail-primary-bg);
+  color: var(--rail-primary-fg);
+  /* 官方实测：白圆 → 首个图标 8px（容器 gap 6 + 这 2px） */
+  margin-bottom: 2px;
+}
+.add-btn-v3:hover,
+.add-btn-v3.active {
+  background: var(--rail-primary-bg-hover);
+  color: var(--rail-primary-fg-hover);
+}
+
+/* Canvas logo button */
+.sidebar-logo-wrap {
+  margin-bottom: 2px;
+}
+.sidebar-canvas-btn {
+  color: var(--rail-icon);
+}
+
+.sidebar-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--node-markdown-light);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* 「+」白圆右上角的圆点徽标 — 官方实测：8×8 · rgb(144,196,229) · top/right 各 2px */
+.rail-dot-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--rail-badge);
+  pointer-events: none;
+}
+
+/* Task center button */
+.task-center-btn {
+  position: relative;
+}
+.task-center-tooltip {
+  position: absolute;
+  /* 100% 解析的是竖条的 **padding box（51）** ✗ —— 竖条 53 含 2px 边框 ✓
+     所以取 +9 才能让面板左缘落在 15+51+9+1 = **76** ✓（= 官方实测 ✓）*/
+  left: calc(100% + 9px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--theme-text);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+  box-shadow: 0 4px 16px var(--black-alpha-50);
+}
+.task-center-btn:hover .task-center-tooltip {
+  opacity: 1;
+}
+.task-center-tooltip-beta {
+  font-size: 10px;
+  color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.15);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* Separator */
+/* 分隔线 — 官方实测：16×1 · rgba(255,255,255,.1) */
+.sidebar-sep-v3 {
+  width: 16px;
+  height: 1px;
+  background: var(--rail-divider);
+  margin: 0;
+}
+
+/* Avatar wrap — 官方实测：分隔线 → 头像块 12px */
+.avatar-wrap {
+  position: relative;
+  margin-top: 6px;
+}
+/* 头像 — 官方实测：40×40 圆 · bg rgb(43,43,43) · 1px rgba(255,255,255,.1) · 无 hover 位移 */
+.user-gear-plain {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rail-border);
+  background: var(--rail-avatar-bg);
+  color: var(--rail-icon);
+  border-radius: 999px;
+  cursor: var(--cursor-pointer, pointer);
+  font-size: 18px;
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.user-gear-plain:hover {
+  color: var(--rail-icon-hover);
+}
+
+/* Avatar dropdown menu */
+/* ★★ 逐字对齐**官方账号菜单**（用户图1 = 官方；图2 = 改前的 MTV）：
+      · 容器 `w-[260px] rounded-2xl py-2.5 px-1.5 bg-[#1F1F1F]`
+        ⇒ 宽 260 · 圆角 16（--radius-2xl=1rem）· 内边距 10px/6px · 底色 **#1F1F1F**
+        ⚠️ 官方这个菜单**没有描边**（不是下拉那套 border-white/10）—— 原来我给的是 white/10 细描边，
+           对着图1 看是多余的，已去掉。
+        实测复核：官方面板 390×776 图像px ÷ 1.5 = 260 CSS px ✓ 底色 #1F1F1F ✓ */
+.avatar-menu {
+  position: absolute;
+  left: calc(100% + 14px);
+  bottom: 0;
+  width: 260px;
+  max-width: calc(100vw - 100px);
+  background: var(--menu-bg);
+  border: none;
+  border-radius: var(--menu-radius);
+  padding: 10px 6px;
+  box-shadow: var(--popover-shadow);
+  z-index: 100;
+  animation: menuSlideIn var(--dur-normal) var(--ease-out-expo);
+  transform-origin: right bottom;
+}
+@keyframes menuSlideIn {
+  from { opacity: 0; transform: translateX(-8px) translateY(8px) scale(0.94); }
+  to   { opacity: 1; transform: translateX(0) translateY(0) scale(1); }
+}
+/* ── 面板头（官方 `_9t`，逐字）──
+   `flex items-center gap-3 pl-1 mb-4`
+   + 头像 `h-10 w-10 border border-white/10`（圆形容器）
+   + 名字 `text-lg text-primary-foreground truncate`
+   用户 2026：「N + 圆形底色  New Tapper」。 */
+.avatar-menu-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 4px; /* pl-1 */
+  margin-bottom: 12px;
+}
+.avatar-menu-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 40px;  /* h-10 */
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.1); /* border-white/10 */
+  border-radius: 9999px;
+  overflow: hidden;
+  background: var(--muted, #2b2b2b);
+}
+.avatar-menu-avatar > img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover; /* object-cover */
+}
+/* 空头像兜底 = 「个人设置」页那颗同源（`--primary` #1fa2dc + 白字） */
+.avatar-menu-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--primary, #1fa2dc);
+  color: var(--primary-foreground, #fafafa);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+.avatar-menu-identity {
+  display: flex;
+  min-width: 0; /* min-w-0 */
+  flex: 1 1 0%;
+  flex-direction: column;
+  justify-content: center;
+}
+/* `text-lg text-primary-foreground truncate` */
+.avatar-menu-name {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--menu-item-fg);
+  font-size: 18px;
+  line-height: 28px;
+  font-weight: 600;
+}
+/* ── 积分行（官方面板头下面那颗卡片的简化版；用户指定图标用**闪电**）── */
+.avatar-menu-credits {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 2px 2px;
+  padding: 8px 10px;
+  border-radius: var(--menu-item-radius);
+  background: var(--menu-icon-bg);
+}
+.avatar-menu-credits-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--menu-icon-box);
+  height: var(--menu-icon-box);
+  border-radius: var(--menu-icon-radius);
+  background: var(--menu-icon-bg);
+  color: var(--menu-icon-fg);
+}
+.avatar-menu-credits-value {
+  color: var(--menu-item-fg);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 官方 `_d` 单行：`flex items-center gap-2 px-2 py-1.5 text-sm font-medium
+   text-[#F0F0F0] rounded-sm hover:bg-[#404040]`
+   （`rounded-sm` = calc(--radius - 4px) = **4px**；行高 = 24px 图标盒 + 6px×2 = **36px**）*/
+.avatar-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--menu-item-fg);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: var(--cursor-pointer, pointer);
+  border-radius: var(--menu-item-radius);
+  transition: background var(--transition-base), color var(--transition-base);
+  text-align: left;
+}
+/* ★ 官方那个**图标外壳 + 底色**（`flex h-6 w-6 items-center justify-center rounded-sm bg-muted`）——
+   这正是用户说的「图标+底色」：原来是裸露的 15px 图标，完全没有这个块 ✗ */
+.avatar-menu-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--menu-icon-box);
+  height: var(--menu-icon-box);
+  border-radius: var(--menu-icon-radius);
+  background: var(--menu-icon-bg);
+  color: var(--menu-icon-fg);
+}
+.avatar-menu-item-icon > svg {
+  width: var(--menu-icon-size);
+  height: var(--menu-icon-size);
+}
+/* 带右侧箭头的行（简体中文）：文案占满，箭头贴右 */
+.avatar-menu-row {
+  position: relative;
+}
+.avatar-menu-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.avatar-menu-item-chevron {
+  flex: none;
+  color: var(--theme-text-muted, #7a7a7a);
+}
+.avatar-menu-item:hover {
+  /* 官方菜单项 hover = `hover:bg-[#404040]`（官方 --accent）—— 中性灰，不带蓝紫 ✓ */
+  background: var(--popover-item-hover);
+}
+
+/* ── 语言二级弹层 ──
+   官方 `LNe` 那一族的兄弟：`absolute top-0 z-50 rounded-xl border border-white/10
+   bg-[#1F1F1F] p-1.5 shadow-lg`，挂在菜单项**右侧**（官方 `left-full`/`right-full`）。
+   半径按官方 Tailwind v4 实测：`rounded-xl` = `--radius + 4px` = 16px、
+   `rounded-lg` = `--radius` = 12px；`shadow-lg` = 官方 `--shadow-lg` 真值。 */
+.avatar-submenu {
+  position: absolute;
+  top: -10px; /* 抵消菜单容器的 10px 上内边距 ⇒ 与触发项顶对齐 */
+  left: calc(100% + 8px);
+  z-index: 120;
+  min-width: 148px;
+  padding: 6px;
+  border: 1px solid var(--popover-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--popover-radius, 16px);
+  background: var(--menu-bg, #1f1f1f);
+  box-shadow:
+    0 2px 4px 0 rgba(0, 0, 0, 0.1),
+    0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+/* 选项：官方 `flex cursor-pointer items-center justify-between rounded-lg px-3 py-2
+   text-sm transition-colors hover:bg-[#404040]`；当前项 `text-foreground`，其余 `text-popover-foreground/80` */
+.avatar-submenu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 12px;
+  border-radius: var(--popover-item-radius, 12px);
+  font-size: 14px;
+  line-height: 20px;
+  color: color-mix(in srgb, #ccc 80%, transparent);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color var(--transition-base), color var(--transition-base);
+  white-space: nowrap;
+}
+.avatar-submenu-item:hover {
+  background: var(--popover-item-hover, #404040);
+}
+.avatar-submenu-item[data-checked] {
+  color: #f5f5f5;
+}
+/* 官方分隔线 `LNe`：`w-full my-2` + `border: 0.5px solid #fff1`（整宽、0.5px 发丝线）*/
+.avatar-menu-sep {
+  height: 0;
+  background: none;
+  border-top: 0.5px solid var(--menu-sep);
+  margin: 8px 0;
+}
+
+/* ============================================
+   Node Picker — popup from + button
+   ============================================ */
+/* 官方面板辉光层（垫在面板内容之下） */
+/* 官方面板的「彩色晕染」层 —— 逐字对齐 EXE 源码（深色主题那一支）：
+     <div className="absolute top-0 left-0 w-full h-full **blur-3xl**(=64px)
+          **bg-[#3f3f46]/60** ***:rounded-full**">
+   注意：容器本身也带底色 **#3f3f46/60** ✓（不是只做模糊 ✓），且**整体被 blur 64px** ✓
+   （blur 作用在容器上 → 4 个圆斑的边缘被糊开成晕染 ✓）
+   ⚠️ 这一层曾被当作"误加"删除 ✗ —— 但它**确实是官方「+」面板的一部分** ✓ 已恢复 ✓ */
+.node-picker-glow {
+  position: absolute;
+  /* ★★★★ 官方全量实测（逐元素 × 全属性 dump）—— 光斑层的真相 ✗：
+       官方：**239×584**，相对面板 **L1 T1 R1 B1** ✓ → **就是 inset:0，没有外扩** ✗
+             bg        = rgba(63, 63, 70, 0.6) ✓
+        ★★★ **opacity   = 0.2**   ✗✓  ← **整层只有 20% 不透明度**（这就是"淡淡的" ✓）
+        ★★★ **z-index   = -1**    ✗   ← 在内容**背后** ✓
+             filter    = blur(64px) ✓
+             overflow  = visible ✓
+
+     ⚠️ 我此前连错两次 ✗：
+        ① 只做了 blur + bg，**漏了 opacity:0.2** ✗ → 光斑亮了 5 倍，看起来"全局、填满、很重" ✗
+        ② 又按一次**误读的实测**（239×584 / 上-14 / 下+15）改成"外扩 + overflow:visible" ✗
+           → 光斑直接**溢出面板** ✗（用户："光斑层溢出了！！" ✓）
+     → 现在按官方原值：inset:0 ✓ + overflow:visible ✓ + **opacity:0.2** ✓ + **z-index:-1** ✓ */
+  inset: 0;
+  overflow: visible; /* 官方 overflow=visible ✓（不裁切，但也不外扩 ✓）*/
+  background: rgba(63, 63, 70, 0.6); /* 官方 bg-[#3f3f46]/60 ✓ */
+  filter: blur(64px); /* 官方 blur-3xl ✓ */
+  opacity: 0.2; /* ★ 官方实测 0.2 ✓（漏了它就会亮 5 倍 ✗）*/
+  pointer-events: none;
+  z-index: -1; /* ★ 官方实测 -1 ✓（在内容之后 ✓）*/
+}
+.node-picker-blob {
+  position: absolute;
+  border-radius: 999px;
+}
+.node-picker-body {
+  position: relative;
+  z-index: 1;
+}
+
+/* 双击画布空白处：菜单出现在**点击位置**（官方实测），而不是贴着左侧竖条 */
+.node-picker--at {
+  left: auto;
+  top: auto;
+  transform-origin: left top;
+}
+
+/* ── 节点面板 — 对齐 TapNow 官方「添加节点」实测值 ──
+   面板   240 宽 · bg #18181B(zinc-900) · radius 12px · border 1px #3F3F46(zinc-700) · padding 4px
+          与竖条右缘相距 14px，顶边对齐「+」上沿（+7px）
+   组标题 高 28 · padding 6px 8px · 12px/500 lh16 rgb(122,122,122)
+   条目   231×52 · radius 16px · padding 8px · gap 8px · 行间距 4px · 常态透明
+          hover/激活 bg rgba(63,63,70,.5) · 文字转 rgb(255,255,255)
+   图标盒 36×36 · radius 10px · bg rgba(63,63,70,.4)
+   标题   14px/500 lh14 rgb(204,204,204)      副标 12px/400 lh12 rgb(122,122,122)
+   （官方面板另有两层装饰辉光：blur-3xl 的 zinc 层 + 底部蓝/橙圆斑，属视觉彩蛋，未接。） */
+.node-picker {
+  position: absolute;
+  /* ★ 与竖条的**横向间距** —— 官方实测（统一视窗）：面板 @left **76**，
+     竖条 @left 15 宽 53 → 竖条右缘 68 → **间距 8px** ✓（纵向：面板 474 vs 竖条 467 → +7 ✓）
+     MTV 原来是 `calc(100% + 14px)` ✗ = 14px ✗（用户反馈"与工具栏的横向间距不一样" ✓）*/
+  /* 100% 解析的是竖条的 **padding box（51）** ✗ —— 竖条 53 含 2px 边框 ✓
+     所以取 +9 才能让面板左缘落在 15+51+9+1 = **76** ✓（= 官方实测 ✓）*/
+  left: calc(100% + 9px);
+  top: 7px;
+  /* 左侧 + 的「添加节点」面板 —— **真实鼠标点击后实测** = **240×585 · r12 · pad 4** ✓
+     ⚠️ 我上一轮误把「画布右键菜单」的规格（240×255 · r16 · max-h500 · 行高44）当成了它 ✗
+        两个面板**规格不同**，别混：
+          添加节点面板： r12 · 行高 **49** · 无分隔线 · 有分组标题（添加节点/辅助工具/添加资源）
+          画布右键菜单： r16 · 行高 44 · 有 1px 分隔线 · 无分组标题
+     官方该面板**没有 max-height** ✓（旧注释的 240×585 · r12 本来是对的 ✓）*/
+  width: 240px;
+  max-width: calc(100vw - 100px);
+  /* 官方双击菜单实测底色：**oklab(0.239291 … / 0.85)**（深灰 85%）+ backdrop-blur-xl
+     —— 原来用 --node-picker-bg(#18181b) 不透明，且被上面那层彩色光斑照亮，所以看着发亮 ✗ */
+  background: oklab(0.239291 0.0000108778 0.00000478327 / 0.85);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px; /* 官方实测 **r12** ✓ */
+  padding: 4px;
+  box-shadow: none;
+  z-index: 100;
+  animation: pickerSlideIn var(--dur-normal) var(--ease-out-expo);
+  pointer-events: auto;
+  transform-origin: left top;
+}
+
+/* 双击空白画布出来的那个：官方实测 **288×565 · r16**（和左侧 + 的菜单不是同一个尺寸） */
+.node-picker--at {
+  width: 288px;
+  border-radius: 16px;
+}
+@keyframes pickerSlideIn {
+  from { opacity: 0; transform: translateX(-12px) scale(0.94); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+.menu-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* ★ 官方**全量 dump**（逐元素 × 全属性）：组标题区 = **231×28** · pad **6px 8px** ✓
+     ⚠️ 我上一轮按另一次量到的 27 ✗ 改错了 —— 以本次全量 dump 的 **28** 为准 ✓
+        （官方结构：div 231×28 · pad 6px 8px · 内含一个 12px/500/lh16 的文本 ✓）*/
+  height: 28px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+.menu-title {
+  /* ⚠️ 两个面板的组标题**字号不同** ✗ 别再用一个值：
+       左侧「+」添加节点面板（240×585）：标题 **12px** ✓
+       双击画布菜单（288×565）        ：标题 **14px** ✓
+     实测（统一视窗 2174×1263）：官方 + 面板的组标题叶子 fs=**12px** w500 rgb(122,122,122) ✓
+       官方双击菜单的组标题叶子 fs=**14px** ✓
+     本注释原本写的 12px 是对的 ✓ —— 后来被统一改成 14px ✗ 导致 + 面板标题偏大 ✓ */
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  text-transform: none;
+  letter-spacing: 0;
+  color: rgb(122, 122, 122);
+  white-space: nowrap;
+}
+/* 双击画布菜单（定位菜单）—— **官方源码口径**（`QT`/`qie`，zoom-slider @29274 起）：
+     行 `h-13`=**52** · `rounded-xl`=**12** · `p-2`=8 · `gap-2`=8 · `text-base`；
+     图标盒 `h-full aspect-square`=**36×36** · `rounded-md`=**6** · `[&_svg]:size-[18px]`
+   ⚠️ 原来写 56/16/34×34/r10 是按旧实测值的 ✗（与官方源码不符）*/
+.node-picker--at .menu-title,
+.connection-command-menu .menu-title {
+  font-size: 14px;
+}
+.node-picker--at .menu-row,
+.connection-command-menu .menu-row {
+  height: 52px;
+  border-radius: 16px;
+  /* 官方线上实测：行 **279 宽**（面板 288 − padding 4×2 = 280 ⇒ 满宽，无左右内缩）✗
+     旧值 width:calc(100% - 10px) + 5px margin（=269）是照竖条 240 面板那次实测写的 ✗ */
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  /* 官方线上实测 transition = **all 0.2s**（旧值 background-color .15s ✗）*/
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.node-picker--at .menu-ico {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: rgb(122, 122, 122);
+}
+/* 官方线上实测：图标盒 color=rgb(122,122,122)，但里面的 **svg 是 rgb(204,204,204)** ✓ */
+.node-picker--at .menu-ico svg,
+.node-picker--at .menu-ico .official-icon {
+  color: rgb(204, 204, 204);
+}
+/* 官方 `qie` 的文字排版 + **hover 动效**（非 hover：标题下移 10px、副标 opacity 0；
+   hover/选中：标题归位 + 副标淡入，均 200ms）—— 插件行 / 上传行走 CSS 这条路也要一致 ✓ */
+/* EXE 源码口径（`qie`）：标题 `font-medium text-sm text-popover-foreground leading-none`
+   + **`translate-y-[10px]` → hover/选中 `translate-y-0`**（非 hover 时标题下移，hover 抬起露出副标）*/
+.node-picker--at .menu-lbl {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  color: rgb(204, 204, 204);
+  transform: translateY(10px);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.node-picker--at .menu-row:hover .menu-lbl {
+  transform: translateY(0);
+  color: rgb(204, 204, 204);
+}
+.node-picker--at .menu-sub {
+  display: block;
+  opacity: 0;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  color: rgb(122, 122, 122);
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.node-picker--at .menu-row:hover .menu-sub {
+  display: block;
+  opacity: 1;
+}
+.node-picker--at .menu-ico {
+  color: rgb(122, 122, 122);
+}
+/* 组标题按线上实测：14px/500 · lh 20 · rgb(122,122,122) · 盒 263×28（section padding 4px 0 + 左右 8）*/
+.node-picker--at .menu-title {
+  line-height: 20px;
+}
+/* 官方线上实测：组标题容器盒 **279×40**（padding 6px 8px；内层标题元素 263×28 = lh20 + 4px 上下 padding）
+   MTV 原来是 28 高 → 每组少 12px，三组共 36px，正是面板总高 509 vs 官方 565 的主因 ✓ */
+/* 官方线上实测（面板 class 全文 = 源码）：
+     `bg-white rounded-lg tap-command-container dark:bg-card/85 border backdrop-blur-xl p-1
+      !rounded-2xl max-h-[500px] w-72 …`
+   字体族 = **Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif** ✓（用户：「字体 字重 都不对」）
+   文字块 36 高、标题 14/500 rgb(204,204,204) 与副标 12/400 rgb(122,122,122) **间距 10px**
+     （= 36 − 14 − 12，靠 `justify-content: space-between`，不是 gap 4 ✗）*/
+.node-picker--at,
+.connection-command-menu,
+.node-picker--at .menu-title,
+.node-picker--at .menu-lbl,
+.node-picker--at .menu-sub {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.node-picker--at .menu-txt-wrap {
+  justify-content: space-between;
+  gap: 0;
+  /* 官方文字块是 **36 高（h-full）** 才能靠 space-between 撑出那 10px 间距；
+     MTV 原来写 `height: auto` → 收缩成 26，space-between 失效（实测间距 0 ✗）*/
+  height: 100%;
+}
+.node-picker--at .menu-section {
+  height: 40px;
+  padding: 6px 8px;
+}
+/* 官方线上实测：**组内行距 4px**（`[cmdk-group-items]` 的 flex gap；面板 565 与 MTV 545 差的正是这 20px）。
+   画布版的行是 Tailwind 直接写的，吃不到 `.menu-row + .menu-row` 那条 ⇒ 单独补 ✓
+   （组与组之间有标题盒隔开，不会误加 ✓）*/
+.node-picker--at .command-item + .command-item {
+  margin-top: 4px;
+}
+
+/* ── 连线拖放命令菜单（从节点左右 Handle 拖到画布空白处）──
+   官方（`zoom-slider-3ZcFvYQO.js` @2905900 起 `uZe`）：**与双击菜单同一个组件** ——
+     容器 `Noe` + `w-72 max-w-[calc(100vw-24px)] h-fit max-h-none animate-in zoom-in
+       overflow-x-hidden overflow-y-auto overscroll-contain nowheel nopan`，
+     `position:fixed` · `zIndex:1000` · portal 到 `body`，
+     组标题 `<div className="text-sm py-1">`、条目组件 `QT`（与双击菜单同一个）✓
+   ⇒ 这里**复用** `.menu-section/.menu-title/.menu-row/.menu-ico/.menu-lbl/.menu-sub`
+     （那份是按官方双击菜单全量实测对齐的），只补容器表面 + 固定定位 ✓
+   ⚠️ 不许再另写一套 Tailwind 数值 ✗（此前手写版实测行 279×52，官方口径 269×56 ✗ 用户："全都不一样"）*/
+.connection-command-menu {
+  position: fixed;
+  z-index: 1000;
+  width: 288px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: oklab(0.239291 0.0000108778 0.00000478327 / 0.85);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 4px;
+  transform-origin: left top;
+  pointer-events: auto;
+  /* ⚠️ `--node-picker-*` 定义在 `.sidebar-floating` 上（左侧竖条子树）⇒ 画布里的这个浮层
+     拿不到它们（实测图标盒 bg = rgba(0,0,0,0) ✗）→ 就地按官方实测值补 ✅
+     ★ round 103：就地补的这四个值也换成**官方令牌引用**（报告 §6.4）：
+       `rgba(64,64,64,.5)` = 官方 `--accent:#404040`(@740362) 的 50% · `rgb(122,122,122)` = `--muted-foreground`(@740124)
+       `rgb(204,204,204)` = `--popover-foreground`(#ccc，@739826) —— 逐条值相同，视觉零变化 */
+  --node-picker-hover: color-mix(in oklab, var(--accent) 50%, transparent);
+  --node-picker-icon-bg: color-mix(in oklab, var(--accent) 40%, transparent);
+  --node-picker-muted: var(--muted-foreground);
+  --node-picker-title: var(--popover-foreground);
+}
+
+/* ★★★★★ **选区 `+` 菜单是官方另一个面板规格**（t1152/t1153 官方实测 —— 用户：「大小不对」✓）
+   官方选区菜单（`page-DPdEgTS0.js` @1437683 那条 `wme`）根元素实测：
+     `group/container border border-zinc-700 relative h-fit` → **offset 260×354 · radius 12px ·
+      border 0.667px zinc-700 · padding 0**；内层 `… p-1 rounded-lg` → pad 4 · 259×353
+     一级分组 248 · **1px 分隔线 + my-2（17）** · 二级分组 80 ⇒ 4+248+17+80+4 = 353 ✓
+     组标题 235×16（12px/16px rgb(122,122,122) fw500）· 行 52 / pad 8 / r16 ✓（与双击菜单同）
+   ⚠️ MTV 的 `.connection-command-menu` 底样式是照**双击菜单**（`w-72`=288 · `rounded-2xl`=16）写的 ✗
+      ⇒ 选区菜单也变成 288/r16（实测 288×341、标题 14px ✗）—— 用户「大小不对」就是它 ✓ */
+.connection-command-menu--selection {
+  width: 260px;
+  border-radius: 12px;
+  /* 官方该菜单**没有** backdrop-blur（MTV 底样式有 `blur(24px)`），底色也是不透明深灰 */
+  backdrop-filter: none;
+  background: var(--node-picker-bg, var(--sidebar));
+  border: 1px solid var(--node-picker-border, var(--border));
+}
+/* 官方组标题在这条菜单里是 **12px**（双击菜单那份才 override 成 14px）*/
+.connection-command-menu--selection .menu-title {
+  font-size: 12px;
+  line-height: 16px;
+}
+/* 官方分组分隔线：`shrink-0 bg-border h-[1px] w-full my-2` */
+.connection-menu-divider {
+  flex-shrink: 0;
+  height: 1px;
+  width: 100%;
+  margin: 8px 0;
+  background: var(--node-picker-border, var(--border));
+}
+/* 官方 cmdk 的 active 行（打开即落在第一项）：**副标常显** + 行底色
+   （官方实测：第一行副标 opacity=1，其余 0 ⇒ 只有 active/hover 才露出副标 ✓）*/
+.connection-command-menu [role='option'][data-selected='true'] {
+  background: var(--node-picker-hover, color-mix(in oklab, var(--accent) 50%, transparent));
+}
+.connection-command-menu [role='option'][data-selected='true'] p {
+  opacity: 1;
+}
+/* 同理：active 行的标题也要从「下移 10px」归位（官方 `qie` 的 hover 动效）*/
+.connection-command-menu [role='option'][data-selected='true'] span {
+  transform: translateY(0);
+}
+
+/* ★★ 组内**行间距 4px**（官方 cmdk：`[cmdk-group-items]:flex-col gap-1` ⇒ gap 4 ✓）
+   官方实测（t1160，offsetTop，不受 transform 影响）：
+     组标题 y=4（高 28）· **首行 y=32** · **二行 y=88** ⇒ 行间距 = 88 − 32 − 52 = **4** ✓
+   ⚠️ MTV 原来没有这条 ⇒ 行挨着排（首行 48 → 二行 100 = 52 间距，少 4）✗
+      `.node-picker--at` 那份已单独用 `.command-item + .command-item` 补过；
+      画布版（`.connection-command-menu`）的行是 `<div role="option">` ⇒ 这里补上 ✓
+   注：用 `+` 相邻选择器 ⇒ 只在**同组内相邻行**之间生效（组容器/分隔线会把链断开）✓ */
+.connection-command-menu [role='option'] + [role='option'] {
+  margin-top: 4px;
+}
+
+/* 官方 `QT` 的 disabled 行：仍渲染但不可点（禁用文案另叠一层，见下） */
+.connection-command-menu .menu-row.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.connection-command-menu .menu-row.is-disabled:hover {
+  background: transparent;
+  color: rgb(204, 204, 204);
+}
+.connection-command-menu .menu-row.is-disabled:hover .menu-lbl {
+  color: rgb(204, 204, 204);
+}
+.connection-command-menu .menu-row.is-disabled:hover .menu-sub {
+  display: none;
+}
+.menu-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--node-picker-border);
+}
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* ★ 官方全量实测（逐元素 dump）：第一行 **231×52**，相对面板 **L5 · R5** ✓
+       → 左右各缩进 **5px**（不是填满 ✗）
+     MTV 原来 `width: 100%` ✗ → hover 底色左右顶到边 ✗
+     （用户反馈："hover 单选项时出现的底色 左右没有给一定的间距 被填满了" ✓）
+     ⚠️ 我上一轮按一次误读的量（左7右3）改成了 4px ✗ —— 以本次全量 dump 的 L5/R5 为准 ✓ */
+  width: calc(100% - 10px);
+  margin-left: 5px;
+  margin-right: 5px;
+  /* 官方「添加节点」面板的行实测 **219×49** ✓
+     ⚠️ 44 是**画布右键菜单**的行高 ✗ 两者不同别混（我上一轮就混了 ✗）
+     MTV 原来是 56 ✗ */
+  /* ★ 官方**单次全量 dump**（面板 240×585 = 左侧 + 面板）：第一行 **219×49** ✓
+     ⚠️ 231×52 是**另一个上下文**（双击菜单）✗ —— 我又混了一次 ✗ 以此处的 219×49 为准 ✓ */
+  height: 49px;
+  padding: 8px;
+  /* ⚠️ 官方行距用的是**组内 `gap: 4px`** ✗ 不是每行 margin-bottom ✗ ——
+     每行都带 mb 会让**每组的末行**也多出 4px ✗（3 组共 12px ✗，
+     正是面板总高 597 vs 官方 585 的差 ✓）
+     改成「仅相邻行之间」补 4px ✓（见下方 `.menu-row + .menu-row` ✓ 等价官方 gap ✓）*/
+  margin-bottom: 0;
+  border: none;
+  background: transparent;
+  /* 官方条目标题：**14px/500 rgb(204,204,204)** —— MTV 原来是主题色（偏白偏亮）✗ */
+  color: rgb(204, 204, 204);
+  font-size: 14px;
+  cursor: var(--cursor-pointer, pointer);
+  border-radius: 16px;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+}
+.menu-row + .menu-row {
+  margin-top: 4px; /* 官方组内 gap 4px ✓ */
+}
+.menu-row:hover {
+  background: var(--node-picker-hover);
+  color: #ffffff;
+}
+.menu-ico {
+  /* ★★ 以**最近一次「单次全量 dump」**为准 ✓ —— 那次锁定的面板是 **240×585**
+     （= 左侧「+」面板 ✓，不是 288 宽的双击菜单 ✗），同一次量到：
+       第一行 **219×49** ✓ · 图标盒 **34×34** ✓ · r10 ✓
+       bg oklab(0.371493 … / 0.4) ✓ · color rgb(122,122,122) ✓
+     ⚠️ 我此前在**另一个上下文**（双击菜单）量到 231×52 / 36×36 ✗ 并据此反复改 ✗
+        —— 正是 AGENTS.md 里那条"禁止混用不同批次的量值" ✓ 我又踩了一次 ✗
+     现以 **34×34** 为准 ✓（行高已同步改回 49 ✓）*/
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--node-picker-icon-bg);
+  border-radius: 10px;
+  color: rgb(204, 204, 204);
+  flex-shrink: 0;
+  transition: color var(--transition-base), background var(--transition-base);
+}
+.menu-row:hover .menu-ico {
+  color: #ffffff;
+  background: var(--node-picker-icon-bg);
+}
+.menu-txt-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  height: auto;
+  /* 官方【文字块】= **162 宽**（占满图标盒之后的剩余空间 ✓）
+     必须 min-width:0 + overflow:hidden，里面的副标题才能**截断**而不是撑宽/换行 ✓ */
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.menu-lbl {
+  /* 官方：14px/500 rgb(204,204,204)；hover 提亮到白 */
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 14px;
+  color: rgb(204, 204, 204);
+}
+.menu-row:hover .menu-lbl {
+  color: #ffffff;
+}
+.menu-sub {
+  /* ★ 副标题：**只有 hover 那一行显示** ✓（官方非 hover 行 opacity=0 ✓）
+     字号/颜色：12px/400 rgb(122,122,122) ✓
+     ★★ **单行截断** ✗ —— 官方实测量到：
+        【文字副】**162×11** 且 **overflow: hidden** ✓
+        【第一行】高固定 **49** ✓ → 文案长了是**截断**，**不换行** ✓
+        （用户："上传 副标题多出的文案内容 官方是截断的 没有另起一行" ✓）
+        MTV 原来没有任何截断 ✗ →「支持图片、视频、音频和 3D 资产」会换行把行撑高 ✗ */
+  display: none;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 12px;
+  color: rgb(122, 122, 122);
+  margin-top: 0;
+  white-space: nowrap; /* ★ 单行 ✓ */
+  overflow: hidden; /* ★ 官方实测文字副 overflow=hidden ✓ */
+  text-overflow: ellipsis; /* ★ 超出显示省略号 ✓ */
+}
+.menu-row:hover .menu-sub {
+  display: block;
+}
+
+/* ============================================
+   Help dialog — opaque, high-contrast light surface
+   ============================================ */
+/* ★ 帮助面板已按官方设置弹窗的外壳重塑（`settings-panel-dialog` / `.settings-row*`）：
+   演示块 `.help-dialog__demo` 自带 `mb-5`(20px)，当它是 `.settings-row--stacked` 的最后一个子元素时，
+   会与官方行的 `padding-bottom:20px` **叠加**（实测演示盒底→行底 41px，官方行距 20px）
+   ⇒ 这里只收掉这个**尾边距**，让行距回到官方值；演示内容本身不动。 */
+.settings-panel-dialog .settings-row--stacked > .help-dialog__demo:last-child {
+  margin-bottom: 0;
+}
+
+[data-theme='light'] .help-dialog {
+  background: var(--theme-surface);
+  border-color: color-mix(in srgb, var(--theme-text) 14%, var(--theme-surface));
+  backdrop-filter: none;
+}
+
+[data-theme='light'] .help-dialog__header,
+[data-theme='light'] .help-dialog__main {
+  background: var(--theme-surface);
+}
+
+[data-theme='light'] .help-dialog__nav,
+[data-theme='light'] .help-dialog__demo {
+  background: var(--theme-card);
+}
+
+[data-theme='light'] .help-dialog__category[aria-current='page'] {
+  color: color-mix(in srgb, var(--primary) 82%, var(--theme-text));
+  background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme='light'] .help-dialog__category[aria-current='page'] svg,
+[data-theme='light'] .help-dialog__accent {
+  color: color-mix(in srgb, var(--primary) 82%, var(--theme-text));
+}
+
+[data-theme='light'] .help-dialog__index {
+  color: var(--theme-text-secondary);
+  background: var(--theme-card);
+  box-shadow: inset 0 0 0 1px var(--theme-border);
+}
+
+/* 「时间轴」的 Beta 徽章 —— 官方实测 33×18 · font-size 10px · weight 500 · rgb(240,240,240) ✓ */
+.menu-beta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 18px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  color: rgb(240, 240, 240);
+}
+
+/* ★★ 竖条按钮 / 菜单行的**焦点环** —— 按官方改为**无品牌色描边** ✗
+   官方实测：focus 到 `+` 按钮 → `outline = 2.667px **none**`（无可见描边 ✓）
+             其类名含 **`focus-visible:outline-none`** ✓
+   MTV 现状 ✗：全局 `:focus-visible { outline: 2px solid var(--border-focus) }`
+             `--border-focus = rgba(255,255,255,0.80)` = **官方白** ✓（round 94 已从 MTV 品牌靛蓝改掉）
+             叠在深底 rgb(28,28,28) 上 ≈ **rgb(55,56,109) = #37386d** ✓✓（与用户截图分毫不差 ✓）
+   → 用户反馈："键盘 Tab 过去 蓝紫描边" ✓ —— 按 1:1 去掉 ✓ */
+.sidebar-btn-v3:focus-visible,
+.add-btn-v3:focus-visible,
+.menu-row:focus-visible,
+.node-picker .anim-btn:focus-visible {
+  outline: none; /* 官方 focus-visible:outline-none ✓ */
+}
+
+/* ── 官方选中态机制：cmdk 用 **data-selected** 属性（不是 :hover 伪类）──
+   官方：dark:data-[selected=true]:bg-accent/50 = rgba(64,64,64,.5)（--accent:#404040）
+        标题 translate-y-[10px] → 选中 0；副标 opacity 0 → 选中 1
+   结构同官方：row[role=option] > (图标盒, 文字块) ; 文字块 > (span 标题, p 副标) ✓ */
+.command-item[data-selected='true'] {
+  background: rgba(64, 64, 64, 0.5);
+}
+.command-item[data-selected='true'] > div:last-child > span:first-child {
+  transform: translateY(0);
+}
+.command-item[data-selected='true'] > div:last-child > p {
+  opacity: 1;
+}
+
+/* ── 上传 / 插件行（走 .menu-row 这条 CSS 路）—— 与官方条目同口径 ──
+   官方条目：dark:data-[selected=true]:bg-accent/50，EXE --accent = #404040
+   ⇒ hover 底色 = rgba(64,64,64,.5)。原来吃 --node-picker-hover = rgba(63,63,70,.5)/zinc-700 ✗
+   几何：行已 width:100% margin:0（吃面板内缘满宽）· 高 52 · r16 · p8 ✓ */
+.node-picker--at {
+  --node-picker-hover: color-mix(in oklab, var(--accent) 50%, transparent);
+  --node-picker-icon-bg: color-mix(in oklab, var(--accent) 40%, transparent);
+}
+.node-picker--at .menu-row:hover,
+.node-picker--at .menu-row[data-selected='true'] {
+  background: rgba(64, 64, 64, 0.5);
+}
+.node-picker--at .menu-row .menu-ico {
+  background: rgba(64, 64, 64, 0.4);
+}
+
+/* ── 左侧竖条「+」面板 = 官方浮层组件 `ho`（= `ol`）的 **colorfulCard** 变体 ──
+   官方源码（index-BiTZf8mJ.js @6130989 `frs` CVA 逐字）：
+     base    : z-0 group/container overflow-hidden border border-zinc-700 relative h-fit
+               transition-colors duration-300 focus:outline-none
+     colorfulCard : **bg-zinc-900** overflow-hidden
+     rounded md   : rounded-[12px]      ← 默认变体
+     padding      : 调用处传 `!p-0` ⇒ **p-0**
+     晕染层       : <XKo className="z-[-1] opacity-20">（= .node-picker-glow ✓ 已是 opacity:.2 / z:-1）
+   ⇒ 竖条面板：**底色 #18181b 不透明** · 边框 #3F3F46 · r12 · padding 0 · **无 backdrop-blur**
+     （MTV 原来 oklab(#1f1f1f/85) + blur(24) + 白边 + pad4 ✗ —— 用户：「面板底色不带透明」✓ 源码证实）
+   ⚠️ 只作用于竖条那条；双击菜单是**另一个容器**（`dark:bg-card/85` = 288 / r16 / p-1 / blur-xl）✓ */
+.node-picker:not(.node-picker--at) {
+  background: #18181b;
+  backdrop-filter: none;
+  border: 1px solid #3f3f46;
+  /* ⚠️ 不能写 0 ✗ —— 官方是**两层**：外层 `ho` 传 `!p-0`，里层 cmdk `Command` 根/分组还带 p-1(4px)
+     ⇒ 有效内距 = **4px**（MTV 早前真实鼠标实测官方面板也是 `pad 4` ✓）。
+     写成 0 会把 hover 底色的左右内距吃掉（用户：「hover 时底色的间距…是错的」）*/
+  padding: 4px;
+}
+
+/* ── 字体 / 字重：按官方 token 一次性覆盖**两个面板整棵子树**（靠 font-family 继承）──
+   官方 `--font-sans: Inter, sans-serif`（EXE index-DV4al4p1.css @640107 逐字）
+   字重（官方 `QT`/`qie` + cmdk `CommandGroup` 逐字）：
+     组标题  font-medium = **500**（.menu-title ✓）
+     条目标题 font-medium = **500**（.menu-lbl ✓ / canvas 行 text-sm font-medium ✓）
+     副标   font-normal = **400**（.menu-sub ✓ / canvas 行 text-xs ✓）
+   ⚠️ 挂在**面板根**上而不是逐个元素 —— 以后新增条目/分组自动继承，不用再记着补 ✗✓ */
+.node-picker,
+.connection-command-menu {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+.node-picker .menu-title,
+.node-picker .menu-lbl,
+.node-picker .menu-beta,
+.connection-command-menu .menu-title {
+  font-weight: 500;
+}
+.node-picker .menu-sub {
+  font-weight: 400;
+}

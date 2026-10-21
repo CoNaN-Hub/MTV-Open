@@ -1,0 +1,410 @@
+/* ============================================
+   画布统计弹窗（复刻 Artigine「画布统计」）
+   ─ 下表每个数字都是**原版线上 DOM 实测**（CDP 9223 · app.artigine.com
+     打开「项目名 → 画布 → 画布统计」后 dump），不是照截图目测：
+       面板    672×636 · radius 59.07px · max-h 78vh · bg zinc-900/70 · blur 24px
+               shadow = ring(oklch(98.5% 0 0)/5, 0 0 0 1px) + 0 36px 120px rgba(15,23,42,.18)
+       border  #232323（中性）
+       头      px-6 py-6 · 标题 16px/500 · 18px 图标
+       内容    p-6 space-y-6
+       KPI 卡  303×88 · radius 36.35px · pad 20/16 · bg oklab(24.354% 0 0)/50
+       分布卡  radius 36.35px · pad 24 · bg oklab(24.354% 0 0)/80
+       性能卡  pad 20 · bg /50 · 卡内 gap 12
+       甜甜圈  盒 200×160 · svg 160 · r70 · 洞 r40
+               扇形 stroke 2px（浅色 #fff / 暗色 zinc-900）
+               **整块带 CSS `rotate: -90deg`**（实测 transform:none、rotate:-90deg
+               ⇒ 8 点钟位采样证实原版第一段起始在 **9 点钟**，不是 12 点钟）
+               悬停段 strokeWidth 2.5 + drop-shadow(0 2px 4px rgba(0,0,0,.15))
+       中心    HTML 叠层：数字 24px/700 + `Total` 10px 大写 tracking-wider
+       图例行  py 10 / px 8 / -mx 8 · radius 26.72px · hover bg
+       药丸    pad 4/10 · radius 20.72px · 12px/500 · bg 色/20 · 文字 400 档
+               激活时 scale(1.05) + inset ring currentColor/20 + shadow-sm
+       右侧    gap 16 · 百分比 12px/500 muted · 数量 14px/600 w24 右对齐
+   ─ ★ 明暗**跟随「画布设置 → 画布背景」**：MTV 把 `canvasBackground === 'off-white'`
+     收敛成 `document.documentElement[data-theme='light']`（App.tsx），默认即暗色。
+     暗色照抄原版中性灰 token；浅色只在 `[data-theme='light']` 里换一整套。
+   ============================================ */
+
+.canvas-stats-modal {
+  /* ★★★ 圆角（用户 2026-10-07 定：**以复刻参考图「图2」的收敛观感为准**，
+     不取原版当前那套 `--radius-4xl` 大圆角 token —— 实测原版面板/卡片圆角约为参考图的 2 倍）。
+     想微调只改这四个值，下面所有规则都走它们。 */
+  --cs-radius-panel: 28px;
+  --cs-radius-card: 16px;
+  --cs-radius-row: 12px;
+  --cs-radius-chip: 8px;
+
+  /* 原版暗色 token（实测值直接落地，不再借用 MTV 偏蓝的 --theme-*）
+     ★ round 103：族名 `--canvas-stats-*` 官方 0 命中（官方**没有这个面板**，也没有那套 10 色甜甜圈），
+     但逐条都能指到官方令牌（`D:\DEEPSEEK\_official-css\index-BroFpZiQ.css` 逐字）：
+       fg       oklch(98.5% 0 0)  = `--color-neutral-50`(@23580)  **逐字相同**
+       muted    oklch(70.8% 0 0)  = `--color-neutral-400`(@23731) **逐字相同**
+       donut-gap oklch(21% .006 285.885) = `--color-zinc-900`(@23492) **逐字相同**
+       close-hover oklch(26.9% 0 0 / .5) = `--color-neutral-800`(@23887) 的 50%
+       close-ring  oklch(55.6% 0 0 / .5) = `--color-neutral-500`(@23770) 的 50%
+       row-hover   #27272a（官方 507 hex 0 命中）= `--color-zinc-800`(@23447，**逐字同值**)
+       panel-bg    `oklab(21% .0016 -.0058 / .7)` 是**带负 b 通道（偏蓝）**的自造值 ⇒ 落官方 `--card`(@739733) 的 70%
+       card-bg/strong/hole  `oklab(24.354% 0 0 …)` 官方无对应 ⇒ 落官方 `--color-neutral-800` 的 50%/80%/100%
+     ⚠️ 浅色段（紧随其后的 `[data-theme='light'] .canvas-stats-modal`）是 MTV 浅色入口，**逐字保留**。
+     ⚠️ `--cs-radius-*`（本块上方）是**几何**，非颜色，本轮不动。 */
+  --canvas-stats-fg: var(--color-neutral-50);
+  --canvas-stats-muted: var(--color-neutral-400);
+  --canvas-stats-panel-bg: color-mix(in oklab, var(--card) 70%, transparent);
+  --canvas-stats-card-bg: color-mix(in oklab, var(--color-neutral-800) 50%, transparent);
+  --canvas-stats-card-strong: color-mix(in oklab, var(--color-neutral-800) 80%, transparent);
+  --canvas-stats-ring: color-mix(in oklab, var(--canvas-stats-fg) 10%, transparent);
+  --canvas-stats-ring-soft: color-mix(in oklab, var(--canvas-stats-fg) 5%, transparent);
+  --canvas-stats-donut-gap: var(--color-zinc-900);
+  --canvas-stats-hole: var(--color-neutral-800);
+  --canvas-stats-row-hover: color-mix(in oklab, var(--color-zinc-800) 50%, transparent);
+  /* 关闭键（量自原版）：hover = `bg-muted/50`（中性灰）、焦点环 = `ring-ring/50` 3px
+     —— **不是** MTV 通用 PopupCloseButton 那套 `hover:bg-red-500/10` + 红环 ✗ */
+  --canvas-stats-close-hover: color-mix(in oklab, var(--color-neutral-800) 50%, transparent);
+  --canvas-stats-close-ring: color-mix(in oklab, var(--color-neutral-500) 50%, transparent);
+
+  width: min(672px, calc(100vw - 2rem));
+  max-height: 78vh;
+  padding: 0;
+  color: var(--canvas-stats-fg);
+  border: 1px solid #232323;
+  border-radius: var(--cs-radius-panel);
+  background: var(--canvas-stats-panel-bg);
+  backdrop-filter: blur(24px);
+  box-shadow: 0 0 0 1px var(--canvas-stats-ring-soft), 0 36px 120px rgba(15, 23, 42, 0.18);
+}
+
+[data-theme='light'] .canvas-stats-modal {
+  --canvas-stats-fg: oklch(14.5% 0 0);
+  --canvas-stats-muted: oklch(55.6% 0 0);
+  --canvas-stats-panel-bg: oklch(100% 0 0 / 0.8);
+  --canvas-stats-card-bg: oklch(100% 0 0 / 0.5);
+  --canvas-stats-card-strong: oklch(100% 0 0 / 0.8);
+  --canvas-stats-donut-gap: #ffffff;
+  --canvas-stats-hole: #ffffff;
+  --canvas-stats-row-hover: #fafafa;
+  --canvas-stats-close-hover: oklch(92% 0.004 286.32 / 0.5);
+  --canvas-stats-close-ring: oklch(55.6% 0 0 / 0.5);
+  border-color: oklch(92.2% 0 0);
+}
+
+/* ── 头部：px-6 py-6 + text-base 标题 ── */
+.canvas-stats-head {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 24px;
+}
+
+.canvas-stats-head__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.canvas-stats-head__icon {
+  display: inline-flex;
+}
+
+.canvas-stats-head__close {
+  flex: 0 0 auto;
+}
+
+/* 关闭键：原版是「正圆 + 中性 hover + 中性焦点环」
+   （原版类：`rounded-4xl` ⇒ 32×32 上落到 50% · `hover:bg-muted dark:hover:bg-muted/50`
+     · `hover:text-foreground` · `focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50`）
+   ⚠️ 这里要压掉 MTV 通用 PopupCloseButton 的 `hover:bg-red-500/10 hover:text-red-400`
+      与 `focus-visible:ring-2 ring-red-400/50` —— 所以选择器带上面板前缀（特异性更高）。 */
+.canvas-stats-modal .canvas-stats-head__close {
+  border-radius: 50%;
+  color: var(--canvas-stats-fg);
+}
+
+.canvas-stats-modal .canvas-stats-head__close:hover {
+  background: var(--canvas-stats-close-hover);
+  color: var(--canvas-stats-fg);
+}
+
+.canvas-stats-modal .canvas-stats-head__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--canvas-stats-close-ring);
+}
+
+/* ── 内容：p-6 space-y-6（可滚动） ── */
+.canvas-stats-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 24px;
+  overflow-y: auto;
+  border-top: 1px solid color-mix(in oklab, var(--canvas-stats-fg) 12%, transparent);
+}
+
+/* 空状态（手册 §6 `workflowStatsPanel.empty`） */
+.canvas-stats-empty {
+  padding: 32px 12px 40px;
+  text-align: center;
+}
+
+.canvas-stats-empty__title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.canvas-stats-empty__desc {
+  margin: 0;
+  color: var(--canvas-stats-muted);
+  font-size: 12px;
+}
+
+/* ── KPI：grid gap-4 sm:grid-cols-2 ── */
+.canvas-stats-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.canvas-stats-kpi {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 16px;
+  border-radius: var(--cs-radius-card);
+  background: var(--canvas-stats-card-bg);
+  box-shadow: 0 0 0 1px var(--canvas-stats-ring);
+}
+
+.canvas-stats-kpi__label {
+  color: var(--canvas-stats-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.canvas-stats-kpi__value {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 32px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 卡片 ── */
+.canvas-stats-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--cs-radius-card);
+  background: var(--canvas-stats-card-bg);
+  box-shadow: 0 0 0 1px var(--canvas-stats-ring);
+}
+
+.canvas-stats-card--distribution {
+  gap: 20px;
+  padding: 24px;
+  background: var(--canvas-stats-card-strong);
+}
+
+.canvas-stats-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.canvas-stats-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.canvas-stats-card__title--plain {
+  font-weight: 500;
+}
+
+.canvas-stats-placeholder {
+  margin: 0;
+  padding: 16px 0;
+  color: var(--canvas-stats-muted);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* ── 甜甜圈 + 图例：grid gap-8 lg:grid-cols-[200px_1fr] items-center ── */
+.canvas-stats-dist {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  align-items: center;
+  gap: 32px;
+}
+
+.canvas-stats-donut-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 200px;
+  height: 160px;
+}
+
+.canvas-stats-donut {
+  overflow: visible;
+  /* ★ 原版实测：`transform: none` + `rotate: -90deg`（Tailwind v4 的 -rotate-90 落在 `rotate` 属性上）
+     ⇒ 叠上 `polar` 里的 −90° 偏移后，第一段实际从 **9 点钟** 起（8 点钟位 elementFromPoint 采样已证实）。
+     ⚠️ MTV 的 WebView 不认 CSS `rotate` 属性（实测 computed = none），所以这里等价写成 `transform`，
+        并把 `transform-box/origin` 显式钉死到 viewBox 中心，避免落到 SVG 的 `0 0` 原点。 */
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  transform: rotate(-90deg);
+}
+
+.canvas-stats-donut__slice {
+  stroke: var(--canvas-stats-donut-gap);
+  cursor: pointer;
+}
+
+.canvas-stats-donut__slice--hover {
+  stroke-width: 2.5;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+  pointer-events: none;
+}
+
+.canvas-stats-donut__hole {
+  fill: var(--canvas-stats-hole);
+  pointer-events: none;
+}
+
+/* 中心叠层：数字 + Total 小字（原版是 HTML，不是 SVG text） */
+.canvas-stats-donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.canvas-stats-donut-center__value {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.canvas-stats-donut-center__caption {
+  color: var(--canvas-stats-muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── 图例 ── */
+.canvas-stats-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.canvas-stats-legend__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding: 10px 8px;
+  border: 0;
+  border-radius: var(--cs-radius-row);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.canvas-stats-legend__row[data-active],
+.canvas-stats-legend__row:hover,
+.canvas-stats-legend__row:focus-visible {
+  background: var(--canvas-stats-row-hover);
+  outline: none;
+}
+
+/* 装着类型名的彩色药丸：bg-{c}-500/10 dark:bg-{c}-500/20 + text-{c}-600 dark:text-{c}-400 */
+.canvas-stats-legend__chip {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: var(--cs-radius-chip);
+  color: var(--chip-text-dark);
+  background: color-mix(in oklab, var(--chip) 20%, transparent);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  transition: transform 300ms ease, box-shadow 300ms ease;
+}
+
+[data-theme='light'] .canvas-stats-legend__chip {
+  color: var(--chip-text);
+  background: color-mix(in oklab, var(--chip) 10%, transparent);
+}
+
+/* 激活态照原版：scale-105 shadow-sm ring-1 ring-inset ring-current/20 */
+.canvas-stats-legend__row[data-active] .canvas-stats-legend__chip {
+  transform: scale(1.05);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 20%, transparent),
+    0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.canvas-stats-legend__meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 0 0 auto;
+}
+
+.canvas-stats-legend__percent {
+  color: var(--canvas-stats-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.canvas-stats-legend__count {
+  width: 24px;
+  color: color-mix(in oklab, var(--canvas-stats-fg) 90%, transparent);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 窄屏：甜甜圈与图例改上下排（原版 lg 断点） */
+@media (max-width: 640px) {
+  .canvas-stats-dist {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-stats-legend__row,
+  .canvas-stats-legend__chip {
+    transition: none;
+  }
+}

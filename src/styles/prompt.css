@@ -1,0 +1,2741 @@
+/* ============================================
+   Prompt Panel
+   ============================================ */
+/* ══════════════════════════════════════════════════════════════════════════
+   官方 `/` 指令菜单（`lT` @1622825）—— 官方主题 token 显式落地
+   `bg-popover #262626` / `bg-accent #404040` / `border-border #ffffff1a` /
+   `popover-foreground #ccc` / `muted-foreground #7a7a7a` / `destructive #934c4c`
+   ══════════════════════════════════════════════════════════════════════════ */
+.oscm-root {
+  background: #262626;                                   /* bg-popover */
+  border: 1px solid rgba(255, 255, 255, 0.1);            /* border-border */
+  border-radius: 12px;                                   /* rounded-lg = var(--radius) = .75rem = 12px（官方 app 主题 `:root{--radius:.75rem}`） */
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1); /* shadow-lg */
+}
+/* 官方锚点：`div."absolute bottom-full left-0 right-0 mb-2 z-50"`（挂在提示词栏上方 8px） */
+.official-slash-anchor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  margin-bottom: 8px;                                    /* mb-2 */
+  z-index: 50;
+}
+.oscm-item.is-active,
+.oscm-item:hover {
+  background: rgba(64, 64, 64, 0.5);                     /* bg-accent/50 */
+}
+.oscm-item.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.oscm-item {
+  border-radius: 16px;                                   /* rounded-xl = calc(var(--radius) + 4px) = 16px（官方 --radius:.75rem）
+                                                            ⚠️ 曾按 .5rem 误算成 12px ✗：官方 `:root{--radius:.75rem}`（@theme 里的 .5rem 被 app 主题覆盖） */
+}
+.oscm-icon-box {
+  background: rgba(64, 64, 64, 0.4);                     /* bg-accent/40 */
+  color: #7a7a7a;                                        /* text-muted-foreground */
+  border-radius: 10px;                                   /* rounded-md = calc(var(--radius) − 2px) = 10px（不是 6px ✗） */
+}
+.oscm-icon-box svg {
+  width: 18px;
+  height: 18px;
+  color: #ccc;                                           /* [&_svg]:text-popover-foreground */
+}
+.oscm-title {
+  color: #ccc;                                           /* text-popover-foreground */
+}
+.oscm-desc {
+  color: #7a7a7a;                                        /* text-muted-foreground */
+}
+.oscm-hint {
+  color: #934c4c;                                        /* text-destructive */
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 官方键帽（`nodes.promptPlaceholder` 的 `@` / `/`）：
+   官方类名 = `inline-flex h-5 w-5 items-center justify-center rounded-[4px] font-sans text-xs
+              text-muted-foreground outline-1 -outline-offset-1 outline-white/10`
+   ⚠️ MTV 的 Tailwind 里 `outline-1` 没生成（实测 computed `outline-style: none` ⇒ 键帽没边 ✗）
+   ⇒ 用等价的 **1px inset 发丝线** 复刻（官方视觉就是白 10% 的 1px 内描边） */
+/* 官方 `fx` 顶行（headerSlot / 参考图条）：
+   `Z("px-3 pt-3 pb-2 flex gap-2 items-center min-w-0")` ⇒ padding 12/12/8，gap 8，可收缩 */
+.prompt-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px 12px 8px;
+}
+.prompt-keycap {
+  display: inline-flex;
+  width: 20px;                          /* h-5 w-5 */
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;                   /* rounded-[4px] */
+  /* 官方 kbd：`font-sans text-xs` ⇒ font-family = `--font-sans: Inter,sans-serif`、12px/16px */
+  font-family: Inter, sans-serif;
+  font-size: 12px;                      /* text-xs */
+  line-height: 16px;                    /* text-xs 的默认行高（原来写 1 ⇒ 12px ✗） */
+  color: #7a7a7a;                       /* text-muted-foreground = 官方 dark `--muted-foreground:#7a7a7a` */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); /* outline-1 outline-white/10（offset -1 = inset） */
+}
+.prompt-keycap-placeholder {
+  /* 官方容器：`pointer-events-none absolute left-0 right-0 top-0 z-10 flex h-6 items-center gap-1
+               px-3 text-sm leading-6 text-muted-foreground`
+     ⚠️ 用户指出「颜色不对 / 字体不对」：官方 `text-muted-foreground` = **#7a7a7a**（dark token），
+        `text-sm` = 14px，字体 = `--font-sans: Inter,sans-serif`；
+        MTV 原来自造 `--theme-text-muted`(#7d7d91) + Tailwind 默认 ui-sans-serif 字体栈 ✗ */
+  color: #7a7a7a;
+  font-family: Inter, sans-serif;
+}
+.prompt-panel {
+  /* 官方底部提示词面板实测：680×199 · bg rgb(31,31,31)(#1F1F1F) · radius 16px ·
+     border 1px rgba(255,255,255,.1)（官方类名 bg-card rounded-2xl border border-border） */
+  background: var(--theme-node-bg, #1f1f1f);
+  border: 1px solid var(--theme-node-border, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color var(--transition-smooth);
+}
+.prompt-panel.focused {
+  /* 官方无品牌色描边，聚焦只把描边提亮（Design.md §1.3 描边档） */
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 输入区在**任何状态**都必须透明 —— 官方实测：未激活 / 激活编辑后，
+   输入框及其 3 层祖先的 background 全是 rgba(0,0,0,0)。
+   MTV 激活时会冒出一层底色（用户反馈），这里显式压掉所有可能来源。 */
+.prompt-input-wrap,
+.prompt-input-wrap:focus-within,
+.prompt-input-wrap:hover,
+.mention-editor-wrap,
+.mention-editor-wrap:focus-within,
+.mention-editor-wrap:hover,
+.prompt-editor,
+.prompt-editor:focus,
+.prompt-editor:focus-within,
+.prompt-editor:hover {
+  /* 官方实测：输入框 idle / hover / focus 三种状态底色**都是透明**，边框 0。
+     用户反馈 MTV 悬浮时冒出一层底色，这里把 hover 也一起压掉。 */
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+}
+.prompt-input-wrap {
+  position: relative;
+  /* 官方输入区实测（屏幕像素）：679×**84**，其中编辑器 80 → 下留 4。
+     原先写 8 会得到 88，比官方高 4px（面板总高因此差 5px）。 */
+  padding: 0 12px 4px;
+  min-width: 0;
+}
+/* ── Contenteditable editor (replaces textarea + backdrop) ── */
+.prompt-editor {
+  width: 100%;
+  /* ★ 官方 `TiptapInput` 的真实高度（`use-waveform-data-DMduQqB-.js` @596119 的默认值 +
+     `zoom-slider-3ZcFvYQO.js` @1720685 的覆盖）：
+       minHeight = 80
+       maxHeight = isCollapsed ? 80 : 400      ← 原来 MTV 写 `min(50vh,600px)` ✗
+       autosize  = !isCollapsed                ← contenteditable 自己长高，到 400 才出滑条
+     ⇒ 文本没到 400px 之前**不会有滑条**（用户：「官方是没有滑条的」）。 */
+  min-height: 80px;
+  max-height: 400px;
+  overflow-y: auto;
+  /* ★ 用户：「官方没有这个滑条 MTV 移除掉」⇒ 条**不画**，但 `overflow-y: auto` 留着
+     （滚轮/键盘仍可滚到底，不会把内容裁掉）。官方那边是内容根本不到 max-height 所以看不见条；
+     MTV 的存量文本更高，与其猜高度不如直接把条去掉。 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  outline: none;
+  /* 官方占位浮层与正文都在**同一个 `div.relative`** 里：占位行 `h-6 px-3 text-sm leading-6`
+     ⇒ 正文第一行必须与它**同 x 同基线**。
+     ⚠️ 用户指出「输入光标颜色不对 / 起笔不对」：
+        · 光标颜色：官方编辑器没有 `caret-*` 类 ⇒ `caret-color: auto` = currentColor；
+          MTV 原来写 `var(--primary)`（靛蓝）✗
+        · 起笔：官方正文的左右内边距 = 外层 `px-3`(12px)，编辑器自身**不加** padding；
+          MTV 原来编辑器又加 4px ⇒ 光标比占位文字右移 4px ✗
+        · 行高：官方段落是 `leading-6!`(24px)，与占位行 h-6 对齐；MTV 原来 1.5(21px) ✗ */
+  font-size: 14px;
+  line-height: 24px;
+  padding: 0;
+  color: var(--theme-text);
+  caret-color: currentColor;
+  font-family: Inter, sans-serif;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.prompt-editor.is-empty::before {
+  content: attr(data-placeholder);
+  /* 官方实测（截图里那行占位文字）：**rgba(255,255,255,0.4)**（= oklab(0.999994 … / 0.4)）· 14px/400。
+     MTV 原来用 var(--theme-text-muted)（≈ rgb(122,122,122)）✗ —— 用户指出"颜色不一样"。 */
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  pointer-events: none;
+  display: block;
+  white-space: pre-wrap;
+}
+/* ★ 官方选区的**真实生效值**（`index-DV4al4p1.css` 里两条同权重 `::selection`，后一条胜出）：
+     @644151  ::selection{color:#fff;background:#ffffff2e}
+     @646546  ::selection{background-color:var(--color-blue-300)}   ← 这条在后面 ⇒ 背景以它为准
+   而 `--color-blue-300 = oklch(80.9% .105 251.813)`（浅蓝），文字色仍是前一条的 #fff。
+   ⚠️ 我上一版按前一条写成白 18% ✗ —— 用户：「MTV 全选提示词颜色（高亮色）与官方不一致」。 */
+.prompt-editor::selection {
+  color: #fff;
+  background: oklch(80.9% 0.105 251.813);
+}
+/* WebKit 系（WebView2/Chromium）的滚动条要单独关 */
+.prompt-editor::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+/* 折叠态（官方 `isCollapsed`）⇒ max-height 收到 80（只留一行多一点） */
+.prompt-input-wrap[data-prompt-collapsed='true'] .prompt-editor {
+  max-height: 80px;
+}
+
+/* @mention chip token */
+/* ══════════════════════════════════════════════════════════════════════════
+   @mention chip —— 按官方逐字重写（`m6` @366107 / `tme` @366345 / 编辑器侧覆盖色 @§4.5）
+   官方基础 chip：`relative inline-flex items-center align-middle gap-1 h-5 min-w-[24px] max-w-[120px]
+                  p-1 rounded-[4px] transition-colors select-none cursor-default bg-[#333333]`
+   官方标签：`flex-1 min-w-0 text-[12px] font-medium leading-[18px] truncate tracking-[-0.16px] text-white/60`
+   官方缩略图：`w-3.5 h-3.5 rounded-[3px] overflow-hidden` + 阴影 `0 4px 8px rgba(0,0,0,.16), inset 0 .5px 0 rgba(255,255,255,.16)`
+   官方类型图标：14×14 容器 + 9px 字形
+   官方 hover 删除按钮：14×14 / 图标 10px / `before:-inset-1` / opacity .7→1
+   官方类型覆盖色（编辑器侧 `[&_.mention-*]`）：image 蓝 / video 绿 / element 紫 —— 文本与音频**没有**覆盖色（用基础灰）
+   ⚠️ MTV 原来：`padding 1px 7px 1px 5px` / `r7` / `min-height 22px` / `r6` / `font 11px/600` / 自带 hover 亮度与阴影 ✗ 全部替换
+   ══════════════════════════════════════════════════════════════════════════ */
+.prompt-chip {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  gap: 4px;                              /* gap-1 */
+  padding: 1px 7px 1px 5px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55;
+  margin: 0 2px;
+  border: 1px solid transparent;
+  transition: background-color 0.15s var(--ease-out-quart);
+  cursor: var(--cursor-default, default);
+}
+.prompt-chip:hover { /* 官方 chip 没有亮度/投影 hover ✗（只有 hover 弹出删除按钮） */ }
+.prompt-chip-node,
+.prompt-chip.chip-skill {
+  position: relative;
+  gap: 4px;                              /* gap-1 */
+  height: 20px;                          /* h-5 */
+  min-width: 24px;                       /* min-w-[24px] */
+  max-width: 120px;                      /* max-w-[120px] */
+  min-height: 0;
+  padding: 4px;                          /* p-1 */
+  border: 0;
+  border-radius: 4px;                    /* rounded-[4px] */
+  background: #333333;                   /* bg-[#333333] */
+  color: rgba(255, 255, 255, 0.6);       /* text-white/60 */
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  letter-spacing: -0.16px;
+  margin: 0;
+  box-shadow: none;
+  filter: none;
+  user-select: none;                     /* select-none */
+  cursor: default;                       /* cursor-default */
+}
+.prompt-chip-node:hover,
+.prompt-chip.chip-skill:hover {
+  background: #333333;                   /* 官方 hover 不换底色（MTV 原来会提亮 ✗） */
+}
+/* 选中态：官方 `ring-[1px] ring-white/40` */
+.prompt-chip-node.is-selected,
+.prompt-chip-node[data-selected='true'] {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+/* ══════════════════════════════════════════════════════════════════════════
+   ⚠️ 蓝/绿/紫胶囊**已删除**（读源码确认在输入框里是**死代码**）：
+
+   官方有两套渲染路径：
+     ① **class 路径**（无 NodeView）：kit `renderHTML` 产出 `class="mention mention-<type>"`
+        ⇒ 编辑器容器的 `[&_.mention-image]:!bg-blue-500/15 … !h-6 !rounded-full`（`zoom-slider`
+           @1722737 / 常量 `mrt` @3296872）才生效 —— 蓝(image)/绿(video)/紫(element)/magic。
+     ② **NodeView 路径**（composer 实际用的）：composer 给提及扩展传了 `nodeViewComponent: lme`
+        （`zoom-slider` @394289），kit 的 `addNodeView(){ return Q6(u,{as:'span',attrs:{
+        'data-mention-node-view':'true',contenteditable:'false'}}) }`（@592752）**直接替换掉 DOM**
+        ⇒ 芯片上根本没有 `mention-<type>` 类，`Ku`(=`NodeViewWrapper` @609625) 只加
+        `data-node-view-wrapper` / `data-mention-type`
+        ⇒ **所有档（图片/视频/音频/文本/附件）都是基础灰 `#333333` + `r4` + `h-5`**。
+        （用户实测：「那颗『Image』节点在官方是灰底 r4」✓ —— 与源码一致）
+
+   ⇒ MTV 原来给「生成出来的图片节点」染蓝胶囊是**照 ① 抄了 ② 的场景**，用户看到的蓝胶囊就是这么来的。
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* 官方 NodeView 两层壳（kit @592752 的 `data-mention-node-view` + `Ku` 的 `data-node-view-wrapper`）
+   —— 官方等价规则：`[&_.ProseMirror_[data-mention-node-view='true']]:inline-flex! :w-auto!
+   :align-middle! :whitespace-nowrap!` */
+.prompt-editor [data-mention-node-view='true'] {
+  display: inline-flex;
+  width: auto;
+  align-items: middle;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.prompt-editor [data-node-view-wrapper] {
+  display: inline;
+  white-space: normal;
+}
+.prompt-chip-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* 官方 `tme` 的标签 = `text-[12px] font-medium leading-[18px] truncate tracking-[-0.16px]` + **`text-white/60`**
+     ⚠️ 官方标签**自带 `text-white/60`**，不会被芯片上的 `!text-blue-400` 染色
+        （那个 `!text-*` 只作用在芯片自身的 currentColor 上，比如图标/边框语境）
+        ⇒ MTV 原来让标签继承芯片的蓝/绿色 ✗（用户：「显示颜色不对」） */
+  color: rgba(255, 255, 255, 0.6);
+}
+.prompt-chip-thumb-wrap {
+  display: flex;
+  width: 14px;                           /* w-3.5 */
+  height: 14px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 3px;                    /* rounded-[3px] */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.16), inset 0 0.5px 0 0 rgba(255, 255, 255, 0.16);
+}
+/* 官方 `sme`（@369650）：14×14 容器 + 9px 白色字形，**没有**任何阴影/边框/底色 */
+.prompt-chip-node .prompt-chip-icon {
+  box-shadow: none;
+  filter: none;
+}
+.prompt-chip-icon {
+  font-weight: 700;
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+.prompt-chip-node .prompt-chip-icon,
+.prompt-chip.chip-skill .prompt-chip-icon {
+  /* 官方 `sme`：容器 14×14，字形 9px 白色，无边框/无底色 ✗（MTV 原来是 16×16 + 边框 + 底色） */
+  width: 14px;
+  height: 14px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 400;
+  line-height: 1;
+  opacity: 1;
+}
+/* 官方删除键（`tme` @366345 逐字）——**它不是常驻在行尾的**：
+     `{hovered && onDelete ? (
+        <button aria-label={t("omniReference.chip.removeAriaLabel")}
+                className="relative w-3.5 h-3.5 flex items-center justify-center shrink-0
+                           transition-opacity opacity-70 hover:opacity-100 cursor-pointer
+                           before:absolute before:content-[''] before:-inset-1">
+          <X size={10} className="text-white" strokeWidth={2.5}/>
+        </button>)                                   ← 这一格是**行首**（原来放缩略图/类型图标的位置）
+      : (缩略图/类型图标)}`
+   ⇒ hover 时「缩略图/图标」被 ✕ **替换**（同一个格子），离开又换回来；
+     MTV 原来把 ✕ 常驻在**行尾**、只改 opacity ✗（用户：「hover 不对 / ✕ 按钮位置不对」）。
+   DOM 顺序仍是 [缩略图][标签][✕]，这里用 `order:-1` 把 ✕ 摆到行首 + hover 时隐藏缩略图/图标，
+   视觉结果与官方逐像素一致（1420 页 §11.16 有截图对照）。 */
+.prompt-chip-del {
+  position: relative;
+  display: none;                          /* 只在 hover/focus 时出现（官方是条件渲染） */
+  order: -1;
+  width: 14px;                            /* w-3.5 */
+  height: 14px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  opacity: 0.7;                           /* 官方 `opacity-70` */
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.prompt-chip-node:hover .prompt-chip-del,
+.prompt-chip-node:focus-within .prompt-chip-del {
+  display: flex;
+}
+.prompt-chip-node:hover > .prompt-chip-thumb-wrap,
+.prompt-chip-node:hover > .prompt-chip-icon,
+.prompt-chip-node:focus-within > .prompt-chip-thumb-wrap,
+.prompt-chip-node:focus-within > .prompt-chip-icon {
+  display: none;                          /* 官方：hover 时这一格换成 ✕ */
+}
+.prompt-chip-del:hover { opacity: 1; }
+.prompt-chip-del::before {
+  content: '';
+  position: absolute;
+  inset: -4px;                            /* before:-inset-1 */
+}
+.prompt-chip-node .prompt-chip-icon.has-thumbnail {
+  border-color: transparent;
+  background: transparent;
+}
+.prompt-chip-thumb {
+  width: 100%;                            /* 官方：`w-full! h-full! object-cover` */
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+  display: block;
+  box-shadow: none;
+}
+.prompt-chip-node .prompt-chip-thumb {
+  border-radius: 3px;
+  box-shadow: none;
+}
+.prompt-chip-id {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+  opacity: 0.82;
+}
+.prompt-chip-node .prompt-chip-id {
+  font-weight: 600;
+  letter-spacing: 0;
+  opacity: 1;
+}
+
+.prompt-chip.chip-text { --prompt-chip-accent: var(--node-text-light); }
+.prompt-chip.chip-image { --prompt-chip-accent: var(--success-text); }
+.prompt-chip.chip-video { --prompt-chip-accent: var(--node-video-light); }
+.prompt-chip.chip-audio { --prompt-chip-accent: var(--node-audio-light); }
+.prompt-chip.chip-markdown { --prompt-chip-accent: var(--node-markdown-light); }
+.prompt-chip.chip-skill {
+  --prompt-chip-accent: var(--warning-light);
+  max-width: min(100%, 220px);
+  padding-right: 8px;
+  color: color-mix(in srgb, var(--theme-text) 88%, var(--prompt-chip-accent));
+}
+.prompt-chip-skill-icon {
+  font-family: inherit;
+  font-size: 9px;
+}
+.prompt-chip-skill-name {
+  min-width: 0;
+  max-width: 170px;
+  overflow: hidden;
+  color: inherit;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Workflow IO chip — distinct style ── */
+.prompt-chip.prompt-chip-wf {
+  max-height: 26px;
+  overflow: hidden;
+  border: 1px solid var(--accent-amber-border);
+  background: var(--accent-amber-bg);
+  color: var(--accent-amber-text);
+  padding: 0 2px;
+  gap: 0;
+  display: inline-flex;
+  align-items: center;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, padding 0.15s ease, max-height 0.2s ease;
+}
+/* 内部 value 聚焦时，chip 整体高亮 + 允许纵向延展 */
+.prompt-chip.prompt-chip-wf:focus-within {
+  border-color: color-mix(in srgb, var(--accent-amber) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-amber) 18%, transparent);
+  padding-top: 3px;
+  padding-bottom: 3px;
+  max-height: 200px;
+  overflow: visible;
+  align-items: flex-start;
+}
+.prompt-chip.prompt-chip-wf.chip-workflow-prompt  { background: var(--node-text-bg); border-color: color-mix(in srgb, var(--node-text) 30%, transparent); color: var(--node-text-light); }
+.prompt-chip.prompt-chip-wf.chip-workflow-image   { background: var(--node-image-bg); border-color: color-mix(in srgb, var(--node-image) 30%, transparent); color: var(--success-text); }
+.prompt-chip.prompt-chip-wf.chip-workflow-video   { background: var(--node-video-bg); border-color: color-mix(in srgb, var(--node-video) 30%, transparent); color: var(--node-video-light); }
+.prompt-chip.prompt-chip-wf.chip-workflow-audio   { background: var(--node-audio-bg); border-color: color-mix(in srgb, var(--node-audio) 30%, transparent); color: var(--node-audio-light); }
+
+/* Non-editable label prefix */
+.prompt-chip-wf-prefix {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  align-self: center;
+  margin-left: 1px;
+}
+
+.prompt-chip-wf-id {
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.prompt-chip-wf-colon {
+  font-weight: 600;
+  margin: 0 2px 0 1px;
+}
+
+/* Editable value area inside workflow chip
+   失焦 → 单行截断；聚焦 → 多行展开、向上对齐 */
+.prompt-chip-wf-value {
+  display: inline-block;
+  min-width: 2em;
+  max-width: 200px;
+  outline: none;
+  cursor: var(--cursor-text, text);
+  caret-color: currentColor;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+  align-self: flex-start;
+  padding: 2px 0;
+  line-height: 1.5;
+  transition: max-width 0.12s ease;
+}
+.prompt-chip-wf-value:focus {
+  max-width: 400px;
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.prompt-chip-wf-value:empty::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+}
+
+/* 官方底部编辑区「输入框左上方」的工具行实测（流坐标，缩放=2 换算）：
+   行 **29** 高 · padding **6px 6px 4px** · gap 8
+   （6 + 按钮19 + 4 = 29。之前按 12/8 写得到 39 —— 12/8 是**屏幕**像素，换算成流坐标要减半）
+   按钮 **19×19** · radius 10px · bg rgba(255,255,255,.08)
+   第一个带 1px rgba(255,255,255,.1) 描边、第二个无描边；hover 底色 → rgba(255,255,255,.12) */
+.prompt-tool-row {
+  display: flex;
+  align-items: center;
+  /* 官方实测（屏幕像素）：父层 `93×38 · gap 8`，三个子元素依次是
+       按钮38 [0..38] · **分隔线 1px [46..47]** · 按钮38 [55..93]
+     换算到工具行坐标（父层起点 12）→ 按钮在 **12 与 67**、分隔线在 58。
+     即 **gap 是 8**；按钮间那 17 = 8 + 1(分隔线) + 8。
+     原先写 gap:17 —— 把「按钮间距」当成了 gap，加上分隔线后总距离变成 35，按钮跑到 12 与 85。 */
+  gap: 8px;
+  padding: 12px 12px 8px;
+}
+
+.prompt-tool-btn {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  /* 官方线上实测：**按钮自身的 color 是 rgb(245,245,245)** ✓，
+     而 `text-white/60` 是加在**里面的 svg 上**的 ✓（我上一版把 .6 写到按钮上 ✗）。
+     官方源码：button "… bg-white/[0.08] hover:bg-white/[0.12]"  ·  svg "text-white/60 hover:text-foreground" */
+  color: rgb(245, 245, 245);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.prompt-tool-btn svg {
+  color: rgba(255, 255, 255, 0.6);
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.prompt-tool-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgb(245, 245, 245);
+}
+/* 官方：svg `hover:text-foreground` */
+.prompt-tool-btn:hover svg {
+  color: rgb(245, 245, 245);
+}
+
+/* 官方第二个按钮没有描边 */
+.prompt-tool-btn--plain {
+  border-color: transparent;
+}
+
+/* 工具行右端的「放大」按钮 —— 用 margin-left:auto 推到右端，与左端「焦点编辑」对称 */
+.prompt-tool-btn--end {
+  margin-left: auto;
+}
+
+/* 焦点编辑 与 参考 之间的竖分隔线 —— 官方实测：**1×16 · rgba(255,255,255,.1)**
+   （是个独立 div，不是伪元素；高度 16 而不是 20） */
+.prompt-tool-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── 官方底行「上游引用行」（`gx` @1700439）──
+   源码逐字（zoom-slider-3ZcFvYQO.js）：
+     行：   flex items-center gap-2 nodrag min-w-0   （gap-2 = 8px，与 .prompt-tool-row 的 gap 一致 ✓
+              —— 所以引号区直接放进现有工具行即可，加号仍在最右端）
+     区：   min-w-0 flex-1 relative
+     滚动： flex items-center gap-1.5 pt-1 pr-1 -mt-1 -mr-1 + overflow-x-auto + scrollbarWidth:none
+     渐隐： absolute inset-y-0 -left-2|-right-2 w-8 z-10 cursor-pointer
+              bg-gradient-to-r|l from-card to-transparent
+     条目： relative group/frame shrink-0
+              图/视频 img  size-[38px] object-cover rounded-[10px] border border-white/10
+              文本/音频 div size-[38px] rounded-[10px] bg-white border border-white/10 + 18px 黑图标
+              移除键     absolute -top-1 -right-1 w-4 h-4 bg-black rounded-full
+                        opacity-0 group-hover/frame:opacity-100 + 12px 白 X
+*/
+.prompt-ref-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.prompt-ref-scroll {
+  display: flex;
+  align-items: center;
+  /* gap-1.5 */
+  gap: 6px;
+  /* pt-1 pr-1 -mt-1 -mr-1：给条目右上角 -4px 的 ✕ 让出空间，别删 */
+  padding-top: 4px;
+  padding-right: 4px;
+  margin-top: -4px;
+  margin-right: -4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.prompt-ref-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.prompt-ref-chip {
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* 官方 `Rw`：条目**有点击**时才有 `cursor-pointer`（`c&&"cursor-pointer"`）——
+   点击 = `onMediaClick` → 把这条引用插进提示词输入区（insertMention）。
+   用户 2026：「点击缩略图窗口 官方会自动让参考图进入输入区，MTV 现在无法点击 也无法进去」 */
+.prompt-ref-chip.is-clickable {
+  cursor: pointer;
+}
+
+.prompt-ref-chip-thumb {
+  display: block;
+  width: 38px;
+  height: 38px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.prompt-ref-chip-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #fff;
+  color: #000;
+}
+
+/* 官方：opacity-0 group-hover/frame:opacity-100
+   ⚠️ 必须用 `.prompt-ref-chip .prompt-ref-chip-remove`（0,2,0）压过 MTV 全局的
+      `[data-tooltip]{position:relative}`（0,1,0，且在样式表里更靠后）——
+      否则移除键会掉进文档流，把 chip 撑成 38×54、整行从官方 58 变成 74 ✗ */
+.prompt-ref-chip .prompt-ref-chip-remove {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background: #000;
+  color: #fff;
+  opacity: 0;
+  cursor: var(--cursor-pointer, pointer);
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.prompt-ref-chip:hover .prompt-ref-chip-remove {
+  opacity: 1;
+}
+
+.prompt-ref-scrollbtn {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 10;
+  width: 32px;
+  padding: 0;
+  border: 0;
+  cursor: var(--cursor-pointer, pointer);
+}
+.prompt-ref-scrollbtn--left {
+  left: -8px;
+  background: linear-gradient(to right, var(--theme-node-bg, #1f1f1f), transparent);
+}
+.prompt-ref-scrollbtn--right {
+  right: -8px;
+  background: linear-gradient(to left, var(--theme-node-bg, #1f1f1f), transparent);
+}
+
+/* 官方加号在「选择参考」激活态：bg-white/[0.12] + shadow-inner */
+.prompt-ref-add[aria-pressed='true'] {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+}
+.prompt-ref-add[aria-pressed='true'] svg {
+  color: rgb(245, 245, 245);
+}
+
+/* ── 官方「风格」触发器 `tnt`（@3141914 逐字）──
+   容器：`relative flex items-center h-9 rounded-lg transition-all duration-200
+          hover:bg-muted active:bg-white/[0.1] cursor-pointer group/style`
+   图标盒：`flex items-center justify-center w-7 h-7 m-0.5 rounded-md`（28×28 + margin 2 + r10）
+           内有风格时换成封面 `img w-5 h-5 rounded-[4px] object-cover`（20×20 r4）
+   文案：`text-sm font-medium whitespace-nowrap pr-2`（14px/500 + 右内边距 8）
+         有风格时 `max-w-[60px] truncate`
+   清除键：`absolute -top-1 -right-1 w-4 h-4 bg-black rounded-full flex items-center justify-center
+            opacity-0 group-hover/style:opacity-100 transition-opacity`（16×16，hover 才出，图标 12px 白） */
+.style-trigger-iconbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 2px;
+  border-radius: 10px;                    /* rounded-md（官方 --radius .75rem ⇒ 10px） */
+  flex-shrink: 0;
+}
+.style-trigger-cover {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.style-trigger-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  padding-right: 8px;                     /* pr-2 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.style-selector-btn.has-style .style-trigger-label { max-width: 60px; }
+.style-trigger-clear {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #000;
+  color: #fff;
+  opacity: 0;
+  cursor: var(--cursor-pointer, pointer);
+  transition: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.style-selector-btn:hover .style-trigger-clear { opacity: 1; }
+
+/* ── 官方 `TO` 顶行（`zoom-slider` @1700439）的单行容器 ──
+   行：`flex items-center gap-2 nodrag min-w-0`（gap-2 = 8px） */
+.prompt-ref-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* 官方 `magicSelection` 按钮（zh 文案「焦点编辑」）：
+   `size-[38px] flex items-center justify-center transition-all rounded-[10px] border border-white/10 shrink-0`
+   + `bg-white/[0.08] hover:bg-white/[0.12]`（激活 → `bg-white/[0.12] shadow-inner`，
+     选择中 → `bg-white/[0.08] opacity-30 cursor-not-allowed`）；图标 `size-4` + `text-white/60` */
+.prompt-magic-btn {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.prompt-magic-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.prompt-magic-btn[aria-pressed='true'] {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+}
+.prompt-magic-btn svg { color: rgba(255, 255, 255, 0.6); transition: color 0.15s ease; }
+.prompt-magic-btn:hover svg,
+.prompt-magic-btn[aria-pressed='true'] svg { color: rgb(245, 245, 245); }
+
+/* 官方分隔线：`w-px h-4 bg-white/10 shrink-0` */
+.prompt-magic-divider {
+  flex-shrink: 0;
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 官方加号（`gx` 尾部）：`size-[38px] rounded-[10px] shrink-0 bg-white/[0.08] hover:bg-white/[0.12]`
+   —— **没有描边**；tooltip `videoConfigs.reference`（zh「参考」） */
+.prompt-ref-add {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 0.15s ease;
+}
+.prompt-ref-add:hover { background: rgba(255, 255, 255, 0.12); }
+.prompt-ref-add svg { color: rgba(255, 255, 255, 0.6); transition: color 0.15s ease; }
+.prompt-ref-add:hover svg { color: rgb(245, 245, 245); }
+
+/* 官方参考图计数（`As`）：`shrink-0 whitespace-nowrap text-[11px] text-muted-foreground`
+   —— 官方 dark `--muted-foreground:#7a7a7a` */
+.prompt-ref-count {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #7a7a7a;
+}
+
+/* 官方右槽 `shrink-0 self-start mt-px` + 「放大/还原」按钮（`Oe`：`shrink-0 focus:outline-none`） */
+.prompt-header-right {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 1px;
+}
+.prompt-maximize-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--theme-text-muted, #7a7a7a);
+  cursor: var(--cursor-pointer, pointer);
+  transition: color 0.15s ease;
+}
+.prompt-maximize-btn:hover { color: rgb(245, 245, 245); }
+
+/* 官方底行左组的「高级设置」开关：
+   `flex items-center justify-center rounded-lg px-2.5 py-2.5 transition-colors hover:bg-muted active:bg-white/[0.1]`
+   + 前面的 `w-px h-4 bg-border`（`--border: #ffffff1a`）；`--muted: #2b2b2b`；
+   图标 = lucide `settings-2`，`h-4 w-4 text-foreground` */
+.prompt-footer-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.prompt-advanced-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--theme-text);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 0.15s ease;
+}
+.prompt-advanced-toggle:hover { background: #2b2b2b; }
+.prompt-advanced-toggle:active { background: rgba(255, 255, 255, 0.1); }
+.prompt-advanced-toggle[aria-pressed='true'] { background: #2b2b2b; }
+
+/* 官方高级设置折叠面板：
+   `nodrag overflow-hidden transition-all duration-300` + `max-h-0 | max-h-96`，内层 `p-4 bg-muted/30` */
+.prompt-advanced-panel { max-height: 0; }
+.prompt-advanced-panel.is-open { max-height: 24rem; overflow-y: auto; }
+.prompt-advanced-inner { background: rgba(43, 43, 43, 0.3); }
+
+/* ── 官方缩略图悬浮预览卡（`eme` @364745 / `Wy` @362996，逐字）──
+   卡片：`h-[100px] rounded-[12px] overflow-hidden shadow-[0px_8px_24px_rgba(0,0,0,0.5)] bg-black`
+   图片：`block h-[100px] w-auto object-cover`   视频：`block h-[100px] aspect-video object-cover`
+   文本：`w-[100px] h-[100px] bg-[#1a1a1a] px-3 pt-3 pb-9 overflow-hidden` +
+         `line-clamp-4 whitespace-pre-wrap break-words text-[12px] leading-[16px] text-white/70`
+   音频：`w-[100px] h-[100px] bg-[#1a1a1a] p-3`
+   底部条：`absolute inset-x-0 bottom-0 h-[40px] overflow-hidden bg-gradient-to-t from-black/60
+            to-transparent flex items-end justify-center pb-[6px] px-2` +
+           `text-[12px] font-medium leading-[20px] text-white/[0.88] truncate`（内容 `@{标题}`） */
+.ref-hover-card {
+  position: fixed;
+  z-index: 9999;
+  height: 100px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.ref-hover-card--square { width: 100px; }
+.ref-hover-media-img { display: block; height: 100px; width: auto; object-fit: cover; }
+.ref-hover-media-video { display: block; height: 100px; aspect-ratio: 16 / 9; object-fit: cover; }
+.ref-hover-text {
+  width: 100px;
+  height: 100px;
+  background: #1a1a1a;
+  padding: 12px 12px 36px;
+  overflow: hidden;
+}
+.ref-hover-text-inner {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 16px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.ref-hover-audio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100px;
+  height: 100px;
+  background: #1a1a1a;
+  padding: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.ref-hover-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 8px 6px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+}
+.ref-hover-caption span {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  color: rgba(255, 255, 255, 0.88);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── 焦点编辑模式横幅 —— **官方逐字**（`vendor-pkg-canvas-futqHM6N.js` @3255887）──
+   官方 DOM：
+     <div class="inline-flex min-w-[320px] items-center rounded-lg"
+          style="padding:8px 10px 8px 18px; background:#1FA2DC;
+                 box-shadow:0px 4px 16px rgba(0,0,0,.16), inset 0px .5px 0px rgba(255,255,255,.16);
+                 backdrop-filter:blur(28px)">
+       <div class="flex min-w-0 flex-col pr-3">
+         <span class="text-[14px] font-semibold leading-5 text-white">焦点编辑</span>
+         <span class="text-[12px] font-normal leading-4 text-white/72">点击其他节点以提取元素</span>
+       </div>
+       <div class="ml-auto flex items-center gap-2">
+         [p && 「定位」按钮: rounded-md p-1.5 py-1, bg rgba(0,0,0,.40), 16px 图标 text-white/88]
+         [p && <div class="h-5 w-px bg-white/20">]
+         [退出: rounded-md px-2 py-0.5, bg rgba(0,0,0,.40), span 12px/400/lh20 text-white/88]
+       </div>
+     </div>
+   ⚠️ 官方**没有齿轮/设置按钮** —— 那是 MTV 自加的，本轮按官方删除。
+      官方那个条件按钮是「定位」（把镜头带到源节点），带一条 `h-5 w-px bg-white/20` 分隔线。 */
+.focus-edit-banner {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 60;
+  /* 官方是 `min-w-[320px]` + 内容撑开（不是固定 320 宽） */
+  display: inline-flex;
+  min-width: 320px;
+  align-items: center;
+  padding: 8px 10px 8px 18px;
+  border-radius: 12px;               /* 官方 Tailwind `rounded-lg` = v3 的 8px；实测横幅圆角按 12px 观感，见下注 */
+  background: #1fa2dc;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16), inset 0 0.5px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+}
+
+.focus-edit-banner__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding-right: 12px;              /* 官方 `pr-3` */
+}
+
+.focus-edit-banner__title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  color: #ffffff;
+}
+
+.focus-edit-banner__subtitle {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  color: rgba(255, 255, 255, 0.72);  /* 官方 `text-white/72` */
+}
+
+.focus-edit-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;                          /* 官方 `gap-2` */
+  margin-left: auto;
+}
+
+/* 官方两种按钮同底：`rounded-md` + `rgba(0,0,0,.40)`，靠 padding 区分尺寸 */
+.focus-edit-banner__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;                /* 官方 `rounded-md` = v3 6px（横幅内小按钮，按 Tailwind 档位落地） */
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.88);  /* 官方 `text-white/88` */
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  padding: 2px 8px;                  /* 官方退出钮 `px-2 py-0.5` */
+  transition: all 0.15s;
+  cursor: var(--cursor-pointer, pointer);
+}
+.focus-edit-banner__btn:active { transform: scale(0.95); }   /* 官方 `active:scale-95` */
+
+/* 官方「定位」图标按钮：`p-1.5 py-1` ⇒ 16px 图标盒 + 该 padding */
+.focus-edit-banner__btn--icon {
+  padding: 4px 6px;
+}
+.focus-edit-banner__btn--icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 官方按钮之间的竖分隔线：`h-5 w-px bg-white/20` */
+.focus-edit-banner__divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  flex: none;
+}
+
+/* ══ 焦点编辑覆盖层 + mark 标记 —— 官方逐字（`vendor-pkg-canvas-futqHM6N.js` @1600161 / `lZ`）══
+   官方覆盖层：`absolute inset-0 z-20 overflow-visible`，`pointerEvents:{active?'auto':'none'}`
+     命中层：`absolute inset-0 rounded-[12px]` + `cursor:crosshair` */
+.magic-selection-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  overflow: visible;
+}
+
+.magic-selection-hit {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  cursor: crosshair;
+}
+
+/* ① 识别中：点击点处一颗胶囊（官方 `translate(4px,-50%)`） */
+.magic-mark-loading {
+  position: absolute;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.magic-mark-loading-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--theme-bg, #000) 90%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  color: var(--theme-text, #f5f5f5);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.magic-mark-hourglass {
+  font-size: 14px;
+  animation: magicMarkPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes magicMarkPulse {
+  50% { opacity: 0.5; }
+}
+
+.magic-mark-loading-text {
+  font-weight: 500;
+  color: var(--theme-text-muted, #7a7a7a);
+}
+
+/* ② 已识别：box_2d 决定的白色描边框 */
+.magic-mark-box {
+  position: absolute;
+  z-index: 30;
+  overflow: visible;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  pointer-events: none;
+}
+
+/* 框上方标签条（官方 `-top-8 left-0`，`translateY(0)`） */
+.magic-mark-tag {
+  position: absolute;
+  top: -32px;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  pointer-events: auto;
+}
+
+.magic-mark-label,
+.magic-mark-select {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--theme-bg, #000) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  color: var(--theme-text, #f5f5f5);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.magic-mark-select {
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+}
+
+.magic-mark-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--theme-bg, #000) 90%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  color: var(--theme-text-muted, #7a7a7a);
+  cursor: var(--cursor-pointer, pointer);
+  transition: all 0.15s;
+}
+
+.magic-mark-remove:hover {
+  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 10%, transparent);
+  border-color: color-mix(in srgb, var(--danger, #ef4444) 20%, transparent);
+}
+
+.magic-mark-remove:active {
+  transform: scale(0.9);
+}
+
+/* 官方 `noe`：删除键默认**不可见**，hover 标签条才淡入
+   （cls 原文 `opacity-0 scale-75 group-hover/tag:opacity-100 group-hover/tag:scale-100`）*/
+.magic-mark-tag .magic-mark-remove {
+  opacity: 0;
+  transform: scale(0.75);
+}
+
+.magic-mark-tag:hover .magic-mark-remove,
+.magic-mark-tag:focus-within .magic-mark-remove {
+  opacity: 1;
+  transform: none;
+}
+
+/* 标签条里的 sparkles 图标（官方 `la`，16×16）*/
+.magic-mark-icon {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ── 输入框里的焦点编辑芯片（官方 `mention mention-magic`，`vendor-pkg-canvas` @307211）──
+   官方 NodeView：`[12×12 圆缩略图] + label + （多候选时）12×12 chevron`，
+   识别中是 `⏳ Recognizing...`；多候选点开就是候选下拉（选中项带圆点）。
+
+   ⚠️ 底色/圆角**与其它提及芯片完全同一套**（官方 NodeView 路径下所有档都是
+      `mention` 基础样式：`bg-[#333333]` + `rounded-[4px]` + `h-5` + `p-1`
+      —— 见本文件上面的 `.prompt-chip-node` 注释，那两个 `!bg-*` 胶囊是 class 路径的死代码）。
+      我第一版把 magic 芯片写成了**透明底**，现场就成了「光秃秃一行字」（用户：底色呢？）✗ */
+.prompt-chip-magic {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+  margin: 0;
+  height: 20px;
+  min-width: 24px;
+  max-width: 160px;
+  padding: 4px;
+  border: 0;
+  border-radius: 4px;
+  background: #333333;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+  letter-spacing: -0.16px;
+  white-space: nowrap;
+  user-select: none;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 0.15s var(--ease-out-quart);
+}
+
+/* 官方 hover 不换底色（`gCe` 的触发按钮那层才有 `hover:bg-white/10`，仅在多候选下拉时包一层）*/
+.prompt-chip-magic:hover {
+  background: #333333;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* 多候选时官方在外面包一层 `<button class="inline-flex items-center hover:bg-white/10 rounded px-1 -mx-1">`
+   ⇒ 只有这一种情况 hover 才提亮。 */
+.prompt-chip-magic:has(.prompt-chip-magic-chevron):hover {
+  background: #3a3a3a;
+}
+
+.prompt-chip-magic-loading {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.prompt-chip-magic-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+  flex: none;
+}
+
+.prompt-chip-magic-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  margin: 0;
+}
+
+.prompt-chip-magic-glyph {
+  font-size: 8px;
+  line-height: 1;
+}
+
+.prompt-chip-magic-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-chip-magic-chevron {
+  font-size: 10px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.6);
+  flex: none;
+}
+
+/* 候选下拉（官方 Radix `DropdownMenuContent`：r12 + 模糊背景 + min-w 140px；
+   选中项 `bg-foreground/5 font-semibold` + 1.5×1.5 圆点）*/
+.prompt-chip-magic-menu {
+  position: fixed;
+  z-index: 9999;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--theme-popover, #1b1b1b) 95%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.prompt-chip-magic-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--theme-text, #f5f5f5);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: left;
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.prompt-chip-magic-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.prompt-chip-magic-menu-item.is-selected {
+  background: rgba(255, 255, 255, 0.05);
+  font-weight: 600;
+}
+
+.prompt-chip-magic-menu-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-chip-magic-menu-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.6);
+  flex: none;
+}
+
+/* ⚠️ 「从画布选择参考」的横幅与遮罩**已删除**：官方不是自造横幅，而是走通用节点选择模式
+   （store `dr` + 工具条 `CW` + 源节点遮罩 `AIe`），由 `NodeSelectionPickToolbar` /
+   `NodeSelectionPickLayer` 统一按官方渲染（工具条 = 标题/副标题 + tabler focus-2 + 退出/取消+完成；
+   遮罩 = bg-black/70 + rounded-[12px] + ESC 键帽）。下面只留**焦点编辑**那一套。 */
+
+/* 卡片遮罩：与卡片同尺寸 · bg rgba(0,0,0,.7) · radius 16px · padding 20px */
+.focus-edit-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.7);
+  color: rgb(250, 250, 250);
+  font-size: 14px;
+  pointer-events: none;
+}
+
+/* 焦点编辑：元素胶囊（官方实测）
+   已识别 81×25 · r12 · border 1px solid rgba(255,255,255,.2) · bg rgba(247,247,247,.05) · 14px/500 · pad 2px 4px
+   识别中 91×25 · r12 · border 1px **dashed** rgba(255,255,255,.1) · color rgb(122,122,122) */
+.focus-edit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px 8px;
+}
+
+.focus-edit-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 25px;
+  padding: 2px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(247, 247, 247, 0.05);
+  color: rgba(247, 247, 247, 0.8);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.focus-edit-chip--loading {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgb(122, 122, 122);
+  cursor: default;
+}
+
+/* 焦点编辑：ROI 选框（官方为白色虚线框，标记选中的矩形区域） */.focus-edit-roi {
+  position: absolute;
+  border: 1px dashed #ffffff;
+  background: transparent;
+  pointer-events: none;
+  z-index: 31;
+}
+
+/* 底行（官方 `mx` @zoom-slider：`flex items-center justify-between w-full p-2 h-14`）
+   ⚠️ MTV 原来是「平铺 + `order` 补丁 + gap 8」✗ ⇒ 与官方结构/间距都不同（用户：「按钮位置…全乱了」）
+   ⇒ 改为官方的**两组**结构，容器不再自带 gap（间距由两组的 gap-1 决定） */
+.prompt-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;                        /* h-14 */
+  padding: 8px;                        /* p-2 */
+  gap: 0;
+}
+
+/* 左组 —— 官方 `flex items-center gap-1 min-w-0`（children 插槽）
+   官方 `mx`/`Rnt` 里，组内每两项之间是**独立的分隔元素** `w-px h-4 bg-border`
+   （`bg-border` = `#ffffff1a`）；所以容器 gap 就是官方的 **4px**，
+   两条控件之间的距离 = 4 + 1(线) + 4 = 9px（与官方截图一致）。
+   ⚠️ MTV 原来把 9px 直接写在容器 gap 上（**没有线**）✗ ⇒ 已改为「gap 4 + 真分隔线」。 */
+.prompt-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  order: 1;
+  /* ⚠️ 这里**不要**写 `overflow: hidden` 来防溢出 —— 组内按钮的 tooltip 是
+     `[data-tooltip]::after`（画在按钮**上方**、会伸出本组盒子）⇒ 会被直接裁掉 ✗。
+     防溢出靠的是「模型名可缩 + 标签省略号」（见 model-selector.css）+
+     「面板宽度自适应」（见 panels.css `.ai-dialog-float` 的 `width: max-content`）✓ */
+}
+
+/* ★ 卡片宽度钉死在官方的 680（见 panels.css `.ai-dialog-float` 的说明）⇒ 底行必须**在卡片内收敛**，
+   不能靠把卡片撑大。官方的模型触发器是 `whitespace-nowrap` 的胶囊，长名一律省略号截断。
+   ⚠️ 没有这几条时，长模型名会把 `.ai-dialog-float` 的 `max-content` 顶到 960 ✗
+      （用户："整个卡片的大小也不对劲"）。`min-width:0` 是关键：flex 子项默认 `min-width:auto` 不肯缩。 */
+.prompt-footer .model-selector {
+  min-width: 0;
+}
+.prompt-footer .model-selector-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 左组内部的顺序（官方底行：模型 │ 比例/自适应 │ 风格 │ 摄影机控制 │ 高级设置）
+   ⚠️ MTV 的 DOM 顺序与官方不同 ⇒ 仍需 order 重排；但**只在左组内**生效
+      （改造前挂在容器上，会把右组也一起重排 ✗）
+   分隔线用 `--model/--ratio/--style` 三个修饰类插在各自前一项之后。 */
+.prompt-footer-left > .model-selector { order: 1; }
+.prompt-footer-left > .prompt-footer-sep--model { order: 2; }
+.prompt-footer-left > .ui-schema-renderer { order: 3; }
+.prompt-footer-left > .prompt-footer-sep--ratio { order: 4; }
+.prompt-footer-left > .style-selector-btn { order: 5; }
+.prompt-footer-left > .prompt-footer-sep--style { order: 6; }
+.prompt-footer-left > .prompt-footer-camera { order: 7; }
+.prompt-footer-left > * { order: 8; }
+.prompt-footer-left > .prompt-footer-sep { align-self: center; }
+
+/* 右组 —— 官方 `flex items-center gap-1`（麦克风位 + ml-2 gap-1 的 [1×][发送]） */
+.prompt-footer > .prompt-actions {
+  order: 2;
+  margin-left: 0;                      /* 由 justify-between 推开，不再用 auto */
+}
+
+/* 底行控件的 hover —— 官方源码里**两种底色是不同的**（从官方 CSS 拿到主题变量）：
+     模型 / 比例 : `hover:bg-accent` = **#404040**
+     风格 / 摄影 : `hover:bg-muted`  = **#2b2b2b**（暗一档）
+   MTV 原来把两者都写成 rgb(64,64,64)=#404040 ✗ → 风格/摄影的 hover 偏亮一档
+   （用户反馈"风格的 hover 不对"）。 */
+/* ⚠️ 官方 `TO` 的触发器 `JJ`（@3142994）逐字：
+     `gap-1 **hover:bg-muted** active:bg-white/[0.1] px-2 py-1 text-sm rounded-lg`
+     `data-[state=open]:bg-white/[0.1] disabled:opacity-50 disabled:pointer-events-none`
+   ⇒ 比例/配置胶囊的 hover = **`--muted` #2b2b2b**，展开时 = **rgba(255,255,255,.1)**；
+      MTV 原来把它和「模型按钮」写同一条 `#404040`（= `--accent`）✗ ——
+      `--accent` 那档是 `Button variant="ghost"`（模型按钮）的默认 hover，不是 `JJ` 的。 */
+.prompt-footer .img-pill-btn:hover {
+  background: #2b2b2b; /* = --muted（官方 `hover:bg-muted`） */
+  color: rgb(250, 250, 250);
+}
+.prompt-footer .img-pill-btn.is-open,
+.prompt-footer .img-pill-btn.ui-schema-menu-trigger[aria-expanded='true'] {
+  background: rgba(255, 255, 255, 0.1); /* 官方 `data-[state=open]:bg-white/[0.1]` */
+  color: rgb(250, 250, 250);
+}
+.prompt-footer .model-selector-trigger:hover {
+  background: #404040; /* = --accent（ghost Button 默认 hover） */
+  color: rgb(250, 250, 250);
+}
+.prompt-footer .style-selector-btn:hover,
+.prompt-footer .prompt-footer-camera:hover {
+  background: #2b2b2b; /* = --muted */
+  color: rgb(250, 250, 250);
+}
+.prompt-footer .img-pill-btn:hover svg,
+.prompt-footer .model-selector-trigger:hover svg,
+.prompt-footer .prompt-btn:hover svg {
+  color: rgb(250, 250, 250);
+}
+
+/* 底行文字统一 14px（官方：模型名 14px/400、比例 14px/500，颜色都是 rgb(245,245,245)） */
+.prompt-footer {
+  font-size: 14px;
+  /* 官方底行图标 **rgb(245,245,245)**（生成数量那个是 rgb(204,204,204)），
+     发送是白底 + **纯黑**箭头。MTV 原来是 rgba(255,255,255,.9)/rgb(136,136,160)/rgb(68,68,85) —— 偏灰紫。 */
+  color: rgb(245, 245, 245);
+  /* ⚠️ 那个 9px 属于**左组内部**（控件之间 = gap-1 + 1px 分隔线 + gap-1），
+     不是容器间距 —— 容器是「左组 | 右组」，官方 `justify-between` 无 gap ⇒ 这里 0；
+     9px 已挪到 `.prompt-footer-left` ✓（分组改造前它挂在容器上，所以右组会被多推 9px ✗） */
+  gap: 0;
+  position: relative;
+}
+
+/* 官方底行分隔线：官方是独立的 `<span class="w-px h-4 bg-border">`（**1×16**），左右各 gap-1(4)。
+   ⚠️ 两个坑都踩过：
+     1) 用「前一个控件的 ::after」→ 后一个控件的 hover 底色画在它之上把线吃掉 ✗
+     2) 用 `border-left`             → 线是整高 36，比官方的 16 长一倍 ✗
+   现在：**在需要分隔线的控件自己身上挂 ::before（1×16）**，并 z-index 抬到兄弟底色之上。
+   另外 DOM 顺序 ≠ 视觉顺序（实测 DOM: 模型/风格/摄影/比例/动作；视觉靠 order 排），
+   所以不能用 :first-child 判断，必须按类名点名。 */
+/* 竖线的**正确归属**（重新按官方坐标核对）：
+     官方底行 4 条竖线 = x 179 / 273 / 350 / **523**
+     控件位置：摄影机控制 387..465 · **麦克风 487..519** · 竖线 **523** · 1× 536..575 · 胶囊 579..
+     → x=523 那条在 **麦克风 与 1× 之间** ✓
+     → 「摄影机控制」与「麦克风」之间**没有**竖线 ✗
+   即官方结构是：`[摄影机控制] [麦克风] │ [1×] [胶囊]`
+   MTV 对应：`[摄影机控制] [✨提示词] │ [1×] [胶囊]`
+   ⚠️ 我原来把竖线挂在 `.prompt-actions` 上 ✗ → 画到了 ✨ **前面** ✗（用户指出"官方是 麦克风 竖线 1x 胶囊"）
+      → 正确位置是 `.prompt-actions-inner`（内含 [1×][胶囊]，带 ml-2=8px）✓ */
+.prompt-footer .ui-schema-renderer,
+.prompt-footer .style-selector-btn,
+.prompt-footer .prompt-footer-camera,
+.prompt-footer .prompt-actions-inner {
+  position: relative;
+}
+.prompt-footer .ui-schema-renderer::before,
+.prompt-footer .style-selector-btn::before,
+.prompt-footer .prompt-footer-camera::before,
+.prompt-footer .prompt-actions-inner::before {
+  content: '';
+  position: absolute;
+  /* 正落在 9px 间隙的中间 → 竖线左右各 4px（= 官方 gap-1 的两侧）
+     对 actions-inner：它带 margin-left:8px，所以竖线落在 -5px 处正好在 ✨ 与 1× 中间 ✓ */
+  left: -5px;
+  top: 50%;
+  width: 1px;
+  height: 16px;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  z-index: 1;
+}
+/* 发送那一组必须**固定在右端不被挤出**（用户反馈"发送按钮出去了"） */
+.prompt-footer > .prompt-actions {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+/* 「选择模型」默认要是**白色**（官方 rgb(245,245,245)），MTV 原来用的是次级灰。 */
+.prompt-footer .model-selector-trigger,
+.prompt-footer .model-selector-label {
+  color: rgb(245, 245, 245) !important;
+}
+.prompt-footer .model-selector-trigger .caret {
+  color: rgb(204, 204, 204);
+}
+/* 比例按钮不要缩放动画 —— 官方 hover 只变色，没有任何 transform/scale。
+   MTV 用 AnimatedButton 会 hover 放大 1.04、按下 0.96（用户明确说"加动画干鸡毛"）。 */
+.prompt-footer .anim-btn,
+.prompt-footer .anim-btn:hover,
+.prompt-footer .anim-btn:active {
+  transform: none !important;
+}
+
+/* 「图标 + 文字」型底行按钮（风格 / 摄影机控制）
+   —— 逐字按官方源码（index-BiTZf8mJ.js 的 className dump）：
+     容器 : h-9 · rounded-lg · hover:bg-muted · active:bg-white/[0.1]
+     图标 : w-7 h-7 · m-0.5 · rounded-md                        → 28×28，外边距 2，圆角 10
+     文字 : text-sm · font-medium · whitespace-nowrap · pr-2    → 14px/500，右内边距 8
+   所以外层**不能有 padding/gap**（间距全部由图标盒 margin + 文字 pr 组成）。 */
+.prompt-footer .prompt-btn-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: rgb(245, 245, 245);
+  white-space: nowrap;
+  padding-right: 8px; /* 官方 pr-2 */
+}
+/* ⚠️ 只能点名这两个类，**不能用 `.prompt-footer .prompt-btn`** ✗：
+   ✨提示词按钮的 class 是 `prompt-btn prompt-slash-btn`，会被一起撑成 36 高/宽度 auto
+   → 形状全变（用户反馈"提示词的 hover 形状直接不对"）。发送按钮同理。 */
+.prompt-footer .prompt-footer-camera,
+.prompt-footer .style-selector-btn {
+  width: auto;
+  flex-shrink: 0;
+  /* 逐字照抄官方：容器 **pad=0 · gap=normal**（官方实测容器 68×36 pad=0px），
+     左右间距**全部**由「图标盒 margin 2」+「文字 pr-2(8)」产生，容器自己不参与。
+     MTV 原来用 padding-left + gap 拼 ✗ → 与官方不是同一套盒模型
+     （实测 MTV 58×36 vs 官方 68×36，窄 10px）。 */
+  gap: 0;
+  height: 36px;
+  padding: 0;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+/* 图标盒：官方 `w-7 h-7 m-0.5 rounded-md` → 28×28 + **四周外边距 2** */
+/* ⚠️ 必须同时匹配 `.official-icon`：`<OfficialIcon>` 渲染的是
+   `<span class="official-icon" style="width:16px;height:16px">…svg…</span>` ✗ **不是裸 svg**，
+   所以原来只写 `> svg` **根本没匹配上** → 图标盒 28×28 与 margin 2 全部失效
+   → hover 底色与图标左对齐 ✗、图标与文字间距不对 ✗（用户两次反馈的就是这个）。 */
+.prompt-footer .prompt-footer-camera > svg,
+.prompt-footer .prompt-footer-camera > .official-icon,
+.prompt-footer .style-selector-btn > svg,
+.prompt-footer .style-selector-btn > .official-icon {
+  box-sizing: content-box;
+  width: 16px;
+  height: 16px;
+  padding: 6px;
+  margin: 2px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.prompt-footer .prompt-footer-camera > img {
+  box-sizing: content-box;
+  width: 20px;
+  height: 20px;
+  padding: 4px;
+  margin: 2px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+/* 「摄影机控制」的文字是 text-white（比其它按钮更亮） */
+.prompt-footer .prompt-footer-camera .prompt-btn-label {
+  color: rgb(255, 255, 255);
+}
+.prompt-footer .prompt-submit-btn {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  padding: 0;
+  gap: 0;
+  border-radius: 999px;
+  border: none;
+  background: rgb(255, 255, 255);
+  color: rgb(0, 0, 0);
+}
+.prompt-footer .prompt-submit-btn svg {
+  color: rgb(0, 0, 0);
+}
+/* 官方发送按钮：`aspect-square w-6.5 h-6.5 rounded-full bg-white text-black
+                  hover:bg-white/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed`
+   → hover 是**底色变半透明白**（不是换文字色）✓ */
+.prompt-footer .prompt-submit-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.5);
+  color: rgb(0, 0, 0);
+}
+.prompt-footer .prompt-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 明面上的「生成数量」按钮 —— 官方源码逐字：
+     button "flex items-center gap-1 **px-3 py-1.5 rounded-lg text-sm font-medium text-foreground
+             transition-all active:bg-white/[0.1] hover:bg-muted
+             disabled:opacity-50 disabled:cursor-not-allowed"  → 高 20+12=32 · 左右各 12 · 14px/500
+     父容器带 **ml-2**(8px)。MTV 原来 pad 0/8 ✗（官方是 12）*/
+.prompt-footer-batch {
+  flex-shrink: 0;
+  height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: rgb(245, 245, 245);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.prompt-footer-batch:hover {
+  background: #2b2b2b; /* 官方 hover:bg-muted */
+  color: rgb(250, 250, 250);
+}
+.prompt-footer-batch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* 它放在 .prompt-submit-wrap 里，会继承「白色圆钮」那套底色/字色
+   （实测默认态被染成 bg 白 + 字 rgb(68,68,85)）—— 官方那个 1× 是**透明底 + 灰字**，显式压掉。 */
+.prompt-footer .prompt-submit-wrap .prompt-footer-batch {
+  background: transparent !important;
+  color: rgb(204, 204, 204) !important;
+  border: none !important;
+}
+.prompt-footer .prompt-submit-wrap .prompt-footer-batch:hover {
+  background: rgb(64, 64, 64) !important;
+  color: rgb(250, 250, 250) !important;
+}
+.prompt-footer .img-pill-btn svg,
+.prompt-footer .model-selector-trigger svg {
+  color: rgb(245, 245, 245);
+}
+/* ✨提示词按钮 —— 它占据的是官方**麦克风**的位置，所以逐字按官方麦克风位的规格：
+     官方源码： button "flex **size-8**(32×32) items-center justify-center p-0 rounded-lg px-2 py-1.5
+                        **hover:bg-muted** active:bg-white/[0.1] disabled:opacity-50 disabled:cursor-not-allowed"
+               svg    "**text-white/90**"
+   （MTV 原来图标色写的是 rgba(255,255,255,.6) ✗ —— `.6` 是**工具行**按钮的值，底行这个是 `.9` ✗） */
+.prompt-footer .prompt-slash-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border-radius: 12px; /* 官方 rounded-lg */
+  background: transparent;
+}
+.prompt-footer .prompt-slash-btn svg {
+  color: rgba(255, 255, 255, 0.9); /* 官方 text-white/90 */
+}
+.prompt-footer .prompt-slash-btn:hover {
+  background: #2b2b2b; /* 官方 hover:bg-muted */
+}
+.prompt-footer .prompt-slash-btn:hover svg {
+  color: rgb(245, 245, 245);
+}
+.prompt-footer .prompt-slash-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* 发送按钮：白底 + 黑箭头（官方实测 bg rgb(255,255,255) · 图标 rgb(0,0,0)） */
+.prompt-footer .prompt-submit-btn,
+.prompt-footer .prompt-submit-btn svg {
+  color: rgb(0, 0, 0);
+}
+
+/* 发送胶囊 —— 官方源码逐字（dump 自官方底行右组）：
+     div "flex items-center gap-1 rounded-full **p-1 border border-white/10**"
+   ⚠️ **没有背景色**！上一轮我加的 rgb(38,38,38) 是错的 ✗ ——
+      官方只有 1px 白边，看起来的"灰底"是面板底色 #1f1f1f 透出来 ✓
+      （真正带 `bg-popover` 灰底的是**上传胶囊**，不是发送胶囊 ✗）
+   内部：logo+数字 `text-sm text-popover-foreground font-medium box-border pl-1`
+        数字   `relative inline-flex w-8 ... tabular-nums text-[12px]`
+        发送   `aspect-square w-6.5 h-6.5 rounded-full bg-white text-black hover:bg-white/50` */
+.prompt-footer .prompt-send-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 35px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  /* ★ 官方胶囊的"灰底"是 **background-image 径向渐变**，不是 background-color ✗
+     （实测：bg-color = rgba(0,0,0,0)，所以前几轮查 background-color 永远查不到）
+     官方原值：radial-gradient(94.74% 157.5% at 50% 21.25%, rgb(26,26,26) 0%, rgb(101,103,102) 100%)
+     与**上传胶囊**的 ::before 是同一套做法 ✓ */
+  background-color: transparent;
+  background-image: radial-gradient(
+    94.74% 157.5% at 50% 21.25%,
+    rgb(26, 26, 26) 0%,
+    rgb(101, 103, 102) 100%
+  );
+  flex-shrink: 0;
+}
+/* 官方胶囊实测量法：border 1.33 + p-1(8) + logo/数字区 52 + gap-1(4) + 发送 26 = **91.33×35.33**。
+   MTV 那颗 `::before` 就是用来占住 logo/数字区那 52 宽的（实测官方该区 = 52×20）✓ */
+.prompt-footer .prompt-send-pill::before {
+  content: '';
+  display: block;
+  width: 52px;
+  height: 20px;
+  flex-shrink: 0;
+}
+/* ── 生成前的「预计花费」积分块 ────────────────────────────────────────────
+   上面那个 `::before` 的 52×20 空位，就是官方积分块的位置与尺寸。
+   预估算得出来时徽章会渲染出来 ⇒ **必须吃掉那个空位**，否则胶囊会多出 52px、
+   图标与数字整体右移、胶囊也变长（用户报的「图标位置/数字位置/胶囊大小都不对」就是这个）✗
+   用 `:has()` 让 CSS 自己感知子元素，不用 JS 往父级塞 class ✓ */
+.prompt-footer .prompt-send-pill:has(.prompt-credit-estimate)::before {
+  display: none;
+}
+/* 整块几何 = 官方实测那一块：宽 52 / 高 20 / padding-left 4 / 图标 16 / 数字区 min-width 32。
+   官方该块的类名是 `flex items-center text-sm text-popover-foreground font-medium box-border pl-1`
+   ⇒ `text-sm` = **字号 14 / 行高 20**，所以行高也要写 20（面板继承下来的是 21 ✗） */
+.prompt-footer .prompt-credit-estimate {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 52px;
+  height: 20px;
+  padding-left: 4px;
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+  color: #ffffff;
+}
+.prompt-footer .prompt-credit-estimate__icon {
+  display: block;
+  flex-shrink: 0;
+}
+/* 数字区 = 官方那个 span 的**逐字翻译**：
+     `relative inline-flex w-max min-w-8 shrink-0 items-center justify-center
+      whitespace-nowrap tabular-nums text-[12px] leading-none`
+   官方实测该 span = **32×20**（与整块等高！），12px 的字在 20px 里上下各留 4px。
+   ⚠️ 之前写成 `inline-grid` + 由内容撑高（实测只剩 14 高、数字顶到 +3 而不是 +4）
+      ⇒ 数字比官方高 1px，正是用户 2026 报的「数字与胶囊的上下间距不对」✗
+   ⇒ 高度必须**显式 20**，不能让它随内容收缩 ✓ */
+.prompt-footer .prompt-credit-estimate__value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 20px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  color: rgb(245, 245, 245);
+  overflow: hidden;
+}
+/* 逐位滚动：每位数字一条 `0…9` 的纵向带（官方 NumberFlow 同款做法）。
+   官方在这一层用的是 `inline-grid w-full place-items-center`
+   （数字区宽 32，个位数在里面水平居中）⇒ 照抄，别用 flex。 */
+.prompt-footer .prompt-credit-estimate__roll {
+  display: inline-grid;
+  /* ★★ **必须显式按列排** ✗✓ 用户实测：「选择其他模型就不对，选择 gpt 模型就是对的」
+      原因：`__roll` 是「每个字符一格」的网格，但没写流向 ⇒ 默认 `grid-auto-flow: row`
+        ⇒ 多字符的值会**竖着叠**：1 个字符 12px（20px 窗口里居中 ⇒ 看着正常 ✓），
+          3 个字符（如 `0.8`）= 36px ⇒ 被 `__value` 的 `overflow: hidden` 裁掉上半截 ✗✗
+      GPT 那档估算恰好是**一位数** ⇒ 只有它看着是对的 ✓ 与用户描述完全吻合 ✓ */
+  grid-auto-flow: column;
+  /* ★ `width: 100%` + 默认的 `justify-content: normal`(=stretch) 会把 auto 轨道**拉伸**铺满
+     32px ⇒ 「10」被撑成「1 0」（实测用户截图）✗
+     ⇒ `justify-content: center`：轨道按**内容宽**排、整组水平居中 ✓
+     `grid-auto-columns: max-content` 再兜一层，杜绝任何拉伸 ✓ */
+  grid-auto-columns: max-content;
+  justify-content: center;
+  width: 100%;
+  place-items: center;
+}
+/* ★ 加载中的「呼吸」—— 逐字照抄官方的 `.tap-price-pending`
+     （`course-api-base-url-B3yfHu80.css` @53498）：
+       `animation: tapPricePending .4s cubic-bezier(.65,0,.35,1) infinite alternate`
+       `@keyframes tapPricePending { 0% { opacity: .35 } to { opacity: .68 } }`
+       `prefers-reduced-motion: reduce` ⇒ `animation: none; opacity: .55`
+     官方只把它挂在 NumberFlow / 那个 `-` 文本上（图标是兄弟节点、不跟着呼吸）
+     ⇒ 这里也只挂在数字位上 ✓ */
+.prompt-footer .prompt-credit-estimate__value.is-pending {
+  animation: promptCreditPending 0.4s cubic-bezier(0.65, 0, 0.35, 1) infinite alternate;
+}
+@keyframes promptCreditPending {
+  0% {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0.68;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .prompt-footer .prompt-credit-estimate__value.is-pending {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+/* 单个字符槽：高 1em（line-height:1 ⇒ 正好一位数字），超出的带被裁掉 */
+.prompt-footer .prompt-credit-estimate__char {
+  display: inline-block;
+  height: 1em;
+  line-height: 1;
+  overflow: hidden;
+}
+.prompt-footer .prompt-credit-estimate__strip {
+  display: block;
+}
+.prompt-footer .prompt-credit-estimate__strip > span {
+  display: block;
+  height: 1em;
+  line-height: 1;
+  text-align: center;
+}
+/* ⚠️ 这里原来有一条 `.prompt-credit-estimate__value > span { grid-area:1/1; display:block }` ——
+   **已删除**：它匹配到的正是 `__roll`（一个 `<span>`），且比 `__roll` 那条多一个类型选择器
+   ⇒ 特异性更高，把 `display:inline-flex` 压成 `block` ✗
+   后果：数字区被内容撑成 14 高、个位数垂直位置差 1px（用户 2026 报的「上下间距不对」）。
+   现在数字区只有 `__roll` 一个子元素，结构照官方（数字区 inline-flex + 内层 inline-grid）✓ */
+/* 胶囊里的数字：官方 14px/500 rgb(245,245,245) */
+.prompt-footer .prompt-send-pill .prompt-footer-batch {
+  padding: 0;
+  min-width: 20px;
+  text-align: center;
+  color: rgb(245, 245, 245);
+}
+/* 右组 —— 逐字按官方结构（官方 dump）：
+     外层 : "flex items-center gap-1"                        → gap 4
+     内层 : "relative z-20 flex shrink-0 items-center **ml-2** gap-1" → ml 8 + gap 4
+     内层内容 : [button 39×32 «1×»][div 91×35 «发送胶囊»]
+   官方：麦克风（MTV→提示词）在**外层**，与内层是兄弟 ✓ */
+.prompt-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px; /* 官方外层 gap-1 */
+  flex-shrink: 0;
+}
+.prompt-actions-inner {
+  display: flex;
+  align-items: center;
+  gap: 4px; /* 官方内层 gap-1 */
+  margin-left: 8px; /* 官方 ml-2 */
+  flex-shrink: 0;
+}
+.prompt-submit-wrap {
+  position: relative;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  /* ★ 官方发送键是 `aspect-square w-6.5 h-6.5` = **26×26**（`.prompt-submit-btn` 也是 26）。
+     包裹层原来写 28 ⇒ 比里面那颗按钮宽 2px：
+       · 胶囊总宽 93.33（官方 91.33）✗
+       · 数字右侧到胶囊右沿的距离比官方大 2px（用户 2026 报的「左右间距不对」）
+     ⇒ 包裹层必须与按钮同宽 = 26 ✓ */
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  transition:
+    width 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 220ms ease;
+}
+/* ⚠️ 这里原来有一条 `.prompt-submit-wrap.batch-open { width: 210px; ... }` ——
+   **已删除**：那是 MTV 旧「内联展开条」时代让发送钮包裹层从 26px 撑到 210px 用的。
+   官方 `TimesSelector` 的次数按钮是**独立控件**，打开它的 popover **不改变任何布局**；
+   留着这条的后果正是用户实测的「点生成数量按钮 → 旁边的按钮被触发了、胶囊还变长了」。
+   ⇒ 与官方一致：`batch-open` 不再挂在 `prompt-submit-wrap` 上，包裹层恒为 26×26。 */
+/* ★★ 官方 `TimesSelector` 那套类名里的**透明度修饰符**在 MTV 的 Tailwind v3 下会被**静默丢弃**
+      （`tailwind.config.js` 的 shadcn 色是 `var(--x)` 形式，v3 无法注入 `/NN` 的 alpha；
+        同 `styles/node-search.css` 第 4 节记的是同一个根因，已在本仓库出现三次）。
+   官方弹层用到三个带 alpha 的类 ⇒ 必须在这里用算好的 rgba 顶上，否则**弹层背景全透明**：
+     `bg-popover/95`            → `--popover:#262626`            ⇒ rgba(38,38,38,.95)
+     `bg-popover-foreground/10` → `--popover-foreground:#ccc`    ⇒ rgba(204,204,204,.1)
+     `hover:bg-secondary/50`    → `--secondary:#222`             ⇒ rgba(34,34,34,.5)
+   其余（`p-1.5` / `rounded-xl` / `border` / `shadow-2xl` / `flex-col` / `gap-1` / `backdrop-blur-sm`
+   以及项上的 `px-3 py-1.5 rounded-lg text-sm font-medium transition-colors` / `text-foreground` /
+   `text-muted-foreground`）都不带 alpha，v3 正常生成 ✓ */
+.bg-popover\/95 {
+  background-color: rgba(38, 38, 38, 0.95);
+}
+.bg-popover-foreground\/10 {
+  background-color: rgba(204, 204, 204, 0.1);
+}
+.hover\:bg-secondary\/50:hover {
+  background-color: rgba(34, 34, 34, 0.5);
+}
+
+.prompt-btn {
+  /* 官方底行实测：右侧图标按钮 32×32 · radius 12px · 图标 16×16 · 色 rgba(255,255,255,.9) */
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: color 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0;
+}
+.prompt-btn:hover {
+  /* 官方实测：底行图标/文字按钮 hover 底色 rgb(43,43,43) · 文字转 rgb(250,250,250) */
+  color: rgb(250, 250, 250);
+  background: rgb(43, 43, 43);
+}
+.prompt-submit-btn {
+  /* 官方底行：发送键是 **26×26 白色圆**，图标 rgb(0,0,0)；hover 时白底降到 50% */
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #000000;
+}
+.prompt-submit-btn:hover {
+  background: rgba(255, 255, 255, 0.5);
+  color: #000000;
+}
+.prompt-submit-btn.disabled {
+  color: var(--text-disabled);
+  cursor: var(--cursor-not-allowed, not-allowed);
+}
+.prompt-submit-btn.disabled:hover {
+  background: transparent;
+  color: var(--text-disabled);
+}
+.prompt-submit-btn.is-generating,
+.prompt-submit-btn.is-generating.disabled {
+  cursor: var(--cursor-default, default);
+  color: var(--primary);
+}
+.prompt-submit-btn.is-generating.disabled:hover {
+  background: transparent;
+}
+/* 生成中的思考球：撑满按钮居中，不参与指针事件 */
+.prompt-submit-btn > canvas,
+.prompt-stop-orb > canvas {
+  display: block;
+  pointer-events: none;
+}
+.prompt-stop-btn {
+  color: var(--danger);
+  position: relative;
+  /* 与发送键同尺寸：包裹层 `.prompt-submit-wrap` 是 26×26（官方 `w-6.5`），
+     基类 `.prompt-btn` 是 32×32 ⇒ 不覆盖的话终止标记会溢出包裹层、顶出胶囊 ✗ */
+  width: 26px;
+  height: 26px;
+}
+/* 有思考球时默认显示球，悬停才露出终止方块 */
+.prompt-stop-orb {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity var(--transition-base);
+}
+.prompt-stop-btn:hover .prompt-stop-orb,
+.prompt-stop-btn:focus-visible .prompt-stop-orb {
+  opacity: 0;
+}
+.prompt-stop-btn:has(.prompt-stop-orb) .prompt-stop-icon {
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+.prompt-stop-btn:has(.prompt-stop-orb):hover .prompt-stop-icon,
+.prompt-stop-btn:has(.prompt-stop-orb):focus-visible .prompt-stop-icon {
+  opacity: 1;
+}
+.prompt-stop-btn:hover {
+  color: var(--danger-light);
+  background: var(--danger-bg);
+}
+.prompt-stop-btn:active {
+  transform: scale(0.9);
+}
+.prompt-pass-through-btn {
+  color: var(--success);
+}
+.prompt-pass-through-btn:hover {
+  color: var(--success-text);
+  background: var(--success-bg);
+}
+.prompt-pass-through-btn.disabled {
+  color: var(--text-disabled);
+  cursor: var(--cursor-not-allowed, not-allowed);
+}
+.prompt-pass-through-btn.disabled:hover {
+  background: transparent;
+  color: var(--text-disabled);
+}
+
+/* ── Slash command button ── */
+.prompt-slash-btn {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+/* ============================================
+   Slash Command Menu
+   ============================================ */
+.slash-command-menu {
+  position: fixed;
+  z-index: 10002;
+  width: 260px;
+  max-height: 440px;
+  overflow-y: auto;
+  /* 弹层配方 = 官方 dropdown：bg-popover / border-white/10 / rounded-2xl / shadow-2xl / backdrop-blur */
+  background: color-mix(in srgb, var(--popover-bg) 90%, transparent);
+  border: 1px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  backdrop-filter: blur(var(--popover-blur));
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transform-origin: bottom left;
+  animation: popoverIn var(--dur-normal) var(--ease-spring);
+}
+
+.slash-command-header {
+  padding: 0px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.slash-command-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base);
+}
+
+.slash-command-item:hover,
+.slash-command-item.active {
+  background: var(--theme-hover);
+}
+
+.slash-command-item:active {
+  transform: scale(0.98);
+  transition: transform 60ms var(--ease-out-quart);
+}
+
+.slash-command-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--theme-text-secondary);
+  margin-top: 1px;
+}
+
+.slash-command-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.slash-command-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--theme-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slash-command-arrow {
+  margin-left: auto;
+  font-size: 14px;
+  color: var(--theme-text-muted);
+  font-weight: 400;
+}
+
+.slash-command-desc {
+  font-size: 10px;
+  color: #666680;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slash-command-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--success-text);
+  background: var(--success-bg);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+.slash-command-divider {
+  height: 1px;
+  background: var(--theme-border);
+  margin: 4px 8px;
+}
+
+/* Submenu */
+.slash-command-submenu {
+  position: fixed;
+  z-index: 10003;
+  width: 280px;
+  max-height: 440px;
+  overflow-y: auto;
+  /* 弹层配方 = 官方 dropdown：bg-popover / border-white/10 / rounded-2xl / shadow-2xl / backdrop-blur */
+  background: color-mix(in srgb, var(--popover-bg) 90%, transparent);
+  border: 1px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  box-shadow: var(--popover-shadow);
+  backdrop-filter: blur(var(--popover-blur));
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* ============================================
+   资产引用：芯片 + 选择弹窗
+   ============================================ */
+.prompt-chip.chip-asset {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--accent-primary);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+}
+
+/* 弹窗遮罩 */
+.asset-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--black-alpha-50);
+  backdrop-filter: blur(6px);
+  border-radius: 16px;
+}
+.asset-picker {
+  width: min(560px, 88vw);
+  max-height: 72vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px var(--black-alpha-60);
+  overflow: hidden;
+}
+.asset-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+.asset-picker-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+.asset-picker-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  border-radius: 9px;
+  color: var(--theme-text-muted);
+  flex-shrink: 0;
+}
+.asset-picker-search:focus-within { border-color: var(--border-focus); }
+.asset-picker-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--theme-text);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.asset-picker-grid {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 12px;
+  padding: 10px 12px 12px;
+  align-content: start;
+  scroll-behavior: smooth;
+}
+.asset-picker-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 28px 0;
+  color: var(--theme-text-muted);
+  font-size: 13px;
+}
+.asset-picker-card {
+  height: 112px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--theme-card);
+  cursor: var(--cursor-pointer, pointer);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--dur-fast) var(--ease-out-quart);
+}
+.asset-picker-card:hover {
+  border-color: var(--input);
+  box-shadow: 0 4px 16px var(--black-alpha-30);
+}
+.asset-picker-card:active { transform: scale(0.97); }
+.asset-picker-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  background: var(--black-alpha-30);
+}
+.asset-picker-card-icon {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  background: var(--black-alpha-30);
+}
+.asset-picker-card-name {
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--theme-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 资产弹窗：标签筛选 + 增量哨兵 */
+.asset-picker-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 12px 6px;
+  max-height: 84px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.asset-picker-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-size: 11px;
+  color: var(--theme-text-secondary);
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
+  border-radius: 999px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+.asset-picker-tag:hover { color: var(--theme-text); border-color: var(--border-secondary); }
+.asset-picker-tag.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.asset-picker-tag-count {
+  font-size: 10px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.asset-picker-sentinel {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 12px;
+  font-size: 12px;
+  color: var(--theme-text-muted);
+}
+
+/* 资产网格定制滚动条 */
+.asset-picker-grid::-webkit-scrollbar { width: 6px; }
+.asset-picker-grid::-webkit-scrollbar-track { background: transparent; }
+.asset-picker-grid::-webkit-scrollbar-thumb {
+  background: var(--theme-border);
+  border-radius: 3px;
+}
+.asset-picker-grid::-webkit-scrollbar-thumb:hover { background: var(--theme-hover); }
+
+/* ============================================
+   画风选择器 — StyleSelector（ModalOverlay 负责遮罩/动画；此处仅内层样式）
+   ============================================ */
+/* 按钮 */
+.style-selector-btn {
+  flex-shrink: 0;
+}
+.style-selector-btn.has-style {
+  color: var(--primary);
+}
+.style-selector-btn.style-active {
+  color: var(--accent-primary);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ModalOverlay 面板尺寸 */
+.style-picker-panel {
+  width: min(520px, 90vw);
+  max-height: 72vh;
+}
+/* 标题栏 */
+.style-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}
+/* 网格 */
+.style-picker-grid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  padding: 10px 12px 14px;
+  align-content: start;
+}
+.style-picker-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 24px 0;
+  color: var(--theme-text-muted);
+  font-size: 13px;
+}
+/* 卡片 */
+.style-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--theme-card);
+  padding: 0;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--dur-fast) var(--ease-out-quart);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.style-card-select {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: var(--cursor-pointer, pointer);
+}
+.style-card:hover {
+  border-color: var(--input);
+  box-shadow: 0 4px 16px var(--black-alpha-30);
+}
+.style-card-select:active {
+  transform: scale(0.97);
+}
+.style-card.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.30);
+}
+/* 卡片图片区域 */
+.style-card-img {
+  width: 100%;
+  aspect-ratio: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--black-alpha-20);
+}
+.style-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.style-card-placeholder {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--theme-hover) 25%, transparent 25%, transparent 75%, var(--theme-hover) 75%);
+  background-size: 12px 12px;
+}
+/* 卡片标题 — 底部渐隐遮罩 */
+.style-card-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  text-align: center;
+  line-height: 1.2;
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.3) 70%, transparent 100%);
+  pointer-events: none;
+}
+/* 卡片描述 */
+.style-card-desc {
+  padding: 5px 8px 7px;
+  font-size: 10px;
+  line-height: 1.3;
+  color: var(--theme-text-muted);
+}
+
+/* 自定义滚动条 */
+.style-picker-grid::-webkit-scrollbar { width: 6px; }
+.style-picker-grid::-webkit-scrollbar-track { background: transparent; }
+.style-picker-grid::-webkit-scrollbar-thumb {
+  background: var(--theme-border);
+  border-radius: 3px;
+}
+.style-picker-grid::-webkit-scrollbar-thumb:hover { background: var(--theme-hover); }
+
+/* 标题栏操作区 */
+.style-picker-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* 添加画风按钮 */
+.style-add-btn {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--theme-text-secondary);
+  border-radius: 8px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base), color var(--transition-base);
+}
+.style-add-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--primary);
+}
+
+/* ── 自定义画风卡片特殊样式 ── */
+.style-card.is-custom {
+  position: relative;
+  border-style: dashed;
+}
+.style-card-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+.style-card-action {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--black-alpha-50);
+  border: none;
+  border-radius: 6px;
+  color: var(--theme-text-secondary);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base), color var(--transition-base);
+}
+.style-card-action:hover,
+.style-card-action:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.style-card-delete:hover {
+  background: color-mix(in srgb, var(--danger) 70%, transparent);
+  color: #fff;
+}
+
+/* ── 新增画风表单 ── */
+.style-add-panel {
+  width: min(440px, 90vw);
+}
+.style-add-body {
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.style-add-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px dashed var(--theme-border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: var(--cursor-pointer, pointer);
+  transition: border-color var(--transition-base);
+  background: var(--black-alpha-15);
+}
+.style-add-thumb:hover {
+  border-color: var(--input);
+}
+.style-add-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.style-add-thumb-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  color: var(--theme-text-muted);
+  font-size: 12px;
+}
+.style-add-file-input {
+  display: none;
+}
+.style-add-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--theme-text-secondary);
+}
+.style-add-input,
+.style-add-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--theme-text);
+  background: var(--black-alpha-15);
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color var(--transition-base);
+  resize: vertical;
+}
+.style-add-input:focus,
+.style-add-textarea:focus {
+  border-color: var(--primary);
+}
+.style-add-textarea {
+  min-height: 64px;
+  line-height: 1.5;
+}
+.style-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.style-add-cancel,
+.style-add-submit {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base), color var(--transition-base), opacity var(--transition-base);
+}
+.style-add-cancel {
+  background: var(--theme-hover);
+  border: none;
+  color: var(--theme-text-secondary);
+}
+.style-add-cancel:hover { color: var(--theme-text); }
+.style-add-submit {
+  background: var(--primary);
+  border: none;
+  color: #fff;
+}
+.style-add-submit:hover { background: var(--accent-primary); }
+.style-add-submit:disabled {
+  opacity: 0.4;
+  cursor: var(--cursor-not-allowed, not-allowed);
+}
+
+/* @ 芯片 hover 名字浮层（Portal 到 body，固定定位在芯片上方）*/
+.chip-name-tip {
+  position: fixed;
+  z-index: 10050;
+  transform: translate(-50%, calc(-100% - 8px));
+  max-width: 260px;
+  padding: 4px 9px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur-md));
+  border: 1px solid var(--glass-ring);
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--theme-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  box-shadow: 0 6px 20px var(--black-alpha-50), 0 0 0 1px var(--white-alpha-03);
+}

@@ -1,0 +1,702 @@
+/* ============================================
+   Image Node — toolbar, matting overlay
+   ============================================ */
+
+/* ============================================
+   Image Toolbar — above selected ImageNode
+   ============================================ */
+/* 官方节点工具条（源码级，逐字）：
+   容器 `h-12 p-1 rounded-full gap-1` = **48 高 · padding 4 · 容器 gap 4 · radius 999** ✓
+   组内 `ul gap-[2px]` = **2px** ✓（不是 4px）
+   分隔线 `w-px h-[18px]` 是容器的直接兄弟 ⇒ 两侧间距**只由容器 gap 4 提供**（无自身 margin）✓
+   按钮 `h-10 aspect-square rounded-full` = **40×40**，图标 `size=20` ✓
+   尺寸：`--float-scale = 1/zoom`（官方 `xB(e)=1/(e>0?e:1)`）⇒ 以上全是**屏幕常量**，任何缩放档都不变 ✓
+   间距：`top:-min(48/zoom, 60)`（画布单位）⇒ 屏幕上 = `min(48, 60×zoom)` ✓
+   ⚠️ 以上**全部**已在 `styles/nodes.css` 的 `.node-floating-toolbar` + `.ftb-zone` + `.ftb-divider` 里
+      统一定义（图像/文本/视频/音频/全景 共用）——本文件**不再重复任何几何**，只保留主题色。 */
+[data-theme='dark'] .img-toolbar {
+  background: rgb(38, 38, 38);
+}
+
+/* ── 宫格裁切：选择菜单（自按钮向上弹出）── */
+.multigrid-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.multigrid-menu {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10002;
+  min-width: 150px;
+  padding: 6px;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  animation: fadeIn var(--dur-fast, 0.14s) var(--ease-out-expo, ease-out);
+}
+
+/* 指向按钮的小三角 */
+.multigrid-menu::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--theme-surface);
+}
+
+/* ── 向下弹出（上方空间不足时）── */
+.multigrid-menu.multigrid-menu--below {
+  bottom: auto;
+  top: calc(100% + 12px);
+}
+
+.multigrid-menu.multigrid-menu--below::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: var(--theme-surface);
+}
+
+.multigrid-menu-title {
+  padding: 4px 8px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text-muted, rgba(255, 255, 255, 0.5));
+  text-align: center;
+}
+
+.multigrid-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--theme-text, #e9eaee);
+  background: transparent;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--dur-fast, 0.14s);
+}
+
+.multigrid-menu-item:hover {
+  background: var(--theme-hover);
+}
+
+.multigrid-menu-item svg {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.multigrid-menu-divider {
+  height: 1px;
+  background: var(--theme-border);
+  margin: 4px 8px;
+}
+
+.multigrid-menu-item--custom svg {
+  color: var(--theme-text-secondary);
+}
+
+/* ============================================
+   Matting Overlay — fullscreen mask editor
+   ============================================ */
+
+/* 图片编辑器共用缩放组：与 PointEdit 的独立缩放控件保持一致。 */
+.image-editor-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 46px;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  flex: 0 0 auto;
+  color: var(--theme-text-secondary);
+  background: color-mix(in srgb, var(--theme-surface) 95%, transparent);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, var(--theme-border) 80%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  pointer-events: auto;
+}
+
+.image-editor-zoom-btn,
+.image-editor-zoom-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.image-editor-zoom-btn {
+  width: 28px;
+}
+
+.image-editor-zoom-value {
+  min-width: 38px;
+  padding-inline: 2px;
+  color: var(--theme-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.image-editor-zoom-btn:hover,
+.image-editor-zoom-value:hover {
+  color: var(--theme-text);
+  background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+}
+
+.image-editor-zoom-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.matting-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--black-alpha-60);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-radius: 16pX;
+  animation: fadeIn var(--dur-normal) var(--ease-out-expo);
+}
+
+/* Matting toolbar */
+.matting-toolbar-dock {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.matting-toolbar {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--theme-surface) 95%, transparent);
+  backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, var(--theme-border) 80%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  max-width: calc(100vw - 166px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.matting-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.matting-btn,
+.customgrid-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--theme-text-secondary);
+  cursor: var(--cursor-pointer, pointer);
+  border-radius: 12px;
+  transition: var(--transition-colors);
+  flex-shrink: 0;
+}
+
+.matting-btn {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.matting-btn:hover,
+.customgrid-btn:hover {
+  color: var(--theme-text);
+  background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+}
+
+.matting-btn.active {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.matting-btn:disabled,
+.customgrid-btn:disabled {
+  opacity: 0.3;
+  cursor: var(--cursor-default, default);
+  pointer-events: none;
+}
+
+/* Cancel button hover red */
+.matting-btn.act-cancel:hover,
+.customgrid-btn.act-cancel:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+/* Save button */
+.matting-save {
+  gap: 6px;
+  padding: 0 12px;
+  width: auto;
+  height: 32px;
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+.matting-save:hover,
+.customgrid-btn.act-confirm:hover {
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  color: var(--success-light);
+  border-color: color-mix(in srgb, var(--success) 50%, transparent);
+}
+
+.matting-save span {
+  white-space: nowrap;
+}
+
+.matting-divider,
+.customgrid-bar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--theme-border);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+/* Brush size */
+.matting-size {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.matting-size-value {
+  font-size: 12px;
+  color: var(--theme-text);
+  font-variant-numeric: tabular-nums;
+  min-width: 24px;
+  text-align: center;
+}
+
+.matting-size-range {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--theme-border);
+  border-radius: 2px;
+  outline: none;
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.matting-size-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.matting-size-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.matting-size-range::-webkit-slider-thumb,
+.matting-size-range::-moz-range-thumb {
+  background: var(--success);
+}
+
+/* Stage — centers the image */
+.matting-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 40px 40px 88px;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 缩放 / 平移变换层（内含入场动画的 viewport）*/
+.matting-zoom {
+  display: inline-flex;
+  transform-origin: center center;
+}
+
+/* 宫格编辑只遮暗画布，不为整窗建立模糊离屏缓冲。 */
+.fullscreen-overlay--transparent.customgrid-overlay {
+  background: var(--black-alpha-60);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 第三方 PointEdit 仅覆盖其根层，避免 16px 整窗模糊；工具栏的小面积玻璃效果保留。 */
+.point-edit-overlay.point-edit-overlay {
+  background: var(--black-alpha-60);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/*
+ * 重型图片编辑器的静态景深层：中心约 94%、边缘约 97% 遮暗。
+ * 通过多层纯色渐变保留“磨砂”层级，但不采样底层画布，避免整窗 backdrop blur 的离屏纹理。
+ */
+body > :is(
+  .matting-overlay,
+  .point-edit-overlay.point-edit-overlay,
+  .fullscreen-overlay--transparent.customgrid-overlay,
+  .fullscreen-overlay--transparent.crop-overlay,
+  .fullscreen-overlay--transparent.composer-overlay,
+  .fullscreen-overlay.camera-studio-overlay,
+  .fullscreen-overlay--transparent.image-node-fullscreen-overlay
+) {
+  background:
+    radial-gradient(ellipse at center, var(--black-alpha-30) 0%, var(--black-alpha-60) 100%),
+    linear-gradient(var(--black-alpha-50), var(--black-alpha-50)),
+    linear-gradient(var(--black-alpha-60), var(--black-alpha-60)),
+    var(--black-alpha-60);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* Viewport — relative wrapper so canvas overlays image exactly */
+.matting-viewport {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  transform-origin: center;
+  animation: stageZoomIn 0.5s var(--ease-out-expo) both;
+}
+
+/* 图像编辑器舞台优雅放大浮现（抠图/标注共用，画布表面不残留滤镜）*/
+@keyframes stageZoomIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.matting-image {
+  display: block;
+  max-width: 85vw;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.matting-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
+}
+
+.cursor-crosshair {
+  cursor: var(--cursor-crosshair, crosshair);
+}
+
+.image-annotation-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  /* 与主图/遮罩**同 fit** ✓（主图 = `contain` ✓ 官方 ✓）—— 标注是画在图片上的，fit 不一致就会错位 ✗
+     （对 `<svg>`/`<canvas>` 该属性本就不生效 ✓，写在这里只为 `<img>` 形态兜底 ✓ 不改变现有观感 ✓）*/
+  object-fit: contain;
+  pointer-events: none;
+}
+/* ============================================
+   CustomGridEditor — 自定义宫格裁切
+   ============================================ */
+
+.customgrid-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.customgrid-overlay > .fullscreen-close--absolute {
+  display: none;
+}
+
+/* ── 工具栏（与 CropEditor 的 crop-aspect-bar 统一）── */
+.customgrid-toolbar {
+  position: fixed;
+  top: auto;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--theme-surface) 95%, transparent);
+  backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, var(--theme-border) 80%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  width: 580px;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+.customgrid-btn {
+  gap: 4px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.customgrid-btn.act-cancel {
+  width: 32px;
+  padding: 0;
+}
+
+.customgrid-btn.active {
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+}
+
+.customgrid-btn.act-confirm {
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  padding: 0 12px;
+}
+
+.customgrid-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  margin: 0 2px;
+}
+
+.customgrid-bar-spacer {
+  flex: 1;
+}
+
+.customgrid-hint {
+  font-size: 11px;
+  color: var(--theme-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 舞台：居中图像 ── */
+.customgrid-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 40px 88px;
+  box-sizing: border-box;
+  overflow: auto;
+  pointer-events: auto;
+  cursor: var(--cursor-crosshair, crosshair);
+}
+
+@media (max-width: 680px), (max-height: 560px) {
+  .matting-toolbar-dock,
+  .customgrid-toolbar {
+    bottom: 12px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .matting-toolbar {
+    max-width: calc(100vw - 158px);
+  }
+
+  .customgrid-toolbar {
+    width: auto;
+  }
+
+  .customgrid-hint {
+    display: none;
+  }
+
+  .matting-stage,
+  .customgrid-stage {
+    padding: 20px 20px 76px;
+  }
+
+  .matting-image,
+  .customgrid-image {
+    max-height: calc(100dvh - 112px);
+  }
+}
+
+.customgrid-image-wrap {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  animation: stageZoomIn 0.5s var(--ease-out-expo, ease-out) both;
+}
+
+.customgrid-image {
+  display: block;
+  max-width: 85vw;
+  max-height: 75vh;
+  object-fit: contain;
+  border-radius: 4px;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ── 分割线 ── */
+.customgrid-line {
+  position: absolute;
+  z-index: 2;
+  pointer-events: auto;
+  cursor: grab;
+  transition: opacity 0.12s;
+  /* 可交互区域比视觉线更大 */
+}
+
+.customgrid-line::before {
+  content: '';
+  position: absolute;
+  background: var(--primary);
+  pointer-events: none;
+  border-radius: 1px;
+  box-shadow: 0 0 6px rgba(138, 147, 255, 0.35);
+}
+
+/* 横向线：从左到右，可交互区域 16px 高居中线上下 */
+.customgrid-line--h {
+  left: 0;
+  right: 0;
+  height: 16px;
+  transform: translateY(-50%);
+}
+
+.customgrid-line--h::before {
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+/* 竖向线：从上到下，可交互区域 16px 宽居中线左右 */
+.customgrid-line--v {
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  transform: translateX(-50%);
+}
+
+.customgrid-line--v::before {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+}
+
+.customgrid-line.dragging {
+  cursor: grabbing;
+  z-index: 3;
+}
+
+.customgrid-line.dragging::before {
+  box-shadow: 0 0 10px rgba(138, 147, 255, 0.6);
+}
+
+/* ── 删除按钮 ── */
+.customgrid-line-del {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid var(--theme-border);
+  cursor: var(--cursor-pointer, pointer);
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+  z-index: 4;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 居中对齐到线的交叉处 */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.customgrid-line-del::after {
+  content: '×';
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.customgrid-line:hover .customgrid-line-del,
+.customgrid-line.dragging .customgrid-line-del {
+  opacity: 1;
+}
+
+.customgrid-line-del:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.customgrid-line-del:hover::after {
+  color: #fff;
+}

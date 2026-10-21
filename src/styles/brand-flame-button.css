@@ -1,0 +1,91 @@
+/**
+ * brand-flame-button.css —— 画布内「返回我的项目」品牌按钮（官方 AppNavBar 火焰 logo）
+ * ══════════════════════════════════════════════════════════════════════════
+ * 只负责官方那点**结构样式**；动效全部在 WebGL 着色器 + 两个图层的 opacity 上（内联）。
+ * 官方逐条：
+ *   · 触发按钮 `block rounded-full p-0 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50`
+ *   · 定位容器 `absolute left-1/2 -translate-x-1/2`（在 h-16 的导航条里垂直居中）
+ *   · 着色器层 `pointer-events-none absolute` + 内联 `inset: -46.154%`
+ *   · 静态层 `pointer-events-none absolute inset-0` + 内联 `mix-blend-mode: plus-lighter`
+ *
+ * ⚠️ 焦点环用**中性**描边（用户口径：不要任何品牌红/品牌紫的焦点色）；
+ *    官方是 `ring-ring/50`，在 MTV 里 `--color-ring` 落不到中性灰，故直接写死中性。
+ */
+
+/* ── 顶部居中定位（官方 `absolute left-1/2 -translate-x-1/2`）──────────── */
+.canvas-brand-nav {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  pointer-events: none;
+}
+
+.canvas-brand-nav > * {
+  pointer-events: auto;
+}
+
+/* ── 触发按钮（官方 `block rounded-full p-0 outline-none focus-visible:ring-[3px]`）── */
+.brand-flame-button {
+  display: block;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.brand-flame-button:focus-visible {
+  outline: 3px solid oklch(72% 0 0 / 0.5);
+  outline-offset: 0;
+}
+
+[data-theme='light'] .brand-flame-button:focus-visible {
+  outline-color: oklch(45% 0 0 / 0.45);
+}
+
+/* ── 承载两层（官方 `relative h-full w-full`）──────────────────────────── */
+.brand-flame-button__surface {
+  position: relative;
+  cursor: pointer;
+}
+
+/* ── 着色器层（官方 `pointer-events-none absolute` + 内联 inset）────────── */
+.brand-flame-button__shader {
+  pointer-events: none;
+}
+
+.brand-flame-button__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── 静态参考图层（官方 `pointer-events-none absolute inset-0`）─────────── */
+.brand-flame-button__static {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.brand-flame-button__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ── 与官方 Pin 条（画布顶部居中）让位 ──────────────────────────────────
+   实测：Pin 条的 Panel 落点 top = 15（React Flow 自带 `.react-flow__panel{margin:15px}`），
+   条自身 `.pin-bar{margin-top:10px}` ⇒ 芯片顶边在 25px；而品牌按钮占 12..60px
+   （48px 高 @ top:12）⇒ 两者会**正面重叠**。
+   品牌按钮在时把 Pin 条整体下移到 67px（15 + 52），留 7px 间隙。
+   ⚠️ 用 `:has()` 挂在画布根上：两者同在 `.canvas-drawing-root` 里，但不同子树，
+      没有可用的相邻选择器。 */
+.canvas-drawing-root:has(.canvas-brand-nav) .pin-bar-slot .pin-bar {
+  margin-top: 52px;
+}

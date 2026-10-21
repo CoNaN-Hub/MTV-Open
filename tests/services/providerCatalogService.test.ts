@@ -1,0 +1,331 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  fetchProviderModelCatalog,
+  getProviderDefinition,
+} from '../../src/services/ai/providerCatalogService';
+import { SORA2U_MODEL_MANIFEST } from '../../src/services/ai/providers/sora2uModelManifest';
+
+function jsonResponse(body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+describe('providerCatalogService 模型分类推断', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ['MiniMax-H3'],
+    ['minimax-h3'],
+    ['MiniMax-H3-Context-IR'],
+    ['minimax-h3-regeneration'],
+    ['MiniMax_H3'],
+    ['MiniMax H3'],
+  ])('中转站拉取 %s 归类为视频模型', async (modelId) => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
+      data: [
+        {
+          id: modelId,
+          object: 'model',
+          created: 0,
+          owned_by: 'minimax',
+          supported_endpoint_types: ['openai'],
+        },
+      ],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await fetchProviderModelCatalog({
+      providerId: 'apimart',
+      config: {
+        name: 'APIMart',
+        apiKey: 'test-key',
+        baseUrl: 'https://api.apimart.ai',
+        catalogId: 'apimart',
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://api.apimart.ai/models',
+      expect.objectContaining({ method: 'GET' }),
+    );
+    expect(result.models).toHaveLength(1);
+    expect(result.models[0]?.category).toBe('video');
+    expect(result.models[0]?.provider).toBe('apimart');
+  });
+
+  it('自定义接口拉取 minimax-h3 同样归类为视频模型', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse([
+      { id: 'MiniMax-H3', object: 'model' },
+      { id: 'MiniMax-H3-Context-IR', object: 'model' },
+    ]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await fetchProviderModelCatalog({
+      providerId: 'custom-openai',
+      config: {
+        name: '中转',
+        apiKey: 'test-key',
+        baseUrl: 'https://relay.example.com/v1',
+        catalogId: 'custom-openai',
+      },
+    });
+
+    expect(result.models.every((model) => model.category === 'video')).toBe(true);
+  });
+
+  it('不影响其他模型的分类推断', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse([
+      { id: 'gpt-4o', object: 'model' },
+      { id: 'tts-1', object: 'model' },
+      { id: 'dall-e-3', object: 'model' },
+      { id: 'minimax-text-01', object: 'model' },
+    ]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await fetchProviderModelCatalog({
+      providerId: 'custom-openai',
+      config: {
+        name: '中转',
+        apiKey: 'test-key',
+        baseUrl: 'https://relay.example.com/v1',
+        catalogId: 'custom-openai',
+      },
+    });
+
+    const categoryOf = (id: string) => result.models.find((model) => model.id === id)?.category;
+    expect(categoryOf('gpt-4o')).toBe('text');
+    expect(categoryOf('tts-1')).toBe('audio');
+    expect(categoryOf('dall-e-3')).toBe('image');
+    expect(categoryOf('minimax-text-01')).toBe('text');
+  });
+});
+
+describe('CCC API 内置厂商目录', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('内置目录覆盖监控页列出的全部 openai 渠道模型', () => {
+    const definition = getProviderDefinition('cccapi');
+    expect(definition).toMatchObject({
+      id: 'cccapi',
+      name: 'CCC API',
+      catalogAdapter: 'openai-compatible',
+      defaultBaseUrl: 'https://cccapi.cn/v1',
+      modelsPath: '/models',
+      allowCustomBaseUrl: false,
+      externalUrl: 'https://cccapi.cn',
+    });
+
+    const models = definition?.models ?? [];
+    const findModel = (id: string) => models.find((model) => model.id === id);
+    for (const id of [
+      'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst', 'gpt-image-2',
+      'gpt-5.5', 'gpt-5.4', 'gpt-5.6-terra', 'o4-mini', 'codex-auto-review',
+      'gpt-4', 'gpt-4-turbo', 'gpt-4.1', 'gpt-4.1-nano', 'gpt-4o', 'gpt-5.6', 'gpt-5.6-sol',
+      'gpt-5.3-codex-spark', 'gpt-5.2', 'o3', 'gpt-5', 'gpt-5.4-mini', 'gpt-5.6-luna',
+      'gpt-image-1', 'o3-mini', 'gpt-4.1-mini', 'gpt-4o-mini', 'gpt-5.2-pro',
+    ]) {
+      expect(findModel(id), `缺少模型 ${id}`).toBeDefined();
+    }
+    expect(models.every((model) => model.provider === 'cccapi')).toBe(true);
+
+    expect(findModel('gpt-image-1')?.category).toBe('image');
+    for (const id of ['gpt-image-2.5-flare', 'gpt-image-2.5-sunburst', 'gpt-image-2']) {
+      expect(findModel(id)?.category).toBe('image');
+      expect(findModel(id)?.imageReferenceRequestMode).toBe('edits-multipart');
+    }
+    expect(findModel('gpt-5.6')?.category).toBe('text');
+    // 纯文本模型要显式声明，不能落进按 ID 猜模态的兜底分支
+    expect(findModel('gpt-4')?.inputModalities).toEqual(['text']);
+    expect(findModel('o3-mini')?.inputModalities).toEqual(['text']);
+    expect(findModel('gpt-4o-mini')?.inputModalities).toEqual(['text', 'image']);
+  });
+
+  it('使用 OpenAI 兼容地址读取当前 Key 可用的模型', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
+      object: 'list',
+      data: [
+        { id: 'gpt-4o-mini', object: 'model' },
+        { id: 'gpt-image-2.5-flare', object: 'model' },
+        { id: 'gpt-image-2.5-sunburst', object: 'model' },
+        { id: 'gpt-image-2', object: 'model' },
+      ],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await fetchProviderModelCatalog({
+      providerId: 'cccapi',
+      config: {
+        name: 'CCC API',
+        apiKey: 'sk-ccc-test',
+        catalogId: 'cccapi',
+      },
+      fallbackModels: [...(getProviderDefinition('cccapi')?.models ?? [])],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://cccapi.cn/v1/models',
+      expect.objectContaining({
+        method: 'GET',
+        headers: { Authorization: 'Bearer sk-ccc-test' },
+      }),
+    );
+    expect(result).toMatchObject({
+      source: 'remote',
+      resolvedBaseUrl: 'https://cccapi.cn/v1',
+    });
+    expect(result.models).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 'gpt-4o-mini', category: 'text', provider: 'cccapi' }),
+      expect.objectContaining({
+        id: 'gpt-image-2.5-flare',
+        category: 'image',
+        provider: 'cccapi',
+        imageReferenceRequestMode: 'edits-multipart',
+      }),
+      expect.objectContaining({
+        id: 'gpt-image-2.5-sunburst',
+        category: 'image',
+        provider: 'cccapi',
+        imageReferenceRequestMode: 'edits-multipart',
+      }),
+      expect.objectContaining({
+        id: 'gpt-image-2',
+        category: 'image',
+        provider: 'cccapi',
+        imageReferenceRequestMode: 'edits-multipart',
+      }),
+    ]));
+  });
+});
+
+describe('自定义连接原生模型目录', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('uses Anthropic headers for an Anthropic-compatible catalog', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
+      data: [{ id: 'claude-sonnet', display_name: 'Claude Sonnet' }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await fetchProviderModelCatalog({
+      providerId: 'custom-openai',
+      config: {
+        name: 'Anthropic 中转',
+        apiKey: 'secret',
+        baseUrl: 'https://relay.example/v1',
+        catalogId: 'custom-openai',
+        chatApiProtocol: 'anthropic-compatible',
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://relay.example/v1/models',
+      expect.objectContaining({
+        method: 'GET',
+        headers: { 'x-api-key': 'secret', 'anthropic-version': '2023-06-01' },
+      }),
+    );
+    expect(result.models[0]).toMatchObject({ id: 'claude-sonnet', name: 'Claude Sonnet' });
+  });
+
+  it('parses Gemini models[].name and strips the models/ prefix', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
+      models: [{ name: 'models/gemini-2.5-pro', displayName: 'Gemini 2.5 Pro' }],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await fetchProviderModelCatalog({
+      providerId: 'custom-openai',
+      config: {
+        name: 'Gemini 中转',
+        apiKey: 'secret',
+        baseUrl: 'https://relay.example/v1beta',
+        catalogId: 'custom-openai',
+        chatApiProtocol: 'gemini-native',
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://relay.example/v1beta/models',
+      expect.objectContaining({ headers: { 'x-goog-api-key': 'secret' } }),
+    );
+    expect(result.models[0]).toMatchObject({ id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' });
+  });
+});
+
+describe('Sora2U 远端模型能力目录', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('隐藏 Sora2U 的三个 Seedance 2.5 变体，并保留其他远端新增模型', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse({
+      object: 'list',
+      data: [
+        {
+          id: 'seedance-2.5',
+          object: 'model',
+          name: 'Seedance 2.5 Remote',
+          durations: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 30],
+          duration_range: { min: 5, max: 30, step: 1 },
+          default_duration: 15,
+          aspect_ratios: ['16:9', '9:16', 'adaptive'],
+          default_aspect_ratio: 'adaptive',
+          resolutions: ['720p', '1080p'],
+          default_resolution: '720p',
+          supports_text_only: false,
+          supports_image: true,
+          supports_video: true,
+          supports_audio: true,
+          reference_limits: { image: 30, video: 10, audio: 10, total: 50 },
+        },
+        {
+          id: 'future-image',
+          object: 'model',
+          name: 'Future Image',
+          supports_image: true,
+          supports_video: false,
+          supports_audio: false,
+        },
+      ],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await fetchProviderModelCatalog({
+      providerId: 'sora2u',
+      config: {
+        name: 'Sora2U',
+        apiKey: 'sk_sora_test',
+        baseUrl: 'https://sora2u.com',
+        catalogId: 'sora2u',
+      },
+      fallbackModels: [...SORA2U_MODEL_MANIFEST],
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://sora2u.com/api/v1/models?utm_source=tenney&utm_medium=canvas&utm_content=wx',
+      expect.objectContaining({
+        method: 'GET',
+        headers: { Authorization: 'Bearer sk_sora_test' },
+      }),
+    );
+    expect(result.models.find((model) => model.id === 'seedance-2.5')).toBeUndefined();
+    expect(result.models.some((model) => model.id.startsWith('seedance-2.5'))).toBe(false);
+    expect(result.models.find((model) => model.id === 'future-image')).toMatchObject({
+      category: 'image',
+      provider: 'sora2u',
+      inputModalities: ['text', 'image'],
+    });
+  });
+});

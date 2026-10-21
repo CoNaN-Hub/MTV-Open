@@ -1,0 +1,483 @@
+/* ============================================
+   MentionPicker — @ 选中器公用外观
+   ★ 列表已按官方 `ffe`（zoom @275698）改成**行式**：
+     面板 `w-[320px] max-h-[320px]` · 内层 `flex min-h-0 flex-1 flex-col gap-2 p-2`
+     滚动 `vN` + 隐藏滚动条 · 每组 3 条 + 「显示更多」 · 空态 `px-1 py-3 text-[14px] text-[rgba(255,255,255,0.4)]`
+   （Tab / 筛选芯片 / 卡片网格是 MTV 自造，卡片与试听按钮已移除；Tab+芯片还留作多来源导航，见报告 §11.5）
+   ============================================ */
+/* ══ 官方弹窗根 = `aL`（`use-waveform-data-DMduQqB-.js` @595079 逐字）══
+   class  `Dg = "text-white rounded-[16px] overflow-hidden backdrop-blur-[28px]"`
+   style  `Tg = { backgroundColor:"#2f2f2f",
+                  boxShadow:"0px 4px 16px 0px rgba(0,0,0,0.16), inset 0px 0.5px 0px 0px rgba(255,255,255,0.16)" }`
+   ⚠️ 官方**没有 border**、**有 backdrop-blur(28px)**、**overflow hidden**；MTV 旧版是 surface 底色 + 1px 边框 ✗ */
+.mention-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;                          /* cw = "flex min-h-0 flex-1 flex-col gap-2 p-2" */
+  color: #ffffff;                        /* text-white */
+  background: #2f2f2f;                   /* style.backgroundColor */
+  border: 0;
+  border-radius: 16px;                   /* rounded-[16px] */
+  overflow: hidden;                      /* overflow-hidden */
+  backdrop-filter: blur(28px);           /* backdrop-blur-[28px] */
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.16), inset 0 0.5px 0 0 rgba(255, 255, 255, 0.16);
+  width: 320px;                          /* 官方 `w-[320px]` */
+  max-height: 320px;                     /* 官方 `max-h-[320px]` */
+  min-height: 0;
+}
+
+/* 官方滚动容器 `vN`：`flex min-h-0 flex-1 w-full min-w-0 flex-col items-stretch overflow-y-auto pb-1`
+   + 隐藏滚动条 `[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]`
+   + 调用处 `Z(vN, "gap-[6px]")` ⇒ 组与组之间 6px */
+.mention-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  overflow-y: auto;
+  padding-bottom: 4px;
+  gap: 6px;                              /* Z(vN,"gap-[6px]") */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.mention-scroll::-webkit-scrollbar { display: none; }
+
+/* 官方行 `Ta`（= `Jre` = `_g`，use-waveform-data @595272 逐字）：
+   `flex items-center gap-[8px] w-full px-[8px] py-[6px] text-left transition-colors
+    rounded-[6px] cursor-pointer hover:bg-white/10`
+   选中 `Rc` = `bg-white/10` */
+.mention-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+.mention-row:hover { background: rgba(255, 255, 255, 0.1); }   /* hover:bg-white/10 */
+.mention-row.is-active { background: rgba(255, 255, 255, 0.1); } /* Rc = bg-white/10 */
+.mention-row.is-disabled { opacity: 0.35; cursor: not-allowed; } /* opacity-35 cursor-not-allowed */
+
+/* ══ 模型口（`chat-open-reference-menu` 触发的模型菜单）══════════════════════════════
+   模型口**不是**官方 `@` 面板：官方这两个位置的样式**本来就不同**（下面逐条带官方偏移），
+   所以这里全部挂在修饰类上，`.mention-picker` / `.mention-row` 本体一个字都不动。
+
+   ── 官方实体：参数 chip 的下拉（r127 `vendor-pkg-canvas-Dp0xADoD.js`）──
+     面板 `Os` 调用处 @2264256：`b?"w-[248px] max-h-[400px] rounded-2xl p-2":"min-w-[120px] rounded-xl p-1"`
+     面板基类 @435700（`vendor-packages-CvEFn1fJ.js` `ba`，逐字）：
+       `bg-popover text-popover-foreground z-50 max-h-(--radix-dropdown-menu-content-available-height)
+        min-w-[8rem] origin-(--radix-dropdown-menu-content-transform-origin)
+        overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md`
+     行 @2264752：`"justify-between gap-3 rounded-lg px-2 py-1.5 text-xs"` + @2264810 `b&&"min-h-10 rounded-xl px-3 py-2"`
+                   + `_.disabled?"cursor-not-allowed opacity-50":"cursor-pointer"`
+                   + `v&&(b?"bg-white/10 font-semibold":"font-semibold")`（`v`=当前选中，`b`=模型口）
+     行基类 @436400（同卷 `Ar`）：`focus:bg-accent focus:text-accent-foreground … rounded-sm px-2 py-1.5 text-sm …`
+     行左槽 @2264900：`<span className="flex min-w-0 items-center gap-1.5">` +
+                      `<img className="h-4 w-4 shrink-0 rounded-sm">` + `<span className="truncate">`
+
+   ── 类名 → 真值（官方 Tailwind v4；变量取官方真机读数）──
+     · 官方真机 `getComputedStyle(documentElement)`：`--radius:.75rem` · `--popover:#262626`
+       · `--popover-foreground:#ccc` · `--accent:#404040` · `--accent-foreground:#fafafa` · `--border:#ffffff1a`
+     · `rounded-xl = calc(var(--radius) + 4px) = 12+4 =` **16px**；真机探针实测模型行 `border-radius:16px`
+     · 面板 `rounded-2xl` **被同串里的 `rounded-md` 盖掉** —— 官方 CSS 是**字母序**
+       （`.rounded-2xl`@124810 → `.rounded-lg`@126675 → **`.rounded-md`@126723** → `.rounded-sm` → `.rounded-xl`），
+       真机探针实测面板 `border-radius:` **10px** ⇒ 面板圆角 = 10px（不是 16px）
+     · 真机探针实测模型行：`min-height:40px`(`min-h-10`) · `padding:8px 12px`(`px-3 py-2`) · `gap:12px`(`gap-3`)
+       · `font-size:12px; line-height:16px`(`text-xs`) · `justify-content:space-between`(`justify-between`)
+     · 真机探针实测面板阴影 = `0 2px 4px 0 rgba(0,0,0,.1), 0 2px 4px -1px rgba(0,0,0,.1)`（官方覆盖过的 `shadow-md`）
+     · 官方 `border` 类源码值 = **1px**（`_official-css-r127/index-C4zzGeV-.css` 与旧镜像同为 `border-width:1px`；
+       真机读数 0.666667px 是 dpr=1.5 下的渲染值 ⇒ 不写成 0.666667px）
+     · 官方面板**没有**毛玻璃（基类无 `backdrop-blur`），底色是 `--popover`（**不是** `@` 面板的 #2f2f2f）
+   ⚠️ 官方行还有「选中 = `bg-white/10 font-semibold`」——MTV 的模型口没有「当前模型」这个概念，
+      **未落地**（登记在报告里，不臆造）。
+   ⚠️ 官方行左槽是 `<img>` 图标（无文字色）；MTV 这里渲染的是 iconify `<svg>`，沿用 `@` 面板缩略图
+      图标那档 `rgba(255,255,255,.6)`（官方模型行**没有**对应值 = NOT FOUND，故沿用既有值）。
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 模型口行：官方模型菜单行几何 ── */
+.mention-row.mention-row--model-menu {
+  min-height: 40px;                    /* min-h-10 */
+  padding: 8px 12px;                   /* px-3 py-2 */
+  gap: 12px;                           /* gap-3 */
+  justify-content: space-between;      /* justify-between */
+  border-radius: 16px;                 /* rounded-xl = calc(--radius + 4px) = 16px */
+  font-size: 12px;                     /* text-xs */
+  line-height: 16px;
+}
+/* hover / 键盘高亮：官方 `focus:bg-accent` + `focus:text-accent-foreground` */
+.mention-row.mention-row--model-menu:hover,
+.mention-row.mention-row--model-menu.is-active {
+  background: var(--accent, #404040);
+  color: var(--accent-foreground, #fafafa);
+}
+/* 禁用：官方模型行 `cursor-not-allowed opacity-50`（`@` 面板行那档是 `opacity-35`，别混） */
+.mention-row.mention-row--model-menu.is-disabled { opacity: 0.5; cursor: not-allowed; }
+/* 左槽 `flex min-w-0 items-center gap-1.5` + 图标 `h-4 w-4 shrink-0` + 标签 `truncate` */
+.mention-row-model-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;                            /* gap-1.5 */
+}
+.mention-row-model-icon {
+  flex-shrink: 0;                      /* shrink-0 */
+  color: rgba(255, 255, 255, 0.6);     /* NOT FOUND（官方模型行是 <img>，无文字色）⇒ 沿用缩略图图标档 */
+}
+.mention-row-model-label {
+  min-width: 0;
+  overflow: hidden;                    /* truncate */
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--popover-foreground, #ccc); /* 官方行自身不设色 ⇒ 继承面板 `text-popover-foreground` */
+}
+/* 右侧槽：官方此处是 lock/check 图标；MTV 放**自己的**「媒体类型 / 未配置」文字（官方模型菜单无此文案） */
+.mention-row-model-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ── 模型口面板：官方模型菜单面板（#262626 / r10 / 1px 边 / p-2 / 248×400 / shadow-md / 无毛玻璃） ── */
+.mention-picker.mention-picker--model-menu {
+  width: 248px;                        /* w-[248px] */
+  max-height: 400px;                   /* max-h-[400px] */
+  padding: 8px;                        /* p-2 */
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.102));  /* border（1px）+ --border */
+  border-radius: 10px;                 /* rounded-md 胜 rounded-2xl（官方字母序；真机读数 10px） */
+  background: var(--popover, #262626); /* bg-popover */
+  color: var(--popover-foreground, #ccc); /* text-popover-foreground */
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.1); /* shadow-md 真机 */
+  backdrop-filter: none;               /* 官方基类无 backdrop-blur */
+  -webkit-backdrop-filter: none;
+  /* ⚠️ `overflow` 保持本体的 `hidden`：官方把滚动放在内容节点（`overflow-y-auto`），MTV 把它放在
+     内层 `.mention-scroll` ⇒ 面板这里只做圆角裁切，不改成 `auto`（否则会出现嵌套滚动条）。 */
+}
+/* 官方 `CN` 缩略图框 `Mc`（zoom-slider @306459 + @307249 附近）：
+   `flex size-6 flex-col items-center justify-center aspect-square rounded-[4px] border border-white/10
+    bg-white/5 shadow-[inset_0_0.5px_0_0_rgba(255,255,255,0.16),0_4px_8px_0_rgba(0,0,0,0.16)] overflow-hidden`
+   内部图标 `Am` = `size-3 text-white/60`（12px） */
+.mention-row-thumb {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0.5px 0 0 rgba(255, 255, 255, 0.16), 0 4px 8px 0 rgba(0, 0, 0, 0.16);
+}
+.mention-row-thumb-img { display: block; width: 24px; height: 24px; object-fit: cover; }
+.mention-row-thumb-icon { color: rgba(255, 255, 255, 0.6); }
+/* 官方行尾 `#序号`：`min-w-[22px] shrink-0 text-right text-[11px] font-medium leading-4
+   tabular-nums text-white/30` → 选中 `text-white/60` */
+.mention-row-index {
+  min-width: 22px;
+  flex-shrink: 0;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.3);
+}
+.mention-row.is-active .mention-row-index { color: rgba(255, 255, 255, 0.6); }
+/* `flex-1 min-w-0 flex items-center gap-1` + `text-sm font-medium leading-5 text-white/90 truncate` */
+.mention-row-label {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: rgba(255, 255, 255, 0.9);
+}
+/* `SN` 类型徽标：14px 图标 `text-[rgba(255,255,255,0.3)]` */
+.mention-row-type {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.3);
+}
+/* 「显示更多」：官方 `du` = `Z(Ta, "gap-[6px] text-[12px] text-[rgba(255,255,255,0.4)]", selected && Rc)` + chevron 14px */
+.mention-row-more {
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+/* 官方 `cu` 组间分隔线：height .5px / rgba(255,255,255,.16) */
+.mention-group-divider {
+  flex-shrink: 0;
+  height: 0.5px;
+  background: rgba(255, 255, 255, 0.16);
+}
+/* 官方每组：`<div className="flex w-full flex-col gap-[2px]">` */
+.mention-group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+/* 官方 `Ph` 分组标题：`flex items-center justify-between gap-2 px-1 py-1`
+     · 标题 `<p className="text-xs font-medium leading-[1.3] text-white/40 tracking-[0.48px]">`
+     · hint `<span className="shrink-0 text-[11px] font-normal leading-[1.3] tracking-normal text-white/30">` */
+.mention-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 4px;
+}
+.mention-group-label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.48px;
+  color: rgba(255, 255, 255, 0.4);
+}
+.mention-group-hint {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+  letter-spacing: normal;
+  color: rgba(255, 255, 255, 0.3);
+}
+/* 空态：官方 `px-1 py-3 text-[14px] text-[rgba(255,255,255,0.4)]`（`omniReference.suggestion.noResults`=「暂无结果」） */
+.mention-row-empty {
+  padding: 12px 4px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ══ 官方 `ffe` 顶部搜索行（9444 实测 outerHTML 逐字见 MentionPicker.tsx）══
+   class `flex h-[32px] w-full items-center gap-[6px] border-white/[0.08] min-w-[48px]
+          self-stretch rounded-[12px] border-0 bg-accent px-3 py-1.5`
+   实测：bg **rgb(64,64,64)**（官方 `--accent`）· 圆角 12px · padding 6px 12px · gap 6px · 高 32px
+   ⚠️ `border-white/[0.08]` 在官方身上**没有 border-width**（实测 `border-top-width: 0px`）⇒ 不画边框 */
+.mention-search {
+  display: flex;
+  flex-shrink: 0;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  gap: 6px;
+  min-width: 48px;
+  align-self: stretch;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: #404040;
+}
+/* 图标：官方 tabler search 14px，`shrink-0 text-white/40`（path 逐字抄，见组件内联 svg） */
+.mention-search__icon { flex-shrink: 0; color: rgba(255, 255, 255, 0.4); }
+/* 输入：官方 `min-w-0 flex-1 border-none bg-transparent p-0 text-[13px] leading-[18px]
+   text-white/80 outline-none placeholder:text-white/30` */
+.mention-search__input {
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(255, 255, 255, 0.8);
+  outline: none;
+}
+.mention-search__input::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+/* 分类 Tab 行 —— ⚠️ 官方 `ffe` 里没有这一行（官方是「搜索行 + 分组列表」），
+   但用户明确要保留 MTV 的分类切换行 ⇒ 保留结构，**取值全部改成官方弹窗里已有的那套行词汇**：
+     · 行：`px-[8px] py-[6px] rounded-[6px]` · 14px/400 · 未选中 `white/60` → hover/选中 `bg-white/10` + `white/90`
+     · 图标：14px（官方行内图标尺寸）
+   旧值是 MTV 自造（12px/700 缩放、`--theme-card` 紫底、选中反白）⇒ 已换掉。 */
+.mention-picker-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  flex-shrink: 0;
+}
+.mention-picker-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: var(--cursor-pointer, pointer);
+  white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s;
+}
+.mention-picker-tab:hover { color: rgba(255, 255, 255, 0.9); background: rgba(255, 255, 255, 0.1); }
+.mention-picker-tab.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 400;
+}
+
+/* 筛选芯片 —— 同上：官方没有，仅旧路径保留；底色换中性 */
+.mention-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.mention-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+.mention-picker-chip:hover { color: #ffffff; background: rgba(255, 255, 255, 0.1); }
+.mention-picker-chip.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: transparent;
+  color: #ffffff;
+  font-weight: 500;
+}
+.mention-picker-chip-count {
+  font-size: 10px;
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 卡片网格 */
+.mention-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  align-content: start;
+  max-height: 296px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px;
+}
+.mention-picker-grid::-webkit-scrollbar { width: 6px; }
+.mention-picker-grid::-webkit-scrollbar-track { background: transparent; }
+.mention-picker-grid::-webkit-scrollbar-thumb {
+  background: var(--theme-border);
+  border-radius: 3px;
+}
+
+.mention-picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: var(--cursor-pointer, pointer);
+  text-align: center;
+  transition: transform var(--dur-fast) var(--ease-out-quart);
+}
+.mention-picker-card:active:not(:disabled) { transform: scale(0.97); }
+.mention-picker-card:disabled { opacity: 0.45; cursor: var(--cursor-not-allowed, not-allowed); }
+
+.mention-picker-card-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  background: var(--theme-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-text-muted);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+.mention-picker-card:hover:not(:disabled) .mention-picker-card-media,
+.mention-picker-card.active .mention-picker-card-media {
+  border-color: var(--input);
+  box-shadow: 0 4px 16px var(--black-alpha-30);
+}
+.mention-picker-card.active .mention-picker-card-media {
+  border-color: var(--primary);
+}
+.mention-picker-card-media img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: var(--theme-card);
+}
+.mention-picker-card-media img.is-cropped {
+  max-width: none;
+  object-fit: fill;
+}
+.mention-picker-card-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 1px 5px;
+  font-size: 9px;
+  line-height: 1.4;
+  border-radius: 999px;
+  background: var(--black-alpha-60);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+.mention-picker-card-name {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--theme-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mention-picker-card:hover:not(:disabled) .mention-picker-card-name { color: var(--theme-text); }
+
+.mention-picker-empty {
+  grid-column: 1 / -1;
+  padding: 26px 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--theme-text-muted);
+}
+
+.mention-picker-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 7px;
+  border-top: 1px solid var(--theme-border);
+  flex-shrink: 0;
+}

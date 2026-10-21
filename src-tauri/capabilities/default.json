@@ -1,0 +1,76 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for AI Canvas",
+  "windows": ["main", "asset-search", "chat-assistant", "video-editor", "style-guide"],
+  "permissions": [
+    "allow-first-party-app-commands",
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-decorated",
+    "core:window:allow-set-title",
+    "core:window:allow-set-fullscreen",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "core:window:allow-show",
+    "core:window:allow-set-always-on-top",
+    "core:window:allow-outer-position",
+    "core:window:allow-set-position",
+    "core:window:allow-set-size",
+    "core:window:allow-unmaximize",
+    "core:window:allow-center",
+    "core:webview:allow-create-webview-window",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-ask",
+    "dialog:allow-confirm",
+    "dialog:allow-message",
+    "global-shortcut:default",
+    "global-shortcut:allow-register",
+    "global-shortcut:allow-unregister",
+    "global-shortcut:allow-is-registered",
+    "global-shortcut:allow-unregister-all",
+    "drag:default",
+    "process:allow-restart",
+    "fs:allow-watch",
+    "fs:allow-unwatch",
+    "fs:default",
+    "shell:default",
+    {
+      "identifier": "shell:allow-open",
+      "allow": [
+        { "open": "^((mailto:\\w+)|(tel:\\w+)|(https?://\\w+)|(file://.+)).+" }
+      ]
+    },
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        { "name": "explorer", "cmd": "explorer", "args": true },
+        { "name": "mac-open", "cmd": "open", "args": true },
+        { "name": "xdg-open", "cmd": "xdg-open", "args": true }
+      ]
+    },
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:write-files",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:read-files",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    }
+  ]
+}

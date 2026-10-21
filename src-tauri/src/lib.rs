@@ -1,0 +1,1059 @@
+//! MTV 导演画布 Tauri 库入口，装配插件、窗口、命令、事件与原生服务状态。
+
+use base64::Engine;
+use std::collections::HashMap;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Mutex,
+};
+use std::time::Duration;
+use tauri::{
+    ipc::Channel, Listener, Manager, WebviewUrl, WebviewWindow,
+    WebviewWindowBuilder,
+};
+use tauri_plugin_fs::FsExt;
+use url::Url;
+
+#[path = "agent/package.rs"]
+mod agent_package;
+#[path = "agent/web.rs"]
+mod assistant_web;
+#[cfg_attr(not(windows), allow(dead_code, unused_imports))]
+#[path = "director/blender_runtime/mod.rs"]
+mod blender_runtime;
+mod canvas_input;
+#[path = "files/clipboard.rs"]
+mod clipboard;
+#[path = "files/clipboard_read.rs"]
+mod clipboard_read;
+#[path = "media/comfyui/mod.rs"]
+mod comfyui;
+#[path = "director/desk_runtime.rs"]
+mod director_desk_runtime;
+#[path = "media/dreamina.rs"]
+mod dreamina;
+#[path = "files/transfer.rs"]
+mod file_transfer;
+#[path = "files/thumbnail_cache.rs"]
+mod thumbnail_cache;
+#[path = "media/local_fonts.rs"]
+mod local_fonts;
+#[path = "mcp/bridge.rs"]
+mod mcp_bridge;
+#[cfg(feature = "local-onnx")]
+#[path = "media/model_mirror.rs"]
+mod model_mirror;
+#[cfg(feature = "local-onnx")]
+#[path = "media/onnx/mod.rs"]
+pub mod onnx;
+#[cfg(not(feature = "local-onnx"))]
+pub mod onnx {
+    const UNSUPPORTED_MESSAGE: &str =
+        "x64-legacy 版本为兼容不支持 AVX 的 CPU，未包含本地 ONNX Runtime";
+
+    fn unsupported<T>() -> Result<T, String> {
+        Err(UNSUPPORTED_MESSAGE.to_string())
+    }
+
+    #[tauri::command]
+    pub fn get_models_dir() -> Result<String, String> {
+        unsupported()
+    }
+
+    #[tauri::command]
+    pub fn check_model_exists(_model_name: String) -> Result<bool, String> {
+        unsupported()
+    }
+
+    #[tauri::command]
+    pub async fn download_onnx_model(
+        _app: tauri::AppHandle,
+        _model_name: String,
+        _url: String,
+        _task_id: String,
+    ) -> Result<String, String> {
+        unsupported()
+    }
+
+    #[tauri::command]
+    pub fn get_onnx_gpu_status() -> Result<String, String> {
+        unsupported()
+    }
+
+    #[tauri::command]
+    pub async fn image_upscale(
+        _app: tauri::AppHandle,
+        _webview: tauri::Webview,
+        _input_path: String,
+        _output_path: String,
+        _model_name: String,
+        _task_id: String,
+    ) -> Result<String, String> {
+        unsupported()
+    }
+
+    #[tauri::command]
+    pub async fn subject_matting(
+        _app: tauri::AppHandle,
+        _webview: tauri::Webview,
+        _input_path: String,
+        _output_path: String,
+        _model_name: String,
+        _task_id: String,
+    ) -> Result<String, String> {
+        unsupported()
+    }
+
+    #[tauri::command]
+    pub async fn character_direction_grid(
+        _app: tauri::AppHandle,
+        _webview: tauri::Webview,
+        _input_path: String,
+    ) -> Result<String, String> {
+        unsupported()
+    }
+
+    #[tauri::command]
+    pub async fn speech_to_text(
+        _app: tauri::AppHandle,
+        _webview: tauri::Webview,
+        _input_path: String,
+        _model_name: String,
+        _vocab_name: String,
+        _task_id: String,
+        _language: Option<String>,
+    ) -> Result<String, String> {
+        unsupported()
+    }
+}
+mod path_policy;
+// 源文件按领域归类；crate 根模块名保持稳定，避免改变 IPC、测试与安全调用路径。
+#[path = "plugins/registry.rs"]
+mod plugin_registry;
+#[path = "plugins/runtime.rs"]
+mod plugin_runtime;
+#[path = "plugins/ui.rs"]
+mod plugin_ui;
+#[path = "plugins/window.rs"]
+mod plugin_window;
+#[path = "files/project_archive.rs"]
+mod project_archive;
+#[path = "agent/provider_docs.rs"]
+mod provider_docs;
+mod roundtrip;
+mod secret_store;
+#[path = "media/sprite_export.rs"]
+mod sprite_export;
+
+static PROXY_FETCH_REQUEST_ID: AtomicU64 = AtomicU64::new(0);
+
+const PROXY_HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+const PROXY_HTTP_POOL_IDLE_TIMEOUT: Duration = Duration::from_secs(90);
+const PROXY_HTTP_MAX_IDLE_PER_HOST: usize = 8;
+const PROXY_RESPONSE_MAX_BYTES: usize = 64 * 1024 * 1024;
+const REMOTE_IMAGE_MAX_BYTES: usize = 25 * 1024 * 1024;
+
+#[cfg(target_os = "windows")]
+fn apply_native_window_corners(window: &WebviewWindow, rounded: bool) {
+    use windows::Win32::{
+        Foundation::HWND,
+        Graphics::Dwm::{
+            DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DEFAULT, DWMWCP_ROUND,
+        },
+    };
+
+    let Ok(hwnd) = window.hwnd() else {
+        return;
+    };
+    let hwnd = HWND(hwnd.0);
+    let preference = if rounded {
+        DWMWCP_ROUND
+    } else {
+        DWMWCP_DEFAULT
+    };
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_WINDOW_CORNER_PREFERENCE,
+            &preference as *const _ as *const std::ffi::c_void,
+            std::mem::size_of_val(&preference) as u32,
+        );
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn apply_native_window_corners(_window: &WebviewWindow, _rounded: bool) {}
+
+#[tauri::command]
+fn set_main_window_native_corners(app: tauri::AppHandle, rounded: bool) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| "未找到主窗口".to_string())?;
+    apply_native_window_corners(&window, rounded);
+    Ok(())
+}
+
+/// 将用户明确选择的保存目录和素材目录加入本次进程的文件与 asset 协议 scope。
+/// ComfyUI 安装目录不经过此命令，仍由专用启动命令独立校验。
+///
+/// `base_data_dir` 另外会被记为原生侧的用户存储根：需要落到用户目录的派生数据
+/// （例如智能体压缩包解压目录）由它定位，从而不必占用系统盘。
+#[tauri::command]
+fn sync_authorized_directories(
+    app: tauri::AppHandle,
+    directories: Vec<String>,
+    base_data_dir: Option<String>,
+) -> Result<Vec<String>, String> {
+    path_policy::set_user_storage_root(&app, base_data_dir.as_deref());
+
+    let fs_scope = app.fs_scope();
+    let asset_scope = app.state::<tauri::scope::Scopes>();
+    let mut rejected = Vec::new();
+
+    for directory in directories {
+        let trimmed = directory.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let path = std::path::PathBuf::from(trimmed);
+        if !path.is_absolute() {
+            rejected.push(trimmed.to_string());
+            continue;
+        }
+
+        let Ok(canonical) = path.canonicalize() else {
+            rejected.push(trimmed.to_string());
+            continue;
+        };
+        if !canonical.is_dir() {
+            rejected.push(trimmed.to_string());
+            continue;
+        }
+
+        fs_scope
+            .allow_directory(&canonical, true)
+            .map_err(|e| format!("文件权限授权失败 {}: {e}", canonical.display()))?;
+        asset_scope
+            .allow_directory(&canonical, true)
+            .map_err(|e| format!("asset 协议授权失败 {}: {e}", canonical.display()))?;
+    }
+
+    Ok(rejected)
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct DreaminaLoginPayload {
+    cookie: String,
+}
+
+/// 注入到即梦登录窗口的 JS：轮询 Cookie + DOM 观察，登录成功后通过 event.emit 回传凭证
+const DREAMINA_LOGIN_WATCHER: &str = r#"
+(function(){
+  if (window.__dreaminaWatcher) return;
+  window.__dreaminaWatcher = true;
+
+  function sendCookie() {
+    var c = document.cookie || '';
+    // 登录成功的 Cookie 通常较长，包含 session/token 等关键字段
+    if (c.length > 80) {
+      if (window.__TAURI__ && window.__TAURI__.event) {
+        window.__TAURI__.event.emit('dreamina-cookie', { cookie: c });
+      }
+    }
+  }
+
+  // 1. 每 2 秒轮询 Cookie
+  var pollTimer = setInterval(sendCookie, 2000);
+
+  // 2. 观察 DOM 变化（登录模态框关闭时触发）
+  var obsTimer;
+  var observer = new MutationObserver(function() {
+    clearTimeout(obsTimer);
+    obsTimer = setTimeout(sendCookie, 600);
+  });
+
+  setTimeout(function() {
+    observer.observe(document.body, { childList: true, subtree: true, attributes: false, characterData: false });
+  }, 3000);
+
+  // 3. 兜底：120 秒后强制检查
+  setTimeout(function() {
+    clearInterval(pollTimer);
+    sendCookie();
+  }, 120000);
+})();
+"#;
+
+/// 通用 HTTP 代理：前端通过 invoke 调用，由 Rust 端发起 HTTP 请求，彻底绕过浏览器 CORS 限制。
+/// 请求体和响应体均使用 base64 编码传输，支持 GET/POST 等任意方法。
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ProxyFetchRequest {
+    request_id: Option<String>,
+    url: String,
+    method: String,
+    headers: Vec<(String, String)>,
+    body: Option<String>, // base64 编码的请求体
+}
+
+type ProxyFetchCancellations = Mutex<HashMap<String, tokio::sync::oneshot::Sender<()>>>;
+
+struct ProxyHttpState {
+    client: reqwest::Client,
+    cancellations: ProxyFetchCancellations,
+}
+
+impl ProxyHttpState {
+    fn new() -> Result<Self, String> {
+        let client = reqwest::Client::builder()
+            .user_agent("AI-Canvas/0.1")
+            .connect_timeout(PROXY_HTTP_CONNECT_TIMEOUT)
+            .pool_idle_timeout(PROXY_HTTP_POOL_IDLE_TIMEOUT)
+            .pool_max_idle_per_host(PROXY_HTTP_MAX_IDLE_PER_HOST)
+            .build()
+            .map_err(|e| format!("创建 HTTP 客户端失败: {e}"))?;
+
+        Ok(Self {
+            client,
+            cancellations: Mutex::new(HashMap::new()),
+        })
+    }
+}
+
+fn lock_proxy_fetch_cancellations(
+    cancellations: &ProxyFetchCancellations,
+) -> std::sync::MutexGuard<'_, HashMap<String, tokio::sync::oneshot::Sender<()>>> {
+    cancellations
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+struct ProxyFetchCancellationRegistration<'a> {
+    request_id: String,
+    cancellations: &'a ProxyFetchCancellations,
+}
+
+impl<'a> ProxyFetchCancellationRegistration<'a> {
+    fn register(
+        cancellations: &'a ProxyFetchCancellations,
+        request_id: String,
+        sender: tokio::sync::oneshot::Sender<()>,
+    ) -> Result<Self, String> {
+        let mut items = lock_proxy_fetch_cancellations(cancellations);
+        if items.contains_key(&request_id) {
+            return Err(format!("HTTP 请求 ID 重复: {request_id}"));
+        }
+        items.insert(request_id.clone(), sender);
+        drop(items);
+
+        Ok(Self {
+            request_id,
+            cancellations,
+        })
+    }
+}
+
+impl Drop for ProxyFetchCancellationRegistration<'_> {
+    fn drop(&mut self) {
+        lock_proxy_fetch_cancellations(self.cancellations).remove(&self.request_id);
+    }
+}
+
+#[tauri::command]
+fn cancel_proxy_fetch(
+    state: tauri::State<'_, ProxyHttpState>,
+    request_id: String,
+) -> Result<(), String> {
+    let cancellation = lock_proxy_fetch_cancellations(&state.cancellations).remove(&request_id);
+    if let Some(sender) = cancellation {
+        let _ = sender.send(());
+    }
+    Ok(())
+}
+
+#[derive(Clone, serde::Serialize)]
+struct ProxyFetchResponse {
+    status: u16,
+    body: String, // base64 编码的响应体
+    headers: Vec<(String, String)>,
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(tag = "event", rename_all = "snake_case")]
+enum ProxyFetchStreamEvent {
+    Meta {
+        status: u16,
+        headers: Vec<(String, String)>,
+    },
+    Chunk {
+        body: String,
+    },
+    Done,
+}
+
+fn proxy_transport_error(error: reqwest::Error) -> String {
+    let kind = if error.is_timeout() {
+        "网络请求超时"
+    } else if error.is_connect() {
+        "无法建立网络连接"
+    } else if error.is_body() {
+        "请求体传输失败"
+    } else {
+        "发送请求或等待响应时连接失败"
+    };
+    // 只提取系统错误类别和错误码，不把 URL、查询参数或凭据写入历史。
+    let mut source = std::error::Error::source(&error);
+    let mut detail = String::new();
+    while let Some(cause) = source {
+        if let Some(io) = cause.downcast_ref::<std::io::Error>() {
+            detail = format!("（{:?}，系统错误码 {:?}）", io.kind(), io.raw_os_error());
+            break;
+        }
+        source = cause.source();
+    }
+    format!("请求失败：{kind}{detail}。未收到有效 HTTP 响应，提交结果尚未确认，请先检查服务商任务记录。")
+}
+
+async fn send_proxy_request(
+    client: &reqwest::Client,
+    req: &ProxyFetchRequest,
+) -> Result<reqwest::Response, String> {
+    let method = reqwest::Method::from_bytes(req.method.as_bytes())
+        .map_err(|e| format!("无效的 HTTP 方法: {e}"))?;
+    let mut request = client.request(method, &req.url);
+    for (key, value) in &req.headers {
+        request = request.header(key.as_str(), value.as_str());
+    }
+    if let Some(body) = &req.body {
+        if !body.is_empty() {
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(body)
+                .map_err(|e| format!("请求体 base64 解码失败: {e}"))?;
+            request = request.body(bytes);
+        }
+    }
+
+    request.send().await.map_err(proxy_transport_error)
+}
+
+fn ensure_content_length_within_limit(
+    response: &reqwest::Response,
+    max_bytes: usize,
+    resource_name: &str,
+) -> Result<(), String> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > max_bytes as u64)
+    {
+        return Err(format!(
+            "{resource_name}超过 Rust 端大小限制（最大 {} MiB）",
+            max_bytes / 1024 / 1024
+        ));
+    }
+    Ok(())
+}
+
+fn checked_response_size(
+    current_bytes: usize,
+    chunk_bytes: usize,
+    max_bytes: usize,
+    resource_name: &str,
+) -> Result<usize, String> {
+    let next_bytes = current_bytes
+        .checked_add(chunk_bytes)
+        .ok_or_else(|| format!("{resource_name}大小计算溢出"))?;
+    if next_bytes > max_bytes {
+        return Err(format!(
+            "{resource_name}超过 Rust 端大小限制（最大 {} MiB）",
+            max_bytes / 1024 / 1024
+        ));
+    }
+    Ok(next_bytes)
+}
+
+async fn read_response_bytes_limited(
+    mut response: reqwest::Response,
+    max_bytes: usize,
+    resource_name: &str,
+) -> Result<Vec<u8>, String> {
+    ensure_content_length_within_limit(&response, max_bytes, resource_name)?;
+    let initial_capacity = response.content_length().unwrap_or(0).min(max_bytes as u64) as usize;
+    let mut body = Vec::with_capacity(initial_capacity);
+    let mut total_bytes = 0;
+
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|error| format!("读取响应失败: {error}"))?
+    {
+        total_bytes = checked_response_size(total_bytes, chunk.len(), max_bytes, resource_name)?;
+        body.extend_from_slice(&chunk);
+    }
+
+    Ok(body)
+}
+
+#[tauri::command]
+async fn proxy_fetch(
+    state: tauri::State<'_, ProxyHttpState>,
+    req: ProxyFetchRequest,
+) -> Result<ProxyFetchResponse, String> {
+    let request_id = req.request_id.clone().unwrap_or_else(|| {
+        format!(
+            "legacy-proxy-{}",
+            PROXY_FETCH_REQUEST_ID.fetch_add(1, Ordering::Relaxed)
+        )
+    });
+    let (cancel_sender, cancel_receiver) = tokio::sync::oneshot::channel();
+    let _cancellation = ProxyFetchCancellationRegistration::register(
+        &state.cancellations,
+        request_id,
+        cancel_sender,
+    )?;
+
+    let request = async {
+        let response = send_proxy_request(&state.client, &req).await?;
+
+        let status = response.status().as_u16();
+        let res_headers: Vec<(String, String)> = response
+            .headers()
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+            .collect();
+
+        let res_bytes =
+            read_response_bytes_limited(response, PROXY_RESPONSE_MAX_BYTES, "代理响应体").await?;
+        let body_b64 = base64::engine::general_purpose::STANDARD.encode(&res_bytes);
+
+        Ok(ProxyFetchResponse {
+            status,
+            body: body_b64,
+            headers: res_headers,
+        })
+    };
+
+    tokio::select! {
+        result = request => result,
+        _ = cancel_receiver => Err("请求已取消".to_string()),
+    }
+}
+
+#[tauri::command]
+async fn proxy_stream_fetch(
+    state: tauri::State<'_, ProxyHttpState>,
+    req: ProxyFetchRequest,
+    on_event: Channel<ProxyFetchStreamEvent>,
+) -> Result<(), String> {
+    let request_id = req
+        .request_id
+        .clone()
+        .ok_or_else(|| "流式 HTTP 请求缺少 requestId".to_string())?;
+    let (cancel_sender, cancel_receiver) = tokio::sync::oneshot::channel();
+    let _cancellation = ProxyFetchCancellationRegistration::register(
+        &state.cancellations,
+        request_id,
+        cancel_sender,
+    )?;
+
+    let request = async {
+        let mut response = send_proxy_request(&state.client, &req).await?;
+        ensure_content_length_within_limit(&response, PROXY_RESPONSE_MAX_BYTES, "代理响应体")?;
+        let status = response.status().as_u16();
+        let headers = response
+            .headers()
+            .iter()
+            .map(|(key, value)| (key.to_string(), value.to_str().unwrap_or("").to_string()))
+            .collect();
+        on_event
+            .send(ProxyFetchStreamEvent::Meta { status, headers })
+            .map_err(|e| format!("发送 HTTP 响应状态失败: {e}"))?;
+
+        let mut total_bytes = 0;
+        while let Some(bytes) = response
+            .chunk()
+            .await
+            .map_err(|error| format!("读取响应失败: {error}"))?
+        {
+            total_bytes = checked_response_size(
+                total_bytes,
+                bytes.len(),
+                PROXY_RESPONSE_MAX_BYTES,
+                "代理响应体",
+            )?;
+            let body = base64::engine::general_purpose::STANDARD.encode(bytes);
+            on_event
+                .send(ProxyFetchStreamEvent::Chunk { body })
+                .map_err(|e| format!("发送 HTTP 响应数据失败: {e}"))?;
+        }
+        on_event
+            .send(ProxyFetchStreamEvent::Done)
+            .map_err(|e| format!("结束 HTTP 响应流失败: {e}"))?;
+        Ok(())
+    };
+
+    tokio::select! {
+        result = request => result,
+        _ = cancel_receiver => Err("请求已取消".to_string()),
+    }
+}
+
+/// 使用原生 HTTP 客户端下载远程图片并返回 base64 data URL（绕过 WebView CORS 限制）
+#[tauri::command]
+async fn fetch_image_data_url(
+    state: tauri::State<'_, ProxyHttpState>,
+    url: String,
+) -> Result<String, String> {
+    let response = state
+        .client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("请求失败: {e}"))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        return Err(format!("HTTP {status}"));
+    }
+
+    // 从 Content-Type 头推导 MIME（提前提取为 String，避免借用冲突）
+    let mime = {
+        let ct = response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.split(';').next())
+            .unwrap_or("image/png")
+            .trim();
+        if ct.starts_with("image/") {
+            ct.to_string()
+        } else {
+            // 从 URL 后缀推导
+            let lower = url.to_lowercase();
+            let guess = if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+                "image/jpeg"
+            } else if lower.ends_with(".gif") {
+                "image/gif"
+            } else if lower.ends_with(".webp") {
+                "image/webp"
+            } else if lower.ends_with(".bmp") {
+                "image/bmp"
+            } else if lower.ends_with(".svg") {
+                "image/svg+xml"
+            } else {
+                "image/png"
+            };
+            guess.to_string()
+        }
+    };
+
+    let bytes = read_response_bytes_limited(response, REMOTE_IMAGE_MAX_BYTES, "远程图片").await?;
+
+    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{mime};base64,{b64}"))
+}
+
+#[cfg(test)]
+mod proxy_http_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn transport_errors_do_not_expose_request_url_or_credentials() {
+        let error = reqwest::Client::new()
+            .get("http://user:secret@127.0.0.1:1/?api_key=private-key")
+            .header("invalid header", "value")
+            .send()
+            .await
+            .unwrap_err();
+        let message = proxy_transport_error(error);
+        assert!(message.contains("提交结果尚未确认"));
+        assert!(!message.contains("secret"));
+        assert!(!message.contains("private-key"));
+        assert!(!message.contains("127.0.0.1"));
+    }
+
+    #[test]
+    fn response_size_limit_accepts_exact_limit_and_rejects_overflow() {
+        assert_eq!(checked_response_size(60, 4, 64, "测试响应"), Ok(64));
+        assert!(checked_response_size(60, 5, 64, "测试响应").is_err());
+        assert!(checked_response_size(usize::MAX, 1, usize::MAX, "测试响应").is_err());
+    }
+
+    #[test]
+    fn cancellation_registration_cleans_up_when_dropped() {
+        let cancellations = Mutex::new(HashMap::new());
+        let (sender, _receiver) = tokio::sync::oneshot::channel();
+
+        {
+            let _registration = ProxyFetchCancellationRegistration::register(
+                &cancellations,
+                "request-1".to_string(),
+                sender,
+            )
+            .expect("应成功注册取消句柄");
+            assert!(lock_proxy_fetch_cancellations(&cancellations).contains_key("request-1"));
+        }
+
+        assert!(lock_proxy_fetch_cancellations(&cancellations).is_empty());
+    }
+}
+
+/// 将文件或目录移动到系统回收站/废纸篓。
+/// 只接受应用自有数据目录或用户已授权目录内的路径，避免被注入的 Renderer 删除任意文件。
+#[tauri::command]
+async fn move_to_trash(
+    app: tauri::AppHandle,
+    webview: tauri::Webview,
+    path: String,
+) -> Result<(), String> {
+    path_policy::ensure_trusted_caller(&webview)?;
+    let target = path_policy::authorize_path(&app, &path, path_policy::PathAccess::Read)?;
+    trash::delete(&target).map_err(|e| format!("移动文件到回收站失败: {}", e))
+}
+
+/// 使用指定应用打开文件（直接调用系统进程 API，绕过 shell 插件权限限制）。
+/// 待打开文件必须已授权，被启动的程序必须是系统已安装应用且不在应用可写目录内。
+#[tauri::command]
+async fn open_with_app(
+    app: tauri::AppHandle,
+    webview: tauri::Webview,
+    app_path: String,
+    file_path: String,
+) -> Result<(), String> {
+    path_policy::ensure_trusted_caller(&webview)?;
+    let target = path_policy::authorize_path(&app, &file_path, path_policy::PathAccess::Read)?;
+    let launch_target = path_policy::authorize_launch_target(&app, &app_path)?;
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new(&launch_target)
+            .arg(&target)
+            .spawn()
+            .map_err(|e| format!("启动应用失败: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-a")
+            .arg(&launch_target)
+            .arg(&target)
+            .spawn()
+            .map_err(|e| format!("启动应用失败: {e}"))?;
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let _ = (launch_target, target);
+        return Err("不支持的操作系统".to_string());
+    }
+    Ok(())
+}
+
+/// 在系统文件管理器中打开目录，或定位并选中文件。
+/// 路径会先校验授权并规范化：既避免暴露任意目录，也避免系统文件管理器在参数无效时回退到默认目录。
+#[tauri::command]
+async fn reveal_in_file_manager(
+    app: tauri::AppHandle,
+    webview: tauri::Webview,
+    path: String,
+    select: bool,
+) -> Result<(), String> {
+    path_policy::ensure_trusted_caller(&webview)?;
+    // 设置面板里可以定位应用安装目录，因此这里额外允许自身安装/资源目录。
+    let canonical_path = path_policy::authorize_path_with_roots(
+        &app,
+        &path,
+        path_policy::PathAccess::Read,
+        &path_policy::app_install_roots(&app),
+    )?;
+
+    if !select && !canonical_path.is_dir() {
+        return Err(format!(
+            "要打开的路径不是文件夹: {}",
+            canonical_path.display()
+        ));
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // `canonicalize` 在 Windows 上通常返回 `\\?\` 扩展路径；Explorer 对该前缀支持不稳定。
+        let canonical_text = canonical_path.to_string_lossy();
+        let explorer_path = if let Some(path) = canonical_text.strip_prefix(r"\\?\UNC\") {
+            format!(r"\\{path}")
+        } else if let Some(path) = canonical_text.strip_prefix(r"\\?\") {
+            path.to_string()
+        } else {
+            canonical_text.into_owned()
+        };
+        let mut command = std::process::Command::new("explorer.exe");
+        if select {
+            command.arg("/select,");
+        }
+        command
+            .arg(explorer_path)
+            .spawn()
+            .map_err(|e| format!("启动 Windows 资源管理器失败: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let mut command = std::process::Command::new("open");
+        if select {
+            command.arg("-R");
+        }
+        command
+            .arg(&canonical_path)
+            .spawn()
+            .map_err(|e| format!("启动 Finder 失败: {e}"))?;
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let target_path = if select && canonical_path.is_file() {
+            canonical_path
+                .parent()
+                .ok_or_else(|| format!("无法确定文件所在目录: {}", canonical_path.display()))?
+        } else {
+            canonical_path.as_path()
+        };
+        std::process::Command::new("xdg-open")
+            .arg(target_path)
+            .spawn()
+            .map_err(|e| format!("启动文件管理器失败: {e}"))?;
+    }
+
+    Ok(())
+}
+
+/// 切换当前 WebView 的开发者工具（先关闭再打开实现 toggle 效果）
+#[tauri::command]
+async fn toggle_devtools(app: tauri::AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("未找到主窗口".to_string())?;
+    window.close_devtools();
+    window.open_devtools();
+    Ok(())
+}
+
+#[tauri::command]
+async fn dreamina_login(app: tauri::AppHandle) -> Result<DreaminaLoginPayload, String> {
+    let login_url = "https://jimeng.jianying.com/";
+
+    // 先关闭可能残留的历史登录窗口
+    if let Some(old) = app.get_webview_window("dreamina-login") {
+        let _ = old.close();
+    }
+
+    let webview = WebviewWindowBuilder::new(
+        &app,
+        "dreamina-login",
+        WebviewUrl::External(Url::parse(login_url).map_err(|e| e.to_string())?),
+    )
+    .title("即梦登录 — 登录后自动关闭")
+    .inner_size(800.0, 660.0)
+    .center()
+    .resizable(true)
+    .visible(true)
+    .build()
+    .map_err(|e| format!("创建登录窗口失败: {e}"))?;
+
+    let (tx, rx) = tokio::sync::oneshot::channel::<String>();
+    let tx = Mutex::new(Some(tx));
+
+    // 监听 webview 发来的 cookie 事件
+    let event_id = app.listen("dreamina-cookie", move |event: tauri::Event| {
+        if let Ok(payload) = serde_json::from_str::<DreaminaLoginPayload>(event.payload()) {
+            if let Some(tx) = tx.lock().unwrap().take() {
+                let _ = tx.send(payload.cookie);
+            }
+        }
+    });
+
+    // 等页面加载完成后注入 Cookie 轮询脚本
+    let webview_clone = webview.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        let _ = webview_clone.eval(DREAMINA_LOGIN_WATCHER);
+    });
+
+    // 等待 cookie（最多 180 秒）
+    let cookie = tokio::time::timeout(std::time::Duration::from_secs(180), rx)
+        .await
+        .map_err(|_| "登录超时，请重试".to_string())?
+        .map_err(|_| "登录已取消".to_string())?;
+
+    app.unlisten(event_id);
+
+    // 关闭登录窗口
+    let _ = webview.close();
+
+    if cookie.is_empty() {
+        return Err("未获取到登录凭证，请确认登录成功".to_string());
+    }
+
+    Ok(DreaminaLoginPayload { cookie })
+}
+
+pub fn run() {
+    // Windows WebView2/Chromium 渲染优化：
+    // - CalculateNativeWinOcclusion：原生窗口遮挡检测。在虚拟显示适配器 / 远程桌面
+    //   工具（MuMu、向日葵、Virtual Display 等）环境下常误判窗口被遮挡，从而错误节流。
+    // - 其余生产参数强制 GPU 光栅化并忽略黑名单，但保留 Chromium 默认帧率限制。
+    // - 仅诊断时可设置 AI_CANVAS_DISABLE_FRAME_RATE_LIMIT=1 临时解除帧率限制。
+    #[cfg(target_os = "windows")]
+    {
+        let mut browser_arguments = String::from(
+            "--disable-features=CalculateNativeWinOcclusion --enable-gpu-rasterization --ignore-gpu-blocklist --enable-zero-copy",
+        );
+        if std::env::var("AI_CANVAS_DISABLE_FRAME_RATE_LIMIT").as_deref() == Ok("1") {
+            browser_arguments.push_str(" --disable-frame-rate-limit");
+        }
+        std::env::set_var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", browser_arguments);
+    }
+
+    let proxy_http_state = ProxyHttpState::new().expect("初始化代理 HTTP 客户端失败");
+
+    tauri::Builder::default()
+        .manage(proxy_http_state)
+        .manage(blender_runtime::BlenderRuntimeState::default())
+        .manage(blender_runtime::ProjectGrantState::default())
+        .manage(blender_runtime::production_blender_job_core())
+        .manage(mcp_bridge::McpBridgeState::default())
+        .manage(roundtrip::RoundtripState::default())
+        .manage(path_policy::UserStorageRoot::default())
+        .register_uri_scheme_protocol("director-desk", director_desk_runtime::handle_protocol)
+        .register_uri_scheme_protocol("plugin-ui", plugin_ui::handle_protocol)
+        .register_uri_scheme_protocol("plugin-window", plugin_window::handle_protocol)
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_drag::init())
+        // MTV 重品牌：已移除自动更新器（tauri-plugin-updater），配置块也已从 tauri.conf.json 删除。
+        .plugin(tauri_plugin_process::init())
+        .plugin(canvas_input::init())
+        .invoke_handler(tauri::generate_handler![
+            fetch_image_data_url,
+            proxy_fetch,
+            proxy_stream_fetch,
+            cancel_proxy_fetch,
+            assistant_web::assistant_web_search,
+            assistant_web::assistant_web_extract,
+            assistant_web::assistant_web_render,
+            provider_docs::provider_docs_read,
+            blender_runtime::discover_blender_installations,
+            blender_runtime::register_blender_installation,
+            blender_runtime::project_grant::create_blender_project_grant,
+            blender_runtime::project_grant::revoke_blender_project_grant,
+            blender_runtime::start_blender_job,
+            blender_runtime::get_blender_job_status,
+            blender_runtime::cancel_blender_job,
+            blender_runtime::collect_blender_job_result,
+            agent_package::agent_source_link,
+            agent_package::agent_package_import_archive,
+            agent_package::agent_source_probe,
+            agent_package::agent_source_remove,
+            agent_package::agent_source_read_text,
+            project_archive::pack_project_archive,
+            project_archive::unpack_project_archive,
+            thumbnail_cache::prepare_project_thumbnail,
+            thumbnail_cache::write_project_thumbnail,
+            file_transfer::copy_file_streamed,
+            file_transfer::download_file_streamed,
+            file_transfer::cancel_file_transfer,
+            director_desk_runtime::director_desk_runtime_status,
+            director_desk_runtime::install_director_desk_runtime,
+            director_desk_runtime::cancel_director_desk_install,
+            director_desk_runtime::remove_director_desk_runtime,
+            move_to_trash,
+            clipboard::copy_files_to_clipboard,
+            clipboard_read::read_canvas_clipboard,
+            dreamina_login,
+            dreamina::dreamina_login_start,
+            dreamina::dreamina_login_runtime,
+            dreamina::dreamina_logout,
+            dreamina::dreamina_status,
+            dreamina::dreamina_generate,
+            dreamina::dreamina_query_result,
+            open_with_app,
+            reveal_in_file_manager,
+            toggle_devtools,
+            set_main_window_native_corners,
+            sync_authorized_directories,
+            comfyui::launch_comfyui,
+            comfyui::open_comfyui_window,
+            comfyui::complete_comfyui_workflow_save,
+            onnx::get_models_dir,
+            onnx::check_model_exists,
+            onnx::image_upscale,
+            onnx::subject_matting,
+            onnx::speech_to_text,
+            onnx::character_direction_grid,
+            sprite_export::export_sprite_frames,
+            onnx::download_onnx_model,
+            onnx::get_onnx_gpu_status,
+            mcp_bridge::mcp_bridge_start,
+            mcp_bridge::mcp_bridge_stop,
+            mcp_bridge::mcp_bridge_status,
+            mcp_bridge::mcp_bridge_respond,
+            roundtrip::roundtrip_bridge_start,
+            roundtrip::roundtrip_bridge_stop,
+            roundtrip::roundtrip_bridge_status,
+            roundtrip::roundtrip_create_job,
+            roundtrip::roundtrip_job_status,
+            roundtrip::roundtrip_job_cancel,
+            roundtrip::roundtrip_pending_pushes,
+            roundtrip::roundtrip_ack_push,
+            secret_store::secret_set,
+            secret_store::secret_get,
+            secret_store::secret_delete,
+            secret_store::secret_store_available,
+            local_fonts::list_local_fonts,
+            plugin_registry::stage_plugin_revision,
+            plugin_registry::activate_plugin_revision,
+            plugin_registry::ensure_plugin_registration,
+            plugin_registry::set_plugin_registration_enabled,
+            plugin_registry::remove_plugin_registration,
+            plugin_registry::repair_plugin_registry,
+            plugin_registry::get_plugin_registration_status,
+            plugin_registry::read_plugin_package_resource,
+            plugin_window::open_plugin_ui_window,
+            plugin_window::close_plugin_ui_window,
+            plugin_window::respond_plugin_ui_window_request,
+            plugin_window::plugin_ui_window_request,
+            plugin_runtime::execute_node_plugin_tool,
+            plugin_runtime::get_python_plugin_runtime_status,
+        ])
+        .on_window_event(|window, event| {
+            plugin_window::on_window_event(window, event);
+            // 用户把文件拖进自有窗口 = 一次显式授权，登记后复制/读取命令才放行。
+            if let tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }) = event {
+                if window.label() == "main" {
+                    path_policy::grant_dropped_paths(window.app_handle(), paths);
+                }
+            }
+        })
+        .setup(|_app| {
+            // 凭据目录只允许本进程的 secret_* 命令访问：从 fs 与 asset scope 中拒掉，
+            // 否则 Renderer 能绕过命令直接读走整份凭据文件
+            secret_store::deny_secret_dir_access(_app.handle());
+            // Agent 外部来源的真实路径只保存在 Rust 私有注册表中，Renderer 仅持有 sourceId。
+            // 拒绝失败只影响 Agent 子系统的诊断，不得阻断普通功能启动。
+            agent_package::deny_agent_private_dir_access(_app.handle());
+            // 插件入口源码与活动/回滚版本只保存在 Rust 私有注册表中。
+            plugin_registry::deny_plugin_private_dir_access(_app.handle());
+            if let Err(error) = blender_runtime::prepare_blender_private_runtime(_app.handle()) {
+                eprintln!("[blender-runtime] {error}");
+            }
+
+            Ok(())
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if matches!(event, tauri::RunEvent::Exit) {
+                plugin_window::revoke_all_sessions();
+                app_handle
+                    .state::<blender_runtime::BlenderJobCore>()
+                    .shutdown();
+            }
+        });
+}

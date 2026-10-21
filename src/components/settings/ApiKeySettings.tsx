@@ -1,0 +1,776 @@
+/**
+ * ApiKeySettings — provider connections and enabled model catalogs.
+ */
+import { Icon } from '@iconify/react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { useAppStore } from '../../store/useAppStore';
+import {
+  createConnectionId,
+  getProviderDefinition,
+  getProviderDefinitions,
+  getWebSearchProviderDefinitions,
+  isProviderModelVisible,
+  resolveWebSearchProviderId,
+} from '../../services/ai/providerCatalogService';
+import {
+  parseConnectionShare,
+  serializeConnection,
+} from '../../services/ai/providerConnectionTransfer';
+import { copyText, readText } from '../../services/clipboardService';
+import type {
+  ApiProviderConfig,
+  DreaminaRuntime,
+  ProviderModelSelection,
+  WebSearchProviderId,
+} from '../../types';
+import ProviderBadge from '../shared/ProviderBadge';
+import { OfficialBadge, OfficialButton, OfficialNote } from './official/OfficialControls';
+import { SettingsPaneBody, SettingsPaneHeader } from './SettingsPane';
+import { defaultModelGroups } from '../nodes/shared/defaultModels';
+import { shouldListProviderConnection } from './apiKeySettingsUtils';
+import { isSecretStoreAvailable } from '../../services/providerSecretService';
+import { testProviderConnection } from '../../services/testConnection';
+import { replaceLegacyApimartOmni } from '../../services/ai/apimartVideoModels';
+import DreaminaLoginModal from './DreaminaLoginModal';
+import ProviderConnectionDialog from './ProviderConnectionDialog';
+import { saveAutodlWorkflowTemplate, saveWorkflowApiDrafts } from '../../services/workflowApi/workflowApiConfig';
+import { invoke } from '@tauri-apps/api/core';
+import { useT } from '../../i18n';
+
+interface ProviderListItem {
+  id: string;
+  config: ApiProviderConfig;
+}
+
+function modelCategory(model: { nodeTypes: string[] }): ProviderModelSelection['category'] {
+  if (model.nodeTypes.includes('ai-video')) return 'video';
+  if (model.nodeTypes.includes('ai-audio')) return 'audio';
+  if (model.nodeTypes.includes('ai-image') || model.nodeTypes.includes('ai-animation')) return 'image';
+  return 'text';
+}
+
+function providerSummaryUrl(config: ApiProviderConfig, defaultBaseUrl?: string): string {
+  const value = config.baseUrl || defaultBaseUrl;
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    return `${url.host}${url.pathname.replace(/\/$/, '')}`;
+  } catch {
+    return value;
+  }
+}
+
+function isTauri(): boolean {
+  return '__TAURI_INTERNALS__' in window;
+}
+
+export default function ApiKeySettings({ onClose }: { onClose: () => void }) {
+  const t = useT();
+  const unreadSecrets = useAppStore((state) => state.configSecretReadErrors);
+  const workflows = useAppStore((state) => state.workflows);
+  const {
+    config,
+    updateConfig,
+    setProviderConfig,
+    saveProviderConfig,
+    removeProviderConfig,
+    saveConfig,
+    pendingApiKeyConnectionId,
+    setPendingApiKeyConnectionId,
+  } = useAppStore(
+    useShallow((state) => ({
+      config: state.config,
+      updateConfig: state.updateConfig,
+      setProviderConfig: state.setProviderConfig,
+      saveProviderConfig: state.saveProviderConfig,
+      removeProviderConfig: state.removeProviderConfig,
+      saveConfig: state.saveConfig,
+      pendingApiKeyConnectionId: state.pendingApiKeyConnectionId,
+      setPendingApiKeyConnectionId: state.setPendingApiKeyConnectionId,
+    })),
+  );
+
+  // 三者总是一起变化，合成一份状态；revision 用于每次打开时重挂载对话框
+  const [dialog, setDialog] = useState<{ open: boolean; connectionId?: string; revision: number }>({
+    open: false,
+    revision: 0,
+  });
+  const [pendingDeleteId, setPendingDeleteId] = useState<string>();
+  const [providerBalances, setProviderBalances] = useState<Record<string, string>>({});
+  const balanceRefreshStartedRef = useRef(new Set<string>());
+  const balanceRefreshActiveRef = useRef(true);
+  // 凭据存在 Rust 侧的凭据存储里；不可用时只能本次会话有效，得在用户填写前就说清楚
+  const [secretStoreAvailable, setSecretStoreAvailable] = useState(true);
+
+  const [dreaminaLoading, setDreaminaLoading] = useState(false);
+  const [dreaminaStatusMsg, setDreaminaStatusMsg] = useState(() => t('首次登录时会自动准备即梦组件'));
+  const [dreaminaModalOpen, setDreaminaModalOpen] = useState(false);
+  const [dreaminaRuntime, setDreaminaRuntime] = useState<DreaminaRuntime | null>(null);
+  const dreaminaDoneRef = useRef(false);
+  const dreaminaAuth = config.dreaminaAuth;
+  const activeWebSearchProviderId = resolveWebSearchProviderId(config);
+
+  const fallbackModels = useMemo(() => {
+    const catalog: Record<string, ProviderModelSelection[]> = {};
+    for (const definition of getProviderDefinitions()) {
+      if (!definition.models) continue;
+      catalog[definition.id] = definition.models.map((model) => ({ ...model }));
+    }
+    for (const group of defaultModelGroups) {
+      const providerId = group.id === 'runninghub' ? 'runninghub-model' : group.id;
+      if (!getProviderDefinition(providerId)) continue;
+      const current = catalog[providerId] || [];
+      for (const model of group.models) {
+        const id = model.value.includes('/') ? model.value.slice(model.value.indexOf('/') + 1) : model.value;
+        if (current.some((item) => item.id === id)) continue;
+        current.push({
+          id,
+          name: model.label,
+          category: modelCategory(model),
+          provider: providerId,
+          description: model.description,
+        });
+      }
+      catalog[providerId] = current;
+    }
+    return catalog;
+  }, []);
+
+  const providerItems = useMemo(() => {
+    const items: ProviderListItem[] = [];
+    for (const [id, providerConfig] of Object.entries(config.providers)) {
+      if (id === 'runninghub') continue;
+      const definition = getProviderDefinition(id, providerConfig);
+      if (!definition) continue;
+      if (definition.kind === 'web-search' && id !== activeWebSearchProviderId) continue;
+      if (!shouldListProviderConnection(providerConfig, definition.authType)) continue;
+      items.push({ id, config: providerConfig });
+    }
+    if (config.providers.runninghub?.apiKey && !config.providers['runninghub-model']) {
+      items.push({
+        id: 'runninghub-model',
+        config: { name: 'RunningHub', apiKey: '', catalogId: 'runninghub-model' },
+      });
+    }
+    if (dreaminaAuth?.loggedIn && !config.providers.dreamina) {
+      items.push({
+        id: 'dreamina',
+        config: { name: '即梦', apiKey: '', catalogId: 'dreamina' },
+      });
+    }
+    const order = [
+      'apimart',
+      'xai',
+      'google',
+      'volcengine',
+      'runninghub-model',
+      'grsai',
+      'dreamina',
+      'web-search',
+      'custom-openai',
+    ];
+    return items.sort((left, right) => {
+      const leftDefinition = getProviderDefinition(left.id, left.config);
+      const rightDefinition = getProviderDefinition(right.id, right.config);
+      const leftOrderId = leftDefinition?.kind === 'web-search'
+        ? 'web-search'
+        : leftDefinition?.id || 'custom-openai';
+      const rightOrderId = rightDefinition?.kind === 'web-search'
+        ? 'web-search'
+        : rightDefinition?.id || 'custom-openai';
+      return order.indexOf(leftOrderId) - order.indexOf(rightOrderId);
+    });
+  }, [activeWebSearchProviderId, config.providers, dreaminaAuth?.loggedIn]);
+
+  const connectedProviderIds = useMemo(
+    () => providerItems.map((item) => getProviderDefinition(item.id, item.config)?.id || item.id),
+    [providerItems],
+  );
+
+  // Agent 保存厂商配置后请求补填密钥：在渲染期直接生效，不用 effect 回写本地 state。
+  // 任何一次手动开关对话框都视为消费掉该请求（关闭设置面板时 store 也会清空它）。
+  const requestedConnectionId = pendingApiKeyConnectionId && config.providers[pendingApiKeyConnectionId]
+    ? pendingApiKeyConnectionId
+    : null;
+  const connectionDialogOpen = dialog.open || !!requestedConnectionId;
+  const editingConnectionId = requestedConnectionId ?? dialog.connectionId;
+  const connectionDialogKey = requestedConnectionId
+    ? `pending-${requestedConnectionId}`
+    : dialog.revision;
+
+  const editingConfig = editingConnectionId
+    ? providerItems.find((item) => item.id === editingConnectionId)?.config
+    : undefined;
+
+  const tauriInvoke = useCallback(
+    async <T,>(command: string, args?: Record<string, unknown>): Promise<T> => {
+      return invoke<T>(command, args);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void isSecretStoreAvailable().then((available) => {
+      if (!cancelled) setSecretStoreAvailable(available);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    balanceRefreshActiveRef.current = true;
+    return () => { balanceRefreshActiveRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    let changed = false;
+    for (const [connectionId, providerConfig] of Object.entries(config.providers)) {
+      const catalogId = providerConfig.catalogId
+        || getProviderDefinition(connectionId, providerConfig)?.id;
+      if (catalogId === 'apimart') {
+        const selectedModels = replaceLegacyApimartOmni(providerConfig.selectedModels);
+        const catalogModels = replaceLegacyApimartOmni(providerConfig.catalogModels);
+        if (selectedModels !== providerConfig.selectedModels || catalogModels !== providerConfig.catalogModels) {
+          changed = true;
+          saveProviderConfig(connectionId, { ...providerConfig, selectedModels, catalogModels });
+        }
+        continue;
+      }
+      if (catalogId !== 'sora2u') continue;
+      const selectedModels = providerConfig.selectedModels?.filter(
+        (model) => isProviderModelVisible(catalogId, model.id),
+      );
+      const catalogModels = providerConfig.catalogModels?.filter(
+        (model) => isProviderModelVisible(catalogId, model.id),
+      );
+      if (
+        selectedModels?.length === providerConfig.selectedModels?.length
+        && catalogModels?.length === providerConfig.catalogModels?.length
+      ) continue;
+      changed = true;
+      saveProviderConfig(connectionId, { ...providerConfig, selectedModels, catalogModels });
+    }
+    if (changed) void saveConfig({ silent: true });
+  }, [config.providers, saveConfig, saveProviderConfig]);
+
+  useEffect(() => {
+    for (const item of providerItems) {
+      const definition = getProviderDefinition(item.id, item.config);
+      if (!definition || !['sora2u', 'apimart'].includes(definition.id) || !item.config.apiKey.trim()) continue;
+      const fingerprint = `${item.id}\u0000${item.config.apiKey}\u0000${item.config.baseUrl || ''}`;
+      if (balanceRefreshStartedRef.current.has(fingerprint)) continue;
+      balanceRefreshStartedRef.current.add(fingerprint);
+      setProviderBalances((current) => {
+        const next = { ...current };
+        delete next[item.id];
+        return next;
+      });
+      void testProviderConnection(
+        definition.id,
+        item.config.apiKey.trim(),
+        item.config.baseUrl,
+      ).then((result) => {
+        const balance = result.balance;
+        if (!balanceRefreshActiveRef.current || !result.success || !balance) return;
+        const latest = useAppStore.getState().config.providers[item.id];
+        if (!latest || latest.apiKey !== item.config.apiKey || latest.baseUrl !== item.config.baseUrl
+          || getProviderDefinition(item.id, latest)?.id !== definition.id) return;
+        setProviderBalances((current) => ({ ...current, [item.id]: balance }));
+      });
+    }
+  }, [providerItems]);
+
+  const applyDreaminaRuntime = useCallback((runtime: DreaminaRuntime) => {
+    setDreaminaRuntime(runtime);
+    if (runtime.message) setDreaminaStatusMsg(runtime.message);
+    if (runtime.phase !== 'success' && !runtime.loggedIn) return;
+    updateConfig({
+      dreaminaAuth: {
+        loggedIn: true,
+        username: runtime.username || t('即梦用户'),
+        credit: runtime.credit || undefined,
+        loginTs: Date.now(),
+      },
+    });
+    if (dreaminaDoneRef.current) return;
+    dreaminaDoneRef.current = true;
+    useAppStore.getState().showToast(t('即梦登录成功'));
+    setTimeout(() => setDreaminaModalOpen(false), 800);
+  }, [t, updateConfig]);
+
+  const handleDreaminaLogin = useCallback(async (force = false) => {
+    if (!isTauri()) {
+      setDreaminaStatusMsg(t('OAuth 登录仅在桌面应用中可用'));
+      useAppStore.getState().showToast(t('OAuth 登录仅在桌面应用中可用'), 'error');
+      return;
+    }
+    dreaminaDoneRef.current = false;
+    setDreaminaLoading(true);
+    setDreaminaRuntime(null);
+    setDreaminaModalOpen(true);
+    try {
+      setDreaminaRuntime(await tauriInvoke<DreaminaRuntime>('dreamina_login_start', { force }));
+    } catch (error) {
+      const message = typeof error === 'string' ? error : (error as Error)?.message || t('启动登录失败');
+      setDreaminaStatusMsg(message);
+    } finally {
+      setDreaminaLoading(false);
+    }
+  }, [t, tauriInvoke]);
+
+  const handleDreaminaLogout = useCallback(async () => {
+    setDreaminaLoading(true);
+    try {
+      if (isTauri()) await tauriInvoke('dreamina_logout');
+    } catch {
+      // Local configuration still needs to be cleared if the native logout fails.
+    }
+    updateConfig({ dreaminaAuth: undefined });
+    setDreaminaRuntime(null);
+    setDreaminaStatusMsg(t('已退出登录'));
+    setDreaminaLoading(false);
+  }, [t, tauriInvoke, updateConfig]);
+
+  const openExternalUrl = useCallback(async (url: string) => {
+    try {
+      await import('@tauri-apps/plugin-shell').then(({ open }) => open(url));
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  }, []);
+
+  const handleDreaminaCopy = useCallback((text: string, label: string) => {
+    navigator.clipboard?.writeText(text).catch(() => {});
+    useAppStore.getState().showToast(t('已复制{label}', { label }));
+  }, [t]);
+
+  useEffect(() => {
+    if (!dreaminaModalOpen || !isTauri()) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    void import('@tauri-apps/api/event').then(({ listen }) =>
+      listen<DreaminaRuntime>('dreamina-login-runtime', (event) => applyDreaminaRuntime(event.payload)),
+    ).then((stopListening) => {
+      if (cancelled) stopListening();
+      else unlisten = stopListening;
+    }).catch(() => {});
+    const timer = setInterval(async () => {
+      try {
+        applyDreaminaRuntime(await tauriInvoke<DreaminaRuntime>('dreamina_login_runtime'));
+      } catch {
+        // The event listener remains the primary source while polling is unavailable.
+      }
+    }, 1500);
+    return () => {
+      cancelled = true;
+      unlisten?.();
+      clearInterval(timer);
+    };
+  }, [applyDreaminaRuntime, dreaminaModalOpen, tauriInvoke]);
+
+  useEffect(() => {
+    if (!isTauri() || !dreaminaAuth?.loggedIn) return;
+    void tauriInvoke<DreaminaRuntime>('dreamina_status').then((runtime) => {
+      if (!runtime.loggedIn) return;
+      setDreaminaRuntime(runtime);
+      setDreaminaStatusMsg(t('即梦已登录'));
+      updateConfig({
+        dreaminaAuth: {
+          loggedIn: true,
+          username: runtime.username || t('即梦用户'),
+          credit: runtime.credit || undefined,
+          loginTs: dreaminaAuth.loginTs || Date.now(),
+        },
+      });
+    }).catch(() => {});
+    // Validate the persisted OAuth mirror only when the settings view mounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** 导出连接（不含 API Key）到剪贴板，便于分享中转站的模型清单与调用协议。 */
+  const handleCopyConnection = async (connectionId: string) => {
+    const providerConfig = config.providers[connectionId];
+    if (!providerConfig) return;
+    const ok = await copyText(serializeConnection(providerConfig,
+      useAppStore.getState().workflows.filter((workflow) => workflow.workflowApi?.connectionId === connectionId)));
+    useAppStore.getState().showToast(
+      ok ? t('连接配置已复制（不含 API Key）') : t('复制失败'),
+      ok ? 'success' : 'error',
+    );
+  };
+
+  /** 从剪贴板导入连接；保存后直接打开对话框让用户补填 API Key。 */
+  const handleImportConnection = async () => {
+    const parsed = parseConnectionShare(await readText());
+    if (!parsed) {
+      useAppStore.getState().showToast(t('剪贴板里没有可导入的连接配置'), 'error');
+      return;
+    }
+    const definition = getProviderDefinition(parsed.catalogId);
+    if (!definition || definition.authType === 'oauth') {
+      useAppStore.getState().showToast(t('该连接类型不支持导入'), 'error');
+      return;
+    }
+    const newConnectionId = createConnectionId(definition.id);
+    if (config.providers[newConnectionId]) {
+      useAppStore.getState().showToast(
+        t('已存在 {name} 连接，请先删除后再导入', { name: definition.name }),
+        'error',
+      );
+      return;
+    }
+    const models = parsed.config.selectedModels?.map((model) => ({
+      ...model,
+      provider: newConnectionId,
+    }));
+    saveProviderConfig(newConnectionId, {
+      ...parsed.config,
+      selectedModels: models,
+      catalogModels: parsed.config.catalogModels?.map((model) => ({
+        ...model,
+        provider: newConnectionId,
+      })),
+    });
+    try {
+      await saveConfig({ throwOnError: true });
+      if (parsed.workflowApiDrafts) await saveWorkflowApiDrafts(newConnectionId, parsed.workflowApiDrafts);
+      else if (parsed.workflowApi) await saveAutodlWorkflowTemplate(newConnectionId, parsed.workflowApi.defaults);
+    } catch (error) {
+      useAppStore.getState().showToast(error instanceof Error ? error.message : t('保存失败'), 'error');
+      return;
+    }
+    useAppStore.getState().showToast(t('已导入连接，请补填 API Key'));
+    setPendingApiKeyConnectionId(newConnectionId);
+  };
+
+  const openAddDialog = () => {
+    setPendingApiKeyConnectionId(null);
+    setDialog((previous) => ({ open: true, connectionId: undefined, revision: previous.revision + 1 }));
+  };
+
+  const openEditDialog = (connectionId: string) => {
+    setPendingApiKeyConnectionId(null);
+    setDialog((previous) => ({ open: true, connectionId, revision: previous.revision + 1 }));
+  };
+
+  const closeConnectionDialog = () => {
+    setPendingApiKeyConnectionId(null);
+    setDialog((previous) => ({ open: false, connectionId: undefined, revision: previous.revision }));
+  };
+
+  const handleSaveConnection = async (
+    connectionId: string,
+    providerConfig: ApiProviderConfig,
+    related?: { runninghubWorkflowApiKey?: string; workflowApiDrafts?: import('../../types/workflowApi').WorkflowApiDraft[] },
+  ) => {
+    saveProviderConfig(connectionId, providerConfig);
+    const definition = getProviderDefinition(connectionId, providerConfig);
+    if (definition?.kind === 'web-search') {
+      updateConfig({ webSearchProviderId: definition.id as WebSearchProviderId });
+    } else if (related?.runninghubWorkflowApiKey) {
+      setProviderConfig('runninghub', {
+        name: 'RunningHub 工作流',
+        apiKey: related.runninghubWorkflowApiKey,
+      });
+    } else if (related && 'runninghubWorkflowApiKey' in related && config.providers.runninghub) {
+      await removeProviderConfig('runninghub');
+    }
+    await saveConfig({ throwOnError: true });
+    if (definition?.kind === 'workflow-api') await saveWorkflowApiDrafts(connectionId, related?.workflowApiDrafts ?? []);
+    closeConnectionDialog();
+  };
+
+  const handleRemoveConnection = async (connectionId: string) => {
+    try {
+      const providerConfig = useAppStore.getState().config.providers[connectionId];
+      const definition = getProviderDefinition(connectionId, providerConfig);
+      if (connectionId === 'dreamina') await handleDreaminaLogout();
+      const connectionIds = definition?.kind === 'web-search'
+        ? getWebSearchProviderDefinitions().map((provider) => provider.id)
+        : [connectionId];
+      if (connectionId === 'runninghub-model') connectionIds.push('runninghub');
+      let cleanupFailed = false;
+      for (const id of connectionIds) {
+        try {
+          await removeProviderConfig(id);
+        } catch {
+          // Action 先移除内存配置，再清理项目引用。后者失败不能跳过配置提交。
+          // 若配置仍存在，则删除本身未完成，不能当作引用清理失败继续。
+          if (useAppStore.getState().config.providers[id]) throw new Error('连接删除失败，请重试');
+          cleanupFailed = true;
+        }
+      }
+      if (definition?.kind === 'web-search') updateConfig({ webSearchProviderId: undefined });
+      await saveConfig({ silent: true, throwOnError: true });
+      setPendingDeleteId(undefined);
+      useAppStore.getState().showToast(
+        cleanupFailed ? t('连接已删除，但部分项目的模型引用清理失败，请检查相关项目') : t('连接已删除'),
+        cleanupFailed ? 'error' : 'success',
+      );
+    } catch {
+      const state = useAppStore.getState();
+      state.showToast(state.configSaveError || t('连接删除失败，请重试'), 'error');
+    }
+  };
+
+  return (
+    <>
+      <SettingsPaneBody>
+        <div className="o-pane-head">
+          <SettingsPaneHeader
+            title={t('API Key')}
+            description={t('管理模型厂商与联网搜索的连接凭据。')}
+          />
+          <div className="o-inline o-inline--wrap shrink-0">
+            <OfficialButton
+              variant="outline"
+              size="sm"
+              aria-label={t('从剪贴板导入连接')}
+              data-tooltip={t('从剪贴板导入连接')}
+              onClick={() => void handleImportConnection()}
+            >
+              <Icon icon="mdi:clipboard-arrow-down-outline" width={16} />
+              {t('导入连接')}
+            </OfficialButton>
+            <OfficialButton
+              variant="default"
+              size="sm"
+              aria-label={t('添加 API 厂商')}
+              data-tooltip={t('添加 API 厂商')}
+              onClick={openAddDialog}
+            >
+              <Icon icon="mdi:plus" width={16} />
+              {t('添加厂商')}
+            </OfficialButton>
+          </div>
+        </div>
+
+        {unreadSecrets?.length > 0 && (
+          <div role="status" className="mt-6">
+            <OfficialNote tone="warning" icon={<Icon icon="mdi:alert-outline" width={16} />}>
+              {t('部分 API Key 读取失败，原引用已保留。请在设置顶部重试加载；这与未填写 Key 不同。')}
+            </OfficialNote>
+          </div>
+        )}
+
+        {!secretStoreAvailable && (
+          <div className="mt-6">
+            <OfficialNote tone="warning" icon={<Icon icon="mdi:shield-alert-outline" width={16} />}>
+              {t('当前环境无法保存凭据，API Key 不会写入本地，仅本次会话有效。')}
+            </OfficialNote>
+          </div>
+        )}
+
+        {providerItems.length === 0 ? (
+          <div className="o-empty">
+            <span className="o-empty__icon"><Icon icon="mdi:key-chain-variant" width={22} /></span>
+            <div className="o-empty__title">{t('尚未添加 API 厂商')}</div>
+            <p className="o-empty__desc">{t('添加厂商后，画布上的模型节点即可使用对应的服务。')}</p>
+            <OfficialButton variant="default" size="sm" onClick={openAddDialog}>
+              <Icon icon="mdi:plus" width={16} />
+              {t('添加厂商')}
+            </OfficialButton>
+          </div>
+        ) : (
+          <div className="o-stack mt-8">
+            {providerItems.map((item) => {
+              const definition = getProviderDefinition(item.id, item.config);
+              if (!definition) return null;
+              const selectedCount = item.config.selectedModels?.length;
+              const summaryUrl = providerSummaryUrl(item.config, definition.defaultBaseUrl);
+              const isDreamina = definition.id === 'dreamina';
+              const isRunningHub = definition.id === 'runninghub-model';
+              const isWebSearchProvider = definition.kind === 'web-search';
+              const isWorkflowApi = definition.kind === 'workflow-api';
+              const connectionWorkflows = workflows.filter((workflow) => workflow.workflowApi?.connectionId === item.id);
+              const needsWorkflowKey = connectionWorkflows.some((workflow) => workflow.workflowApi?.version !== 2 || workflow.workflowApi.protocol.auth?.type !== 'none');
+              const isPendingApiKey = definition.authType !== 'oauth' && !item.config.apiKey.trim() && (!isWorkflowApi || needsWorkflowKey);
+              const hasRunningHubModelKey = isRunningHub && !!item.config.apiKey.trim();
+              const hasRunningHubWorkflowKey = isRunningHub
+                && !!config.providers.runninghub?.apiKey.trim();
+              const runningHubKeyCount = Number(hasRunningHubModelKey)
+                + Number(hasRunningHubWorkflowKey);
+              const displayName = isWebSearchProvider
+                ? t('联网搜索')
+                : definition.id === 'custom-openai'
+                  ? item.config.name.trim() || definition.name
+                  : isWorkflowApi ? item.config.name.trim() || t(definition.name) : definition.name;
+              const statusLabel = isDreamina
+                ? t('OAuth 已连接')
+                : isRunningHub
+                  ? t('{count}/2 密钥已配置', { count: runningHubKeyCount })
+                  : isPendingApiKey
+                    ? t('待填写 API Key')
+                    : isWorkflowApi ? t('已配置') : t('已连接');
+              /* 连接正常 = success（绿）；只有「待填写 / 密钥不齐」才是 warning。
+                 原来正常态给的是 `secondary`（灰）⇒ 与卡片正文一个色阶，看不出「已就绪」
+                 （用户 2026：「已连接 这个按钮 不够醒目」）✗ */
+              const statusTone: 'warning' | 'success' =
+                isPendingApiKey || (isRunningHub && runningHubKeyCount < 2) ? 'warning' : 'success';
+              return (
+                <div key={item.id} className="o-card">
+                  <div className={['o-card__row', !isRunningHub && 'o-card__row--center'].filter(Boolean).join(' ')}>
+                    <ProviderBadge providerId={item.id} config={item.config} size="large" />
+                    <div className="o-card__body">
+                      <div className="o-inline o-inline--wrap">
+                        <span className="o-card__title">{displayName}</span>
+                        <OfficialBadge tone={statusTone}>{statusLabel}</OfficialBadge>
+                        {providerBalances[item.id] && (
+                          <span className="o-muted">{providerBalances[item.id]}</span>
+                        )}
+                      </div>
+
+                      {!isRunningHub && <div className="o-card__meta">
+                        {isWorkflowApi ? (
+                          <><span>{t('自定义工作流')}</span>{summaryUrl && <span>{summaryUrl}</span>}</>
+                        ) : isWebSearchProvider ? (
+                          <>
+                            <span>{t('当前厂商：{name}', { name: definition.name })}</span>
+                            {summaryUrl && <span>{summaryUrl}</span>}
+                          </>
+                        ) : (
+                          <>
+                            <span>
+                              {selectedCount === undefined
+                                ? t('沿用内置模型目录')
+                                : t('{count} 个模型', { count: selectedCount })}
+                            </span>
+                            {summaryUrl && <span>{summaryUrl}</span>}
+                          </>
+                        )}
+                      </div>}
+
+                      {isRunningHub && <div className="o-card__stack">
+                        <div className="o-state__row">
+                          <span className={hasRunningHubModelKey ? 'o-state o-state--on' : 'o-state'}>
+                            <Icon icon={hasRunningHubModelKey ? 'mdi:check-circle-outline' : 'mdi:circle-outline'} width={14} />
+                            {hasRunningHubModelKey ? t('模型连接已配置') : t('模型连接未配置')}
+                          </span>
+                          {hasRunningHubModelKey && <span className="o-muted">
+                            {selectedCount === undefined ? t('沿用内置模型目录') : t('{count} 个模型', { count: selectedCount })}
+                          </span>}
+                        </div>
+                        <div className="o-state__row">
+                          <span className={hasRunningHubWorkflowKey ? 'o-state o-state--on' : 'o-state'}>
+                            <Icon icon={hasRunningHubWorkflowKey ? 'mdi:check-circle-outline' : 'mdi:circle-outline'} width={14} />
+                            {hasRunningHubWorkflowKey ? t('工作流连接已配置') : t('工作流连接未配置')}
+                          </span>
+                          <OfficialButton
+                            variant="ghost"
+                            size="sm"
+                            className="o-icon-btn"
+                            onClick={() => { useAppStore.getState().setSettingsOpen(false); useAppStore.getState().setWorkflowPanelOpen(true, 'workflow'); }}
+                          >
+                            {t('管理云工作流')} <Icon icon="mdi:arrow-right" width={14} />
+                          </OfficialButton>
+                        </div>
+                      </div>}
+                    </div>
+
+                    {pendingDeleteId === item.id ? (
+                      <div className="o-card__actions">
+                        <span className="o-muted">{t('移除此连接？')}</span>
+                        <OfficialButton
+                          variant="ghost"
+                          size="icon-sm"
+                          className="o-icon-btn"
+                          aria-label={t('取消删除')}
+                          onClick={() => setPendingDeleteId(undefined)}
+                        >
+                          <Icon icon="mdi:close" width={15} />
+                        </OfficialButton>
+                        <OfficialButton
+                          variant="ghost"
+                          size="icon-sm"
+                          className="o-icon-btn o-icon-btn--danger"
+                          aria-label={t('确认删除')}
+                          onClick={() => void handleRemoveConnection(item.id)}
+                        >
+                          <Icon icon="mdi:check" width={15} />
+                        </OfficialButton>
+                      </div>
+                    ) : (
+                      <div className="o-card__actions">
+                        {!isDreamina && !isWebSearchProvider && (
+                          <OfficialButton
+                            variant="ghost"
+                            size="icon-sm"
+                            className="o-icon-btn"
+                            aria-label={t('复制 {name} 配置', { name: definition.name })}
+                            data-tooltip={t('复制配置（不含 API Key）')}
+                            onClick={() => void handleCopyConnection(item.id)}
+                          >
+                            <Icon icon="mdi:content-copy" width={15} />
+                          </OfficialButton>
+                        )}
+                        <OfficialButton
+                          variant="ghost"
+                          size="icon-sm"
+                          className="o-icon-btn"
+                          aria-label={t('编辑 {name}', { name: definition.name })}
+                          data-tooltip={t('编辑连接')}
+                          onClick={() => openEditDialog(item.id)}
+                        >
+                          <Icon icon="mdi:pencil-outline" width={16} />
+                        </OfficialButton>
+                        <OfficialButton
+                          variant="ghost"
+                          size="icon-sm"
+                          className="o-icon-btn"
+                          aria-label={t('删除 {name}', { name: definition.name })}
+                          data-tooltip={t('删除连接')}
+                          onClick={() => setPendingDeleteId(item.id)}
+                        >
+                          <Icon icon="mdi:trash-can-outline" width={16} />
+                        </OfficialButton>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="o-footer">
+          <OfficialButton
+            variant="default"
+            size="md"
+            onClick={async () => {
+              try { await saveConfig(); } catch { return; }
+              onClose();
+            }}
+          >
+            {t('完成')}
+          </OfficialButton>
+        </div>
+      </SettingsPaneBody>
+
+      <ProviderConnectionDialog
+        key={connectionDialogKey}
+        isOpen={connectionDialogOpen}
+        connectionId={editingConnectionId}
+        initialConfig={editingConfig}
+        providerConfigs={config.providers}
+        connectedProviderIds={connectedProviderIds}
+        fallbackModels={fallbackModels}
+        dreaminaLoggedIn={!!dreaminaAuth?.loggedIn}
+        dreaminaLoading={dreaminaLoading}
+        runninghubWorkflowApiKey={config.providers.runninghub?.apiKey}
+        onDreaminaLogin={() => void handleDreaminaLogin(!!dreaminaAuth?.loggedIn)}
+        onClose={closeConnectionDialog}
+        onSave={handleSaveConnection}
+      />
+
+      <DreaminaLoginModal
+        isOpen={dreaminaModalOpen}
+        runtime={dreaminaRuntime}
+        onClose={() => setDreaminaModalOpen(false)}
+        onOpenUrl={openExternalUrl}
+        onCopy={handleDreaminaCopy}
+      />
+      <span className="sr-only" aria-live="polite">{dreaminaStatusMsg}</span>
+    </>
+  );
+}

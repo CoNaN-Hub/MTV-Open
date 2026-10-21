@@ -1,0 +1,499 @@
+/**
+ * image-lossless-float.css —— 「无损改图」浮编的**宿主约束**（MTV 自有功能）
+ * ══════════════════════════════════════════════════════════════════════════
+ * 编辑器本体复用 `image-redraw-float.css` 那套 `.irf-*` 词汇表（决策⑥：走 MTV 自己的设计体系），
+ * 这里只补**它没有的两件事**：
+ *
+ * 1. **宿主宽度**：`.irf-root` 是 `inset:0` ⇒ 编辑器宽高 = 卡片尺寸。而对比卡的尺寸是
+ *    **跟随源图卡派生**的（可能只有 250 宽），底栏里 140px 滑条 + 信息文字 + 两个按钮必然挤爆
+ *    （用户明确要求：不要出现文字溢出 / 被遮挡）。所以无损改图的宿主自带最小宽度并居中 ——
+ *    与 image 卡那条 `min-w-[640px]` 的浮动编辑条同一口径。
+ * 2. **文字兜底**：信息行一律单行省略号，绝不换行撑高底栏。
+ */
+
+.irf-root[data-mode='lossless'] {
+  /* ★★★ 面板 = **卡片本体**（用户 2026：「其他卡片什么样就什么样啊 图卡的逻辑」）。
+     就是 MTV 图卡那套 `pR(ratio)`（短边恒 250、跟图片比例走）⇒ 编辑器**就是一张图卡**，
+     和其它浮编（重绘 / 裁剪）完全同构：`.irf-root` 自带的 `inset:0` 天然铺满卡片。
+     ⚠️ 别再用视口去算一个"屏幕恒定"的大面板 ✗ —— 竖图会占满整屏
+        （宽 = 底栏 645 ⇒ 高被比例锁成 1148），用户原话「怎么一点击就全屏了」。 */
+  inset: 0;
+  /* ★ round 103：`--ilf-surface` 原来写死 `#1c1c1c` —— 该值**官方逐字有**
+     （`D:\DEEPSEEK\_official-css\index-BroFpZiQ.css` @740691 `--sidebar:#1c1c1c`）⇒ 改引用官方令牌。
+     ⚠️ 官方这个令牌**没有浅色层**，本文件也没有 `[data-theme='light']` 覆盖 ⇒ 浅色下仍是 #1c1c1c，
+     属报告 §15.4 待补项（本轮按用户口径「浅色字面值不动」**未新增浅色覆盖**）。 */
+  --ilf-surface: var(--sidebar);
+  /* ★ 视图层要「把 `--irf-scale` 再除以视图倍数」，指针要指向**本层已经算好的倍率**。
+     ⚠️ 不能直接写 `var(--float-scale)`：那颗变量是画布那一层给的，编辑器若挂在
+        portal / 别处就取不到 ⇒ 补偿塌成 1，图跟卡片各按不同基准缩放
+        （用户实测：「放大缩小画布后 图卡内部也跟着变化」「粉红蒙版和底图对不上」）。
+     `--irf-scale-base` 在 `.irf-root` 上取一次，下游一律用它当基准。 */
+  --irf-scale-base: var(--irf-scale);
+}
+
+/* 窄卡上让编辑器有一个明确的承载面（圆角与卡片一致 = 16px） */
+.irf-root[data-mode='lossless'] .irf-stage {
+  /* ⚠️ 必须**不透明**：原来是 0.86 的半透明，下面那张对比卡透出来，看着就是「两张图上下重叠」。
+     ⚠️ 蓝框要换掉：`outline: 2px solid rgba(31,162,220,.3)` 是**重绘编辑器**的语义
+        （表示「蒙版区」），无损改图这里不要 —— 那是"有蓝色"的来源之一。
+     ⚠️ **不要描边**：那 1px 会让图与卡片之间露出一圈灰边，
+        用户口径是「底板要包裹住图」⇒ 图必须铺满整张卡（与其它图卡一致：无 rim）。 */
+  outline: none;
+  border: none;
+  border-radius: 16px;
+  background: var(--ilf-surface);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+/* ── 关键覆盖：redraw 那套是「固定 500px 底栏 + 32×32 纯图标钮」，
+      无损改图用的是**文字按钮**（修改/还原/显示蒙版/按住对比/下载 PSD/生成合成图），
+      照抄就会被 32px 裁成 [107>49] 这种 ✗（实测）。这里按本功能的 UI 改。 ── */
+
+/* 底栏宽度跟随宿主（不再固定 500px），并紧贴卡片下沿 */
+.irf-root[data-mode='lossless'] .irf-bar {
+  /* ★★ 底栏宽度：优先**跟面板（= 卡片）等宽**，但**不能窄过内容所需** ——
+     实测（`width: max-content` + 逐档扫描「有没有按钮文字被压出自身盒子」）：
+     行2 [原图不透明度 100% · 滑条 · 按住对比 · 下载合成图 · 下载 PSD · 生成合成卡]
+     **需要 568 屏幕 px**；比它窄，「按住对比」就开始溢出自身盒子、看着像和邻居重叠 ✗
+     （上一版写 540 就是这么翻车的 —— 用户截图里文字全叠在一起）。
+     所以取「卡片宽」与「572」的大者：卡片在屏幕上通常只有一两百 px ⇒ 实际就是 572。
+     ⚠️ 坐标系有**两套**，别混：
+        · `100%` 的基准是**父级（面板）的流坐标宽度**，而元素自己被 `scale(--irf-scale)` 补偿过
+          ⇒ 必须 **除以** `--irf-scale` 才是「和面板等宽」的布局值（实测漏除会渲染成 1379 ✗）。
+        · `min-width` 里的**固定长度 px** 是元素自己的布局值，补偿后 1:1 = 屏幕 px
+          ⇒ 直接写屏幕值，**不要**除。 */
+  width: calc(100% / var(--irf-scale));
+  min-width: min(572px, 100vw - 48px);
+  /* 底栏挂在面板（= 卡片）**下方 16 屏幕 px**（用户：「底部悬浮编辑区 与卡片本体
+     怎么能没有间距呢」）。
+     ⚠️ 这里必须 **乘** `--irf-scale`：`top` 是**布局偏移**，而元素自己的
+        `scale(--irf-scale)` 只缩放它的**盒子**、不缩放它的**位置** ⇒ 布局偏移只吃到祖先的
+        `scale(zoom)`。要拿到 16 屏幕 px ⇒ `16px / zoom = 16px * --irf-scale` ✓
+        （实测：写 `16px` 或 `16px / var(--irf-scale)` 都只剩 8 屏幕 px ✗）。 */
+  top: calc(100% + 16px * var(--irf-scale));
+  bottom: auto;
+}
+
+/* 文字按钮：**宽度必须自适应内容**。
+   ⚠️ redraw 那套 `.irf-btn` 是「32×32 纯图标钮」，写死了 `width: 32px; padding: 0`
+   —— 照抄会把「按住对比 / 下载合成图 / 下载 PSD」压成 32 宽 ⇒ 文字溢出自身盒子、
+   相邻按钮两两重叠（用户实测截图就是这个 ✗）。所以 `width: auto` + `white-space: nowrap`
+   这两条是**承重**的，不是美化。
+   尺寸对标 MTV 标准浮动工具条（`.ftb-btn` 字号 12、`.node-floating-toolbar` 药丸高 48）：
+   这里取 26 高 / 12 号字 / 9px 内边距，比 MTV 的图标钮更矮更紧。 */
+.irf-root[data-mode='lossless'] .irf-tool,
+.irf-root[data-mode='lossless'] .irf-btn {
+  width: auto;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 9px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* 分隔线跟着收（redraw 是 24 高） */
+.irf-root[data-mode='lossless'] .irf-sep {
+  height: 18px;
+}
+
+/* 顶部工具条：内容超宽时**换行居中对齐**，绝不横向溢出（实测 428 > 424） */
+/* ⚠️ 工具条**必须单行、不换行**（用户：「工具栏要有工具栏的样子，放大缩小画布为啥要变成两行？」）。
+   它是恒定屏幕尺寸的，所以缩小时不会挤坏 —— 之前加了 flex-wrap:wrap 才会在缩放时折成两行，
+   折行后还比偏移量高，把面板压住（实测重叠 35px）。 */
+.irf-root[data-mode='lossless'] .irf-toolbar {
+  flex-wrap: nowrap;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 3px 6px;
+}
+.irf-root[data-mode='lossless'] .irf-toolgroup {
+  gap: 3px;
+  padding: 3px;
+}
+
+/* 底栏：换行但默认不换，信息行单行省略 —— 保证不会出现文字溢出 */
+.irf-root[data-mode='lossless'] .irf-bar-inner {
+  min-width: 0;
+  gap: 5px;
+  padding: 6px;
+}
+.irf-root[data-mode='lossless'] .irf-row {
+  min-width: 0;
+  gap: 7px;
+}
+.irf-root[data-mode='lossless'] .irf-row-left {
+  min-width: 0;
+  overflow: hidden;
+}
+.irf-root[data-mode='lossless'] .irf-row-right {
+  flex-shrink: 0;
+}
+.irf-root[data-mode='lossless'] .irf-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 「原图不透明度 100%」这个标签**不参与收缩**（否则被挤到 77px 截断：实测 [107>77]） */
+.irf-root[data-mode='lossless'] .irf-row-left > .irf-hint:first-child {
+  flex-shrink: 0;
+}
+
+/* 对齐/校色/噪声那条信息很长（实测需要 751px）⇒ 允许**换行显示完整**，
+   而不是用省略号把内容吃掉（用户口径：不要出现文字溢出/被截断）。
+   ⚠️ 必须用 `:last-child` 而不是 `+ .irf-hint` —— 中间隔着一个 `.irf-slider`，
+      相邻兄弟选择器根本匹配不到（第一版就踩了这个）。 */
+.irf-root[data-mode='lossless'] .irf-row-left > .irf-hint:last-child {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 16px;
+}
+
+/* 工具条里的两个文字按钮（修改 / 还原 / 显示蒙版 / 按住对比）不许换行撑宽 */
+.irf-root[data-mode='lossless'] .irf-tool,
+.irf-root[data-mode='lossless'] .irf-btn {
+  white-space: nowrap;
+}
+
+/* 原图不透明度那条滑条：内联写了 `width: 140`，但不加 `flex-shrink: 0` 会被压缩到 96px 裁掉
+   （实测 textOverflowing 里那条 `[110>96]` 就是它） */
+.irf-root[data-mode='lossless'] .irf-row-left > .irf-slider {
+  flex-shrink: 0;
+}
+/* 顶部工具条：`width: max-content` + 恒定屏幕尺寸 ⇒ 会长过编辑器。
+   用同一个除法把它夹在宿主宽度内（超了就走换行，见上面的 flex-wrap）。 */
+.irf-root[data-mode='lossless'] .irf-toolbar {
+  /* 单行工具条：允许比面板宽，但**不许超出视口**（否则卡片靠屏幕左侧时会溢出，实测 x=-89）。
+     超出时横向滚动而不是折行 —— 用户口径：工具栏就是一行。 */
+  /* 同一坐标系（见 `.irf-bar` 那条注释）：`100vw` 直接可用，不要除以 `--irf-scale`。 */
+  max-width: calc(100vw - 32px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+/* 预览与绘制层随面板圆角（否则图是方的、面板是圆的，四角会漏出来） */
+.irf-root[data-mode='lossless'] .irf-image,
+.irf-root[data-mode='lossless'] .irf-paint,
+.irf-root[data-mode='lossless'] .ilf-mask-view {
+  border-radius: 16px;
+}
+
+/* ── 两处截图逼出来的修正 ────────────────────────────────────────── */
+
+/* ① 蒙版显示层必须压在**图片层之上**：`.irf-image` 是 `z-index:1`、`.irf-paint` 是 `2`，
+      我把它改成 `inset:0` 时丢了 z-index ⇒ 被图片盖住、红色蒙版完全不显示（截图实测）。
+      取 3：在图片与绘制层之上，且 `pointer-events:none` 不影响画笔命中。 */
+.irf-root[data-mode='lossless'] .ilf-mask-view {
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* ② 视图层（滚轮缩放 / 空格拖拽平移）—— `.irf-stage` 里**唯一**吃 transform 的节点。
+      画面 / 蒙版层 / 绘制层 / 改动标注都挂在它下面 ⇒ 放缩后笔迹与底图永远对齐。
+      ⚠️ `--irf-scale` 必须在**这一层**再除一次视图倍数：里面的 chip 字号、虚线框线宽都是
+         `calc(Npx * var(--irf-scale))`，若不再除，放大 4 倍后标注字也变 4 倍（用户口径反了）。
+      `--float-scale` 是画布 zoom 的倒数（`.irf-root` 给它设的 `--irf-scale`），这里要重算而不是继承。 */
+.irf-root[data-mode='lossless'] .ilf-vport {
+  position: absolute;
+  inset: 0;
+  --irf-scale: calc(var(--irf-scale-base, 1) / var(--ilf-vscale, 1));
+  transform-origin: 0 0;
+  /* ⚠️ 不要 `will-change: transform`：那会常驻一个合成层，画布 zoom 下
+     图/蒙版的取样跟着变（用户实测：内部跟着变、蒙版和底图对不上）。 */
+}
+
+/* ② 底栏排版：`justify-content: space-between` 在窄面板下把信息挤成一列 8 行。
+      改成「左组占满一行、按钮另起一行右对齐」⇒ 信息有整行宽度，行数立刻降下来。 */
+.irf-root[data-mode='lossless'] .irf-row {
+  flex-wrap: nowrap;   /* 行2 必须一行（用户：2行就是2行） */
+}
+.irf-root[data-mode='lossless'] .irf-row-left {
+  flex: 1 1 100%;
+}
+.irf-root[data-mode='lossless'] .irf-row-right {
+  margin-left: auto;
+}
+/* ③ 左组内部也要换行：只给 `.irf-row-left` 占满一行还不够 ——
+      它内部是 [标签|滑条|信息] 的横向 flex，信息仍被挤成 8 行窄条（截图实测）。
+      让信息自己独占一行 ⇒ 用整行宽度，2 行内显示完。 */
+.irf-root[data-mode='lossless'] .irf-row-left {
+  flex-wrap: nowrap;   /* 行2 的左组也**不许折行** —— 折了「按住对比」就掉到第三行 */
+  flex: 0 1 auto;
+}
+.irf-root[data-mode='lossless'] .irf-row-left > .irf-hint:last-child {
+  flex: 1 1 100%;
+}
+/* ── 用户口径的底部两行：行1 素材槽 / 行2 控件 ── */
+
+/* 行1：原图槽 · ⇄ · 修改图槽（参考实现 `.slots` / `.slot` / `#bSwap`） */
+.irf-root[data-mode='lossless'] .ilf-slots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.irf-root[data-mode='lossless'] .ilf-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.irf-root[data-mode='lossless'] .ilf-slot img {
+  display: block;
+  width: 26px;
+  height: 26px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #101010;
+  flex-shrink: 0;
+}
+.irf-root[data-mode='lossless'] .ilf-slot b {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
+}
+
+/* 顶部：笔刷大小滑块 + 预览点（滑块收窄，给「文字按钮不重叠」腾宽度） */
+.irf-root[data-mode='lossless'] .ilf-size-range {
+  width: 76px;
+  flex-shrink: 0;
+  accent-color: #ffffff;
+  cursor: pointer;
+}
+.irf-root[data-mode='lossless'] .ilf-tip-preview {
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+/* 行2：左组不再独占一行（行1 已单独占行），保持一行放置 */
+.irf-root[data-mode='lossless'] .irf-row-left {
+  flex: 0 1 auto;
+}
+
+/* 工具条末尾的状态行：单行省略，不撑宽工具条 */
+.irf-root[data-mode='lossless'] .ilf-status {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 4px;
+}
+
+/* 底栏的变换原点：redraw 那份是 `center bottom`，`scale(--irf-scale)` 会把**顶边往上顶**
+   （实测底栏因此压住面板 46px）。改成 `top center` ⇒ 顶边钉在 `top` 上不动，向下展开。 */
+.irf-root[data-mode='lossless'] .irf-bar {
+  transform-origin: top center;
+}
+
+/* ── 贴边自动内移 ────────────────────────────────────────────────────────────
+   顶栏 / 底栏是**以卡片中线居中**的（横向挂在 `left:50%` 上），而它们比卡片宽得多
+   （底栏 760、顶栏 534，卡片可能只有 123 屏幕 px）⇒ 卡片一靠屏幕边缘，
+   它们就有一半跑到画面外（实测卡片在 x=248 时底栏 left = -71 ✗）。
+   `--ilf-shift` 由组件按帧量出「越界了多少**屏幕 px**」写进来。
+   ⚠️ 但 `translateX` 的位移是**布局 px**、只吃祖先的 `scale(zoom)`（它写在自己
+      `scale(--irf-scale)` 的左边 ⇒ 先缩放盒子、再位移，位移不被自身缩放补偿）
+      ⇒ 屏幕位移 = 布局位移 × zoom ⇒ 布局位移 = 屏幕位移 ÷ zoom = **屏幕位移 × `--irf-scale`** ✓
+      （实测漏乘时写 82.5px 只移动了 41 屏幕 px ✗） */
+.irf-root[data-mode='lossless'] .irf-toolbar,
+.irf-root[data-mode='lossless'] .irf-bar {
+  transform: translateX(calc(-50% + var(--ilf-shift, 0px) * var(--irf-scale))) scale(var(--irf-scale));
+}
+
+/* ── 改动标注：虚线框 + `#N 改动大` 彩色编号 chip（参考实现 `#cands`）────────
+   参考实现逐字：
+     `#cands{position:absolute;inset:0;pointer-events:none;overflow:hidden}`
+     `drawCandidates()`：`lineWidth = 2*dpr`、`setLineDash([8*dpr, 6*dpr])`、
+        `cols = ['#3ccf8e','#f5b342','#ff5c6c','#4f8cff','#c77dff']`,
+        `strokeRect(tx + box[0]*scale, ty + box[1]*scale, ...)`  ← **屏幕空间**的画布描边
+     `layoutCandidates()`：chip 贴在 `(tx + box[0]*scale, ty + box[1]*scale - 4)`，
+        `transform: translate(0,-100%)`、`font-size:11.5px;font-weight:600;color:#fff;padding:4px 10px`、
+        `border-radius:7px 7px 7px 2px`、`button.c0{background:#22a86a}` 等 5 色。
+   落到 DOM 上：线宽/字号/内边距都要**屏幕恒定** —— 这一层在 `.irf-stage` 里、随画布缩放
+   ⇒ 屏幕 px = 布局 px × zoom ⇒ 布局 px = 屏幕 px × `--irf-scale`（**乘**，不是除）。
+   ★ 必须画在 `.irf-paint`（z-index 2）**之上**：那层是画笔命中层、`touch-action:none`，
+     压不住就点不到 chip。只有 chip 吃事件，框本身 `pointer-events:none` ⇒ 不挡画笔。 */
+.irf-root[data-mode='lossless'] .ilf-cands {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.irf-root[data-mode='lossless'] .ilf-cand {
+  position: absolute;
+  outline: calc(2px * var(--irf-scale)) dashed currentColor;
+  outline-offset: calc(-1px * var(--irf-scale));
+  background: transparent;   /* 参考实现只描边、**不填色**（上一版填了 6% 白 ✗） */
+  pointer-events: none;
+}
+/* 5 色循环（参考 `cols[i % 5]`） */
+.irf-root[data-mode='lossless'] .ilf-cand.c0 { color: #3ccf8e; }
+.irf-root[data-mode='lossless'] .ilf-cand.c1 { color: #f5b342; }
+.irf-root[data-mode='lossless'] .ilf-cand.c2 { color: #ff5c6c; }
+.irf-root[data-mode='lossless'] .ilf-cand.c3 { color: #4f8cff; }
+.irf-root[data-mode='lossless'] .ilf-cand.c4 { color: #c77dff; }
+
+/* 编号 chip：贴框左上角、整体抬到框上方（`translate(0,-100%)`），纵向避让由组件算好写进 `top` */
+.irf-root[data-mode='lossless'] .ilf-cand-chip {
+  position: absolute;
+  left: 0;
+  transform: translate(0, -100%);
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(4px * var(--irf-scale)) calc(10px * var(--irf-scale));
+  border: 0;
+  border-radius: calc(7px * var(--irf-scale)) calc(7px * var(--irf-scale)) calc(7px * var(--irf-scale))
+    calc(2px * var(--irf-scale));
+  font-size: calc(11.5px * var(--irf-scale));
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.irf-root[data-mode='lossless'] .ilf-cand.c0 .ilf-cand-chip { background: #22a86a; }
+.irf-root[data-mode='lossless'] .ilf-cand.c1 .ilf-cand-chip { background: #d4900f; }
+.irf-root[data-mode='lossless'] .ilf-cand.c2 .ilf-cand-chip { background: #e0455a; }
+.irf-root[data-mode='lossless'] .ilf-cand.c3 .ilf-cand-chip { background: #3b78e7; }
+.irf-root[data-mode='lossless'] .ilf-cand.c4 .ilf-cand-chip { background: #9450e0; }
+.irf-root[data-mode='lossless'] .ilf-cand-chip:hover {
+  filter: brightness(1.15);   /* 参考 `#cands button:hover{filter:brightness(1.15)}` */
+}
+
+/* ── 「高级」弹层（对齐微调 / 校色参数 / 柔边 / 重新识别 / 处理状态）──────────
+   挂在 `.irf-toolbar` **里面**：工具条自带 `scale(--irf-scale)` ⇒ 弹层里一切 px 都是
+   **屏幕像素**，不用再做任何换算；而且它跟着工具条一起被"贴边内移"钳制，不会出屏。
+   ⚠️ 工具条为防溢出写了 `overflow-x: auto`，会把弹层裁掉 ⇒ 打开时换成 `visible`
+     （见 `.ilf-toolbar-adv`）。 */
+.irf-root[data-mode='lossless'] .irf-toolbar.ilf-toolbar-adv {
+  overflow: visible;
+}
+.irf-root[data-mode='lossless'] .ilf-adv {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 60;
+  width: 292px;
+  padding: 10px 12px 12px;
+  border: 1px solid #ffffff1a;
+  border-radius: 14px;
+  background: #1c1c1c;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  color: #e6e6e6;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: left;
+  cursor: default;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #ffffff14;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-head b {
+  font-size: 12px;
+  font-weight: 600;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-sec {
+  padding: 6px 0;
+  border-bottom: 1px solid #ffffff0d;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-sec:last-of-type {
+  border-bottom: none;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  color: #9a9a9a;
+  font-size: 11px;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-val {
+  color: #e6e6e6;
+  font-variant-numeric: tabular-nums;
+}
+/* 处理状态：四行小字，左对齐、可换行 —— 不裁切、不省略（用户口径：不许文字溢出/被遮） */
+.irf-root[data-mode='lossless'] .ilf-adv-status {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: #c9c9c9;
+  font-size: 11px;
+  line-height: 16px;
+  word-break: break-all;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #c9c9c9;
+  white-space: nowrap;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-num {
+  flex: 0 0 62px;
+  text-align: center;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-step {
+  flex: 0 0 auto;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-range {
+  width: 100%;
+  accent-color: #ffffff;
+  cursor: pointer;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+}
+.irf-root[data-mode='lossless'] .ilf-adv-actions .irf-btn {
+  height: 26px;
+}
+
+/* ── 编辑期间让开 MTV 的品牌火焰按钮 ────────────────────────────────────────
+   它 48×48、挂在 `canvas-brand-nav`（`z-index:40`，画布顶部居中）—— 属于画布 chrome，
+   层级在 React Flow 节点之上 ⇒ 实测正好压在本编辑器工具条中段（既挡视线又抢点击）。
+   它只是品牌装饰 ⇒ 编辑期间让开即可（这个类由组件在挂载/卸载时加到 `.canvas-drawing-root`）。 */
+.canvas-drawing-root.ilf-editor-open .brand-flame-button {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── 编辑期间摘掉对比滑块的**蓝焦点圈** ──────────────────────────────────────
+   `image-compare.css` 的 `.cmp:focus-visible { box-shadow: 0 0 0 2px var(--signal) }`，
+   而 `--signal` = `--foreground` = **官方 #f5f5f5**（2026 round 94 已从 MTV 品牌靛蓝改掉）。
+   ⚠️ 这段兜底本身仍要保留：白色焦点圈在图片上同样会「有颜色」，用户要的是无框。卡片被点开时 `.cmp` 正好是 activeElement
+   ⇒ 卡片四周会出现一圈蓝边（用户实测报「有蓝色」✗）。组件那边同时会主动 `blur()`，
+   这里再加一道兜底（例如用键盘 Tab 聚焦的情况）。 */
+.canvas-drawing-root.ilf-editor-open .cmp:focus-visible {
+  box-shadow: none;
+}

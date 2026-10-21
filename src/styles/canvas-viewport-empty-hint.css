@@ -1,0 +1,79 @@
+/*
+ * canvas-viewport-empty-hint.css —— 官方「当前视窗没有节点」胶囊（`fwt` @3561288）在 MTV 里的
+ * **唯一**样式适配。除下面这一条外，胶囊的观感全部来自官方逐字类串 + 官方 Button（`.o-btn`）。
+ *
+ * ── 为什么只需要这一条 ─────────────────────────────────────────────────────
+ * 官方 = Tailwind **v4**，MTV = Tailwind **v3**。逐条比对官方合并后的 CSS（6 份产物共 840,080 字符）
+ * 与 v3 的生成结果，**只有 `shadow-lg` 一条对不上**：
+ *   · `.flex` `.items-center` `.gap-4`(16px) `.rounded-full` `.px-4`(16px) `.py-2`(8px) `.border`(1px)
+ *     `.backdrop-blur-md`(blur 12px) `.text-sm`(14px/20px) —— v3 生成的值与官方逐字一致。
+ *   · `.shadow-lg`：官方 v4 = `box-shadow: var(--shadow-lg)`，
+ *     `--shadow-lg: 0px 2px 4px 0px #0000001a, 0px 4px 6px -1px #0000001a`（官方真机读数；
+ *     `.o-scope` 里已按此值定义了 `--shadow-lg`，见 `official-controls.css`@80）。
+ *     而 v3 的 `.shadow-lg` 是**核心工具类**，直接写死
+ *     `0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1)`，**不读** `--shadow-lg`
+ *     ⇒ 照搬类串会得到一圈更大更散的投影。
+ *   这里把官方 v4 的取值链钉回来（用的是 `.o-scope` 已有的官方令牌，没有新造颜色/阴影值）。
+ *
+ * ⚠️ 反过来，**不需要**修正的两条（容易误判，已用官方 CSS + 真机复核）：
+ *   1. `border-tap-border-primary` 是死类，但胶囊的描边色**不是** `currentColor` ——
+ *      官方 App 自己有一条全局 `*{border-color:var(--border);outline-color:var(--ring)}`
+ *      ⇒ 真机 computed `border = 0.666667px solid rgba(255,255,255,0.1)`（DSF 1.5 ⇒ 1px）
+ *      = `#ffffff1a`。MTV 的 Tailwind v3 preflight 把 `borderColor.DEFAULT` 设成同一个
+ *      `var(--border)`（`styles/base.css`@61 = `#ffffff1a`）⇒ **两边本来就一致**，无需覆盖。
+ *   2. `.o-scope` 会给胶囊加 `color: var(--o-foreground)` = `#f5f5f5`，
+ *      与官方真机测到的「胶囊 `color: rgb(245,245,245)`」**完全一致**。
+ *
+ * ── 官方真机 computed（提示显示态，DSF 1.5；本机可复现的部分已逐条对齐） ──────────
+ *   胶囊容器：font-size 16/24 · padding 8px 16px · gap 16px · height 49.33px ·
+ *             background-color rgba(0,0,0,0)（**死类确认：透明**）· border-radius 2.23696e+07px ·
+ *             box-shadow rgba(0,0,0,.1) 0 2px 4px 0, rgba(0,0,0,.1) 0 4px 6px -1px · backdrop-filter blur(12px)
+ *   文案 span：font-size 14 / line-height 20 · color oklch(0.871 0.006 286.286)
+ *   · `border-radius` 官方 = v4 的 infinity 被 clamp 到 `2.23696e+07px`；MTV v3 的 `rounded-full`
+ *     是 `9999px` —— 对 49px 高的元素**视觉等价**，但**不是逐字值**（已在报告里标注）。
+ *   · `font-family`：官方 = `Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto`；
+ *     MTV 用仓库自己的字体栈 —— 全局差异，不在本功能范围。
+ */
+.canvas-viewport-empty-hint {
+  box-shadow: var(--shadow-lg);
+  /* ⚠️ 必须显式声明官方字体栈 —— 这是真机上**字形都不一样**的原因，不是可有可无的声明。
+     官方胶囊（span / button）的 computed `font-family` 逐字 =
+       `Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`
+     （= 官方 App 栈，官方 `<html lang="zh" class="dark fonts-loaded">`）。
+     而 MTV 的 **Tailwind v3 preflight** 在 `html` 上把 font-family 设成了
+     `ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", …`，画布子树继承的是**这一条**
+     ⇒ 两边虽然字号/字距完全一样，**中文回退到的字体不同**：
+       · 官方真机 `CSS.getPlatformFontsForNode` = `Noto Sans SC Thin`（`NotoSansSC`，系统字体）
+       · MTV 真机同法         = `Microsoft YaHei UI`（`MicrosoftYaHeiUI`）
+     量用户给的两张截图（同一缩放 1.5）：文字墨迹宽度 306.00 vs 306.67 CSS px（几乎一致），
+     但墨迹像素数 **3463 vs 2576（差 26%）** ⇒ 视觉上就是「字不一样」。
+     这里按官方 computed 值逐字声明，让回退链与官方一致。 */
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* 官方胶囊真机 `cursor: auto`；MTV 画布子树里继承到的是 `default`。
+     两者视觉上都是箭头，但既然是 1:1 就一并对齐（不会影响按钮 —— 按钮那条选择器特异性更高）。 */
+  cursor: auto;
+}
+
+/*
+ * 官方 Button 在**本胶囊内**的两处取值，与 MTV `.o-btn` 不同 —— 按官方真机读数钉回。
+ * 选择器特异性 0,2,0 > `.o-btn`/`.o-btn--default` 的 0,1,0 ⇒ 不依赖文件顺序。
+ * 之所以**只作用在本胶囊**：这两条是 MTV 共享控件 `official-controls.css` 的既有取值，
+ * 直接改 `.o-btn` 会波及全仓每一颗官方按钮，不属于本功能范围（已在落地报告里登记）。
+ *
+ *   ① `cursor`：官方真机 = `default`（官方 Button 的 base 类串里**没有任何 cursor 工具类**，
+ *      所以吃浏览器默认值）；MTV `.o-btn` @113 写了 `cursor: pointer`。
+ *   ② `box-shadow`：官方 Button 的 default variant 挂 `shadow` ⇒ 读 `--shadow`
+ *      = `0px 2px 4px 0px #0000001a, 0px 1px 2px -1px #0000001a`（真机 computed
+ *      `rgba(0,0,0,0.1) 0px 2px 4px 0px, rgba(0,0,0,0.1) 0px 1px 2px -1px`）；
+ *      MTV `.o-btn--default` @133 是 `0 1px 2px 0 rgba(0,0,0,0.05)`。
+ *      `--shadow` 的官方值已按实测补进 `.o-scope`（`official-controls.css`）。
+ */
+.canvas-viewport-empty-hint .o-btn {
+  cursor: default;
+  box-shadow: var(--shadow);
+  /* ③ `border`：官方 Button 的 base 类串里**没有任何 border 工具类**（只有 `outline` variant 才带
+     `border border-input`）⇒ 真机 `border-width = 0px`；MTV `.o-btn` @111 写了
+     `border: 1px solid transparent` ⇒ 按钮宽 73.33 而不是 72（DSF 1.5 下 1px 边框算 0.667px×2），
+     连带胶囊也宽 1.33px（官方 429.33 / MTV 430.67）。此处清零对齐官方 box model。 */
+  border-width: 0;
+}

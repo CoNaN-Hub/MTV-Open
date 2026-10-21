@@ -1,0 +1,387 @@
+/* ============================================
+   全屏裁切/扩图舞台样式（crop-* / expand-*）
+   ⚠️ 历史：这里原本是全屏裁切弹窗 `shared/image/CropEditor.tsx`（react-image-crop + 钢笔）的样式表。
+      该弹窗**已整块删除**（官方裁剪改成画布上的浮层 `ImageFloatingCropEditor` + `styles/image-crop-float.css`）✓
+      本文件保留的是**仍在用**的部分：`ExpandEditor`（扩图）、`composer/*`、`CustomGridEditor` 等
+      复用的 `crop-overlay / crop-stage / crop-aspect-bar / crop-action-btn` 与 `expand-*`。
+      随弹窗陪葬的规则（`.ReactCrop*` 覆盖、`crop-pen-*` 钢笔、`crop-toolbar-dock`、
+      `crop-zoom-stage`、`crop-react-wrapper`、`crop-image`、`crop-mode-toggle`）已一并删除 ✓
+   ============================================ */
+
+/* Overlay：flex column 布局，填满视口 */
+.crop-overlay {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+/* 裁切和扩图舞台直接遮暗背景，避免原图编辑时再模糊整个窗口。 */
+.fullscreen-overlay--transparent.crop-overlay {
+  background: var(--black-alpha-60);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.crop-overlay > .fullscreen-close--absolute {
+  display: none;
+}
+
+/* 内容容器：spring 入场动画，阻止冒泡 */
+.crop-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 宽高比快捷按钮栏 — 固定底部浮动，与图片编辑工具统一 */
+.crop-aspect-bar {
+  position: fixed;
+  top: auto;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--theme-surface) 95%, transparent);
+  backdrop-filter: blur(24px);
+  border: 1px solid color-mix(in srgb, var(--theme-border) 80%, transparent);
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  max-width: calc(100vw - 24px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.crop-aspect-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.crop-aspect-btn {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: var(--cursor-pointer, pointer);
+  transition: color var(--transition-base), background var(--transition-base), border-color var(--transition-base);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.crop-aspect-btn.crop-aspect-close {
+  width: 32px;
+  padding: 0;
+  border-color: transparent;
+  margin-right: 4px;
+}
+
+/* 裁切工具栏的关闭按钮固定在确认按钮右侧，并与多图编辑保持同样的 8px 间隔。 */
+.crop-aspect-btn.crop-toolbar-close {
+  flex: none;
+  margin-right: 0;
+  margin-left: 7px;
+}
+
+.crop-aspect-btn.crop-aspect-close.act-cancel:hover,
+.crop-aspect-btn.crop-aspect-close:hover {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.crop-aspect-btn:hover {
+  color: var(--theme-text);
+  background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+}
+
+.crop-aspect-btn.active {
+  color: var(--accent-primary);
+  background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+  border-color: transparent;
+}
+
+.crop-aspect-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+/* Confirm / Cancel 按钮 */
+.crop-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: var(--cursor-pointer, pointer);
+  transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+  white-space: nowrap;
+  background: transparent;
+  color: var(--theme-text-secondary);
+}
+
+.crop-action-btn:hover {
+  color: var(--theme-text);
+  background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+}
+
+.crop-action-btn.confirm {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+}
+
+.crop-action-btn.confirm:hover {
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  color: var(--success-light);
+  border-color: color-mix(in srgb, var(--success) 50%, transparent);
+}
+
+.crop-action-btn.cancel:hover {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+/* 裁切主舞台 — 居中内容，填满视口，overflow 裁剪缩放溢出 */
+.crop-stage {
+  --crop-stage-inline-gutter: clamp(32px, 6vw, 96px);
+  --crop-stage-block-gutter: 144px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* 缩放容器相关规则（`.crop-zoom-stage` / `.crop-react-wrapper` / `.ReactCrop__*` / `.crop-image`）
+   随全屏裁切弹窗一起删除 —— 扩图（ExpandEditor）自己用 `.expand-*` 定位，不再依赖它们 ✓ */
+
+/* 扩图复用裁切舞台，此徽标只显示输出分辨率，不属于视口缩放控件。 */
+.crop-zoom-indicator {
+  position: absolute;
+  right: 16px;
+  bottom: 84px;
+  z-index: 10;
+  padding: 3px 10px;
+  color: var(--theme-text-secondary);
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+@media (max-width: 720px), (max-height: 560px) {
+  .crop-stage {
+    --crop-stage-inline-gutter: 24px;
+    --crop-stage-block-gutter: 128px;
+  }
+}
+
+/* ============================================
+   钢笔工具（贝塞尔不规则裁剪）—— 随全屏裁切弹窗一起删除 ✓
+   官方裁剪模式里**没有**钢笔裁切，`PenCropLayer.tsx` 与这里的 `.crop-pen-*` / `.pen-mode`
+   一起清掉了。下方只保留仍在用的工具栏分隔线与按钮禁用态。
+   ============================================ */
+
+/* 工具栏分隔线 */
+.crop-bar-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--theme-border);
+}
+
+/* 确认按钮禁用态 */
+.crop-action-btn:disabled {
+  opacity: 0.4;
+  cursor: var(--cursor-not-allowed, not-allowed);
+  pointer-events: none;
+}
+
+/* ============================================
+   Expand Editor — 扩图（outpainting）
+   复用 crop-overlay / crop-aspect-bar / crop-stage
+   ============================================ */
+
+/* 预览舞台：桌面端为右侧参数面板留出独立空间 */
+.expand-stage {
+  width: calc(100% - 340px);
+  margin-right: 340px;
+  padding: 32px 24px 88px;
+  box-sizing: border-box;
+}
+
+/* 目标画布外框 — 棋盘格表示待 AI 补全的留白区 */
+.expand-frame {
+  position: relative;
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 8px 40px rgba(0, 0, 0, 0.5);
+  background-color: #15151c;
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.06) 75%),
+    linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.06) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+}
+
+/* 原图 — 绝对定位在目标框内，可拖拽重定位 */
+.expand-src-img {
+  position: absolute;
+  user-select: none;
+  -webkit-user-drag: none;
+  cursor: grab;
+  touch-action: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.30);
+}
+
+.expand-src-img:active {
+  cursor: grabbing;
+}
+
+/* 参数控制区 — 与底部命令栏分离，固定于右侧 */
+.expand-controls {
+  position: fixed;
+  top: 50%;
+  right: 24px;
+  bottom: auto;
+  left: auto;
+  transform: translateY(-50%);
+  z-index: 10001;
+  width: 292px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(var(--glass-blur-lg));
+  border: 1px solid var(--glass-ring);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow-floating);
+}
+
+[data-theme='light'] .expand-controls {
+  --theme-text-secondary: var(--theme-text);
+}
+
+.expand-control-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.expand-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--theme-text-secondary);
+  white-space: nowrap;
+}
+
+.expand-value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--theme-text-secondary);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* 滑块基础样式（不依赖 freeangle.css） */
+.expand-slider {
+  flex: 1;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--theme-border);
+  outline: none;
+  cursor: var(--cursor-pointer, pointer);
+}
+.expand-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: var(--cursor-pointer, pointer);
+  border: 2px solid var(--theme-surface, #15151c);
+}
+
+.expand-prompt-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  background: var(--theme-surface, rgba(0, 0, 0, 0.25));
+  color: var(--theme-text);
+  font-size: 12px;
+  outline: none;
+  transition: border-color var(--transition-base);
+}
+
+.expand-prompt-input:focus {
+  border-color: rgba(255, 255, 255, 0.30);
+}
+
+.expand-prompt-input::placeholder {
+  color: var(--theme-text-muted, rgba(255, 255, 255, 0.35));
+}
+
+@media (max-width: 900px) {
+  .expand-stage {
+    width: 100%;
+    margin-right: 0;
+    padding: 176px 24px 88px;
+  }
+
+  .expand-controls {
+    top: 16px;
+    right: 16px;
+    transform: none;
+    width: min(calc(100vw - 32px), 360px);
+  }
+}
+
+@media (max-width: 720px), (max-height: 560px) {
+  .crop-aspect-bar {
+    bottom: 12px;
+    max-width: calc(100vw - 16px);
+  }
+
+  .crop-zoom-indicator {
+    bottom: 72px;
+  }
+
+  .expand-stage {
+    padding: 164px 16px 76px;
+  }
+
+  .expand-controls {
+    top: 12px;
+    right: 8px;
+    width: calc(100vw - 16px);
+  }
+}
+
+/* react-image-crop 暗色主题覆盖（`.ReactCrop*` 全表）随全屏裁切弹窗一起删除 ✓
+   —— 官方裁剪浮层自己的白框/三分线在 `styles/image-crop-float.css` 里。 */

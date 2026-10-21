@@ -1,0 +1,194 @@
+/* ══ Image compare ════════════════════════════════════════
+   Bencho「Image compare」（MIT · bencho.dev/licence），CSS 逐字保留。
+
+   ── 本文档唯一新增的部分：Bencho 令牌 → 本项目令牌的映射 ──
+   Bencho 的 CSS 读这两个变量但**自己不定义**（那是它的设计令牌）：
+
+     --font-ui     标签用的 UI 字体
+     --signal      焦点环颜色
+
+   按 Bencho 原文的交代（"映射到本项目已有的同类令牌，别新建全局；没有就在组件根上局部定义"），
+   这里把作用域**只挂在组件的根类** `.image-compare-scope` 上 ⇒ 不会外溢到画布其它地方：
+
+     --font-ui  ← 本项目 `body` 的字体栈（`base.css`：Inter / -apple-system / BlinkMacSystemFont /
+                  'Segoe UI' / Roboto / sans-serif）。本项目**没有字体令牌**，所以这里照抄那条栈
+                  并在组件根上局部定义（Bencho 原文允许："没有等价物就在组件根上定义"）。
+     --signal   ← 官方中性刻度。Bencho 这个变量只用来画焦点环；官方**没有** `--signal`，
+                  对应物按仓库既定口径取官方 `--foreground`（`#f5f5f5`，见 base.css @24，
+                  官方 `:root` 逐字）—— 与 `Canvas.tsx` 里「蚂蚁线我要白色」同一套中性刻度。
+     --signal-rgb ← 由上面的官方中性值拆出的三个裸数字（Bencho 的 CSS 用它拼 rgba()）
+
+   ⚠️ `--signal-rgb` 必须是**三个裸数字**（`245 245 245`），不是 `rgb(...)`、不带 `#`。
+      它必须与 `--signal` 同源；官方 `--foreground` = `#f5f5f5` = `245 245 245`。 */
+.image-compare-scope {
+  --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --signal: var(--foreground);
+  --signal-rgb: 245 245 245;
+}
+
+/* ══ Image compare ════════════════════════════════════════ */
+.cmp {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  cursor: ew-resize;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  background: #222;}
+
+/* ★ round 103：这条的 fallback 原来是 **MTV 品牌期靛蓝 `#2231dd`**（`--signal` 恒有定义，
+   fallback 从不命中；但字面值留在仓库里就是残留）⇒ 换成官方 `--foreground`。
+   `--signal` 本身取自官方 `--foreground`（`D:\DEEPSEEK\_official-css\index-BroFpZiQ.css` @739710），
+   保持同源、不再出现任何 MTV 自有色。 */
+.cmp:focus-visible { box-shadow: 0 0 0 2px var(--signal, var(--foreground)); }
+
+.cmp-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  -webkit-user-drag: none;}
+
+/* no drift now: two separate photographs have to stay exactly in
+   register, or the x-ray stops lining up with the picture */
+.cmp-before { position: absolute; inset: 0; }
+
+.cmp-tag {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: rgba(23, 24, 26, 0.36);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  pointer-events: none;}
+
+.cmp-tag.cmp-right { left: auto; right: 12px; }
+
+/* the line is drawn, so it can bend: a 2px white curve with a
+   soft glow, over the whole block */
+.cmp-line {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));}
+
+.cmp-line path { fill: none; stroke: #fff; stroke-width: 2; }
+
+/* ★ 拖拽手柄区 —— 这是**本项目对 Bencho 原版唯一的交互改动**：
+   原版整块图就是滑条（独立站点，没有宿主），但在画布节点里那样会让**卡片永远拖不动**
+   （用户实测：「我悬浮就触发拖动，我没法移动卡片；我需要当我开始拖拽时 才触发」）。
+   ⇒ 拖拽入口收成这条**跟着线走的 40px 透明宽条**（宽条只是好抓；视觉仍是 2px 的线 + 36px 圆钮）。
+   其它地方不再吃 pointerdown ⇒ 归 React Flow 拖卡片 ✓ */
+.cmp-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 40px;
+  translate: -50% 0;
+  pointer-events: auto;
+  cursor: ew-resize;
+  touch-action: none;}
+
+.cmp-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  translate: -50% -50%;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: #17181a;
+  box-shadow: 0 2px 12px rgba(23, 24, 26, 0.25);
+  transition: scale 260ms cubic-bezier(0.3, 1.5, 0.4, 1);}
+
+.cmp:hover .cmp-knob { scale: 1.08; }
+
+.cmp[data-held] .cmp-knob { scale: 0.9; }
+
+/* ══════════════════════════════════════════════════════════
+   画布「对比」节点卡片
+   参考实现：MOMO 画布 `compareNode`（用户提供）的 CSS 逐条对齐：
+     `compare-node-container` / `.compare-node-content` 都是 `width/height:100%`
+     `.compare-preview`、`.compare-preview-placeholder`、`.empty-state`
+         = `background:#1f1f1f; border-radius:12px; flex 居中; overflow:hidden; user-select:none`
+   ⚠️ 卡里那个 `.image-compare-scope`（Bencho 组件）走 **`fill` 模式** ⇒ 滑块正好铺满内容区，
+      背景色只在「还没连够两张图」的空态里露出来（用户报的「溢出的底部底色」就是滑块比卡小）✓
+   ══════════════════════════════════════════════════════════ */
+.compare-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compare-node-content {
+  position: relative;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  /* 圆角跟着内容卡走：滑块四个角不被卡片的直角切掉 */
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ⚠️ 这两条**必须分开写**（原来合在一起给同一个 `background:#1f1f1f; border-radius:12px`）：
+   · `.compare-preview` = 连够两张图之后的滑块容器，保持自己的底色（图片加载期间当底衬）
+   · `.compare-preview-placeholder` = **空卡** ⇒ 用户 2026：「对比卡空卡时 卡体颜色 也要一样
+     现在目前的 颜色不对」——image 卡的空态（`.node-preview-placeholder`）**不画自己的底色**，
+     沿用卡片底色（`--glass-bg-node`）；所以这里也不许再画，圆角/文字色同样交给那一套 ⇒
+     任何主题（含浅色）下都必然与 image 卡一致。 */
+.compare-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #1f1f1f;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.compare-preview-placeholder {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* 与 image 卡空态完全同款：透明底（露出卡片底色）+ 10px 圆角 + `--theme-text-muted` 文字 */
+  border-radius: 10px;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* 空卡占位图标：**与 image 卡那支 48×48 占位图同尺寸、同款上色**
+   （image 卡是在 svg 里写 `style={{color:'rgb(245,245,245)'}}` + `<g opacity="0.2">`；
+     用户 2026：「占位符的颜色也不对」——MTV 原来用 `--theme-text-muted`(#7d7d91)，
+     偏亮且偏蓝 ⇒ 这里照抄 image 卡那套：色 #f5f5f5 + 20% 不透明度） */
+.compare-preview-placeholder .official-icon {
+  width: 48px;
+  height: 48px;
+  color: rgb(245, 245, 245);
+  opacity: 0.2;
+}

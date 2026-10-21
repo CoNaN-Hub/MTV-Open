@@ -1,0 +1,245 @@
+/* ============================================
+   自定义 Tooltip — body 单例浮层
+   用法：<div data-tooltip="提示文字">
+   可选位置：data-tooltip-pos="top" | "bottom" | "left" | "right"，默认 top
+   可选延迟：data-tooltip-delay="200"（毫秒；不写 = MTV 默认 300。**容器上也能挂** = 整段统一 ✓
+            例：画布竖条那条官方是 Provider 0ms → 容器挂 data-tooltip-delay="0" ✓）
+   可选间距：data-tooltip-offset="22"（px；不写 = 官方原语默认 sideOffset **4**）
+   可选冻结：data-tooltip-legacy="true"（**只给「发送/生成」按钮用** —— 用户明确排除它 ✗ 见文件末尾 ✓）
+
+   ★★★★★ **取值全部来自官方源码 + 官方线上实测** ✓✓（2026 复核 ✓ 我上一版有几处是错的 ✗）
+     ① 官方原语（`index-BiTZf8mJ.js` 里 TooltipContent 的 forwardRef · 原文 ✓）：
+        ```
+        const u9e = w.forwardRef(({className:t, sideOffset:e=4, ...n}, a) =>
+          v.jsx(mjr,{children: v.jsx(BDt,{ ref:a, sideOffset:e,
+            className: Ie("z-50 overflow-hidden rounded-lg border-none px-3 py-1.5 text-xs
+              font-medium text-white
+              shadow-[0px_4px_16px_rgba(0,0,0,0.16),inset_0px_0.5px_0px_rgba(255,255,255,0.16)]
+              [background:rgba(51,51,51,0.80)] [backdrop-filter:blur(28px)]
+              animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out
+              data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95
+              data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2
+              data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2
+              origin-[--radix-tooltip-content-transform-origin]", t), ...n})}));
+        ```
+        · `sideOffset` **默认 4** ✓（我这版之前写 6 ✗ —— 那是**没有出处**的值 ✗）
+        · **没有箭头** ✓（`TooltipArrow` 组件在包里存在，但原语**不渲染**它 ✓ 实测外层无 arrow 元素 ✓）
+        · portal 到 body ✓（`mjr` = TooltipPortal ✓）· `role="tooltip"` 在内层 a11y span 上 ✓
+     ② 官方线上实测（app.tapnow.ai · CDP 9222 真实鼠标 hover · `[data-side]` 内容元素）：
+        · bg `rgba(51,51,51,0.8)` ✓ · 圆角 **12px**（`rounded-lg` 走官方 `--radius:.75rem` ✓）
+        · padding **6px 12px**（`px-3 py-1.5` ✓）· 字号 **12px**（`text-xs` ✓）· 字重 **500**（`font-medium`）
+        · 颜色 `rgb(255,255,255)` ✓ · 边框 **none** ✓
+        · box-shadow `0 4px 16px rgba(0,0,0,.16), inset 0 .5px 0 rgba(255,255,255,.16)` ✓（我上一版写 none ✗）
+        · backdrop-filter `blur(28px)` ✓（我上一版**完全没有** ✗）
+        · `max-width` 原语 **none** ✓（长文案站点自己加 `max-w-xs` = **320px** / `max-w-[280px]` ✓）
+        · 换行：画布竖条/工具条那批 = **`whitespace-pre-line` + `break-words`** ✓
+          （所以 \n 会真的换行 ✓ 我上一版是 `nowrap + ellipsis` ✗ → 长文案被**截断** ✗✓）
+        · 行高：原语 `text-xs` = **16px** ✓；画布竖条/工具条 + 3D help 那几处再叠 `leading-relaxed` = 19.5px
+          → **两套都已补** ✓：默认 = 原语那套 **16px** ✓（其余控件）；
+            画布竖条 / 左下控制条那批 = `data-tooltip-relaxed="true"` → **19.5px** ✓（见下方 `[data-relaxed]` ✓）
+            （我上一版按「上/下=16、左/右=20」分位置写 ✗ —— 那个差异是**站点差异**不是**位置差异** ✗✓
+              之后又只留了一套全局 16px ✗ —— 竖条/工具条那批官方是 19.5px，本轮补上 ✓）
+        · 间距实测：侧栏 sideOffset=**4** ✓ · 底部工具条 =**4** ✓ · 底部面板 model 按钮 =**8**（该站点显式给 ✓）·
+          滑条 =**22**（源码显式 ✓ MTV 已用 data-tooltip-offset 表达 ✓）
+        · 延迟：`delayDuration` 全包统计 —— **300（28 处）最多** ✓ · 200（16 处）· 0（5 处）· 400 · 500 …
+          → MTV 默认 **300** ✓（= 官方 provider 口径 ✓）；`data-tooltip-delay` 可覆盖 ✓
+          ★ **画布竖条那一整条 = 官方 Provider `delayDuration:0`** ✓（条目 Root 不传 props ⇒ 0ms ✓
+            官方线上实测 hover→出现 **≈28ms** ✓）→ MTV 在该**容器**上挂 `data-tooltip-delay="0"` ✓
+            （`hooks/useTooltipAutoPlacement.ts` 的 `getShowDelay` 用 `closest()` ✓）
+        · 入场动画：`fade-in-0` + `zoom-in-95` + `slide-in-from-{top|bottom|left|right}-2`，**0.15s ease**
+          → 淡入 + 从 **95%** 放大 + 沿锚点对侧滑入 **8px**（`-2` = 0.5rem ✓）
+          → 缩放原点 = **中心**（官方那条 `origin-[--radix-…]` 生成的 CSS 声明**少了 `var()`** ✗
+             → 无效 → 实际落 50% 50% ✓ 线上计算值 48px 14px = 尺寸一半 ✓ 见下方注释 ✓）
+          ⚠️ 我上一版只写了 opacity 淡入 ✗ 而且注释断言「官方 enter 是空操作」✗ 那是**误判** ✗✓
+    ③ 官方有**两套** tooltip 渲染器（子代理穷举 ✓）：
+        · `Nn`（= `P9e`）= 便捷封装：Root+Trigger+Content，默认 **side=top / align=center /
+          sideOffset=8 / delayDuration=200**，**不渲染 Provider、不渲染箭头** → 模型按钮走这套 ✓
+          （所以「模型按钮」的间距是 **8** / 延迟 **200** ✓ 与实测 8.17 / 217ms 完全对上 ✓）
+        · `bl`(Provider) + `$r`(Root) + `Kr`(Trigger) + `qr`(Content) = 通用那套：
+          `qr` 在基础串后**再追加** `break-words text-xs leading-relaxed whitespace-pre-line` ✓
+          → 画布竖条 / 底部工具条那批：间距 **4** ✓ 行高 **19.5px** ✓
+   ============================================ */
+
+/* tooltip 宿主需要定位上下文，默认给 relative。
+   ⚠ 注意：Tailwind 的 `.absolute` 与本条**特异性相同**（都是 0,1,0），谁在样式表后面谁赢。
+   本项目里 tooltip.css 排在 @tailwind utilities 之后，于是「带 data-tooltip 又需要绝对定位」
+   的元素会被强制拉回 relative —— 它的 right/top 就退化成相对偏移（卡片右上角的「⋯」踩过这个坑）。
+   下面显式让定位工具类优先。 */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip].absolute { position: absolute; }
+[data-tooltip].fixed { position: fixed; }
+[data-tooltip].sticky { position: sticky; }
+
+.app-tooltip {
+  position: fixed;
+  /* 官方原语 `z-50`；MTV 用一个远大于所有面板的 z —— 这是**防御性**选择 ✗ 不是官方值 ✓
+     （官方整个应用共享同一套 stacking 上下文，z-50 够用；MTV 的面板/弹窗自带动辄 100~200 的 z ✗）
+     → 保持不变 ✓（改了会让提示被设置面板、比例弹窗之类盖住 ✗）*/
+  z-index: 2147483647;
+  /* 官方原语**不设** max-width ✓；长文案站点自己加 `max-w-xs`（320px ✓）。
+     MTV 只有一个全局气泡、既要服务单行按钮又要服务长文案 → 取官方长文案口径 **320** ✓
+     再叠一个**视口夹取**（纯安全，不是设计值 ✓ —— 否则贴边的长提示会横出屏幕 ✗）*/
+  max-width: min(320px, calc(100vw - 16px));
+  overflow: hidden;
+  /* 官方 `px-3 py-1.5` = 6px 12px ✓ */
+  padding: 6px 12px;
+  border: none;
+  /* 官方 `rounded-lg` → 官方 `--radius: .75rem` = 12px ✓（实测确认 ✓）*/
+  border-radius: 12px;
+  background: rgba(51, 51, 51, 0.8);
+  /* 官方 `shadow-[0px_4px_16px_rgba(0,0,0,0.16),inset_0px_0.5px_0px_rgba(255,255,255,0.16)]` ✓ */
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.16),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16);
+  /* 官方 `[backdrop-filter:blur(28px)]` ✓ */
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+  color: #ffffff;
+  /* 官方 `text-xs` = 12px ✓ · `font-medium` = 500 ✓（我上一版 400 ✗）*/
+  font-size: 12px;
+  font-weight: 500;
+  /* 官方 `text-xs` = 12px / **16px** ✓（Tailwind 的 text-xs **同时**给字号与行高 ✓）
+     ⚠️ 少数站点再叠一个 `leading-relaxed`（12 × 1.625 = **19.5px** ✓ 画布竖条/工具条 + 3D help 那几处）
+        —— 那是**逐站点**的自定义 ✗ 不是原语的规格 ✓
+     ⇒ 官方是**两套**，MTV 现在**两套都实现** ✓：
+        默认 = 原语那套 **16px** ✓（模型按钮等）；
+        竖条 / 左下控制条那批由 `data-tooltip-relaxed` 切到 **19.5px** ✓（见下方那条规则 ✓）
+        实测口径：官方底部面板 model 按钮的气泡高 **28**（= 16 + 6×2 ✓）↔ MTV 现在也是 **28** ✓ */
+  line-height: 16px;
+  /* 官方 `whitespace-pre-line` + `break-words` ✓（\n 换行 + 长词可断 ✓ 不再截断 ✗✓）*/
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  /* 官方入场 = fade-in-0 + zoom-in-95 + slide-in-from-*-2（**0.15s ease** ✓）
+     出场 = fade-out-0 + zoom-out-95（同样 0.15s ✓）
+     ⚠️ MTV 用 transition 实现（而不是 keyframes）✓ —— `data-open` 每次切换都能自然重播 ✓
+        位移用 left/top 写 ✗ → `transform` 空着，正好给缩放/滑入用 ✓ */
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease,
+    visibility 0s linear 0.15s;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ★★★★★ **官方第二套气泡**：`qr`（内部名 `K0`）—— 比原语多一条 `leading-relaxed` ✓
+     官方两套渲染器（逐字 · 见 `D:\DEEPSEEK\t3-official-tooltip.md` ✓）：
+       · `u9e`（被便捷封装 `Nn`/`P9e` 使用）→ 就是上面那套：行高 = `text-xs` 自带 **16px** ✓
+         （模型按钮走这套：官方气泡盒实测 **96×28** = 16 + 6×2 ✓）
+       · `K0` = `u9e` + `Ie("break-words text-xs leading-relaxed whitespace-pre-line", t)`
+         → 与 MTV 全局气泡**只差一个 `leading-relaxed`**（`break-words` / `whitespace-pre-line` MTV 已有 ✓）
+         → 行高 = 12 × **1.625** = **19.5px** ⇒ 单行气泡盒 = 6 + 19.5 + 6 = **31.5（取整 32）** ✓
+     官方线上实测（竖条「节点搜索」· CDP 真实鼠标 · `D:\DEEPSEEK\_rail-interact.txt` ✓）：
+       气泡盒 **72×32** · pad 6/12 · 12px · 圆角 12 · bg `rgba(51,51,51,.8)` ✓
+       + 类名串里 `text-xs` 被 **tailwind-merge 从基础串挪到了末尾**
+         （= `Ie()` 合并 `K0` 追加串的结果 ✓）⇒ 证明确实走 `K0` 那套 ✓
+     官方源码里用 `K0`/`qr` 的站点（逐字 ✓）：
+       · **画布竖条**（DockBar）：根节点是 Tooltip Provider `delayDuration:0`，条目是 `$r`+`Kr`+`qr` ✓
+       · **画布左下控制条**：滑条 `l.jsx(qr,{sideOffset:22,…})` ✓；
+         小地图/连线/网格/重置走 `Qg`/`fi({tooltip})`（同一个 `K0` ✓）
+       · 画布工具条 / 3D help 等零星几处 ✓（同属这套）
+     用法：给**容器**挂 `data-tooltip-relaxed="true"`（区域内的提示都走这套 ✓）
+       → `hooks/useTooltipAutoPlacement.ts` 用 `closest()` 判定 → 落到本元素的 `[data-relaxed]` ✓
+     注意：官方 `leading-relaxed` 是**无单位数字**（子元素按各自字号再乘）→ 这里照抄 `1.625` ✓
+     优先级：`[data-legacy='true']`（发送按钮那套旧值）在文件末尾、比本规则靠后 →
+       两者若同时命中，legacy 胜出 ✓（现状不会同时命中 ✓）
+   ══════════════════════════════════════════════════════════════════════════ */
+.app-tooltip[data-relaxed='true'] {
+  line-height: 1.625;
+}
+
+/* 官方 `data-[side=*]:slide-in-from-*-2`（8px）= 沿**锚点对侧**滑入 8px ✓
+   提示在锚点**上方**时：从下方滑入（先低 8px）✓ 其余三向同理 ✓
+   ⚠️ **缩放原点**：官方类名写的是 `origin-[--radix-tooltip-content-transform-origin]`，
+      但官方 CSS 里那条生成的声明是 **`transform-origin:--radix-tooltip-content-transform-origin`
+      （少了 `var()` ✗ 无效声明）** → 浏览器丢弃它 → 实际落到 **50% 50%（中心）** ✓✓
+      两路证据：① 静态（子代理逐字读出该无效声明 ✓）
+                ② 线上实测计算值 = `48px 14px` / `36px 15.75px` = 各自尺寸的一半 ✓ = **中心** ✓
+   → 所以这里**不写 per-side origin**（默认就是 center ✓ = 官方真实行为 ✓）*/
+.app-tooltip[data-position='top'] {
+  transform: scale(0.95) translateY(8px);
+}
+.app-tooltip[data-position='bottom'] {
+  transform: scale(0.95) translateY(-8px);
+}
+.app-tooltip[data-position='left'] {
+  transform: scale(0.95) translateX(8px);
+}
+.app-tooltip[data-position='right'] {
+  transform: scale(0.95) translateX(-8px);
+}
+
+/* 官方 tooltip 是深色胶囊 + 白字（与主题无关，浅色主题下同样是深底白字），故不做浅色覆写。 */
+
+.app-tooltip[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+
+/* 官方 `flex items-center gap-1`（滑条那条主文案 + `text-xs opacity-70` 副文案 ✓）
+   ⚠️ 我上一版 gap 写 6 / max-width 写 420 ✗ —— 两个都**没有出处** ✗✓ 已按官方改回 4 / 用上面的 320 ✓ */
+.app-tooltip[data-structured="true"] {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.app-tooltip__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-tooltip__action {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  /* ⚠️ 官方源码里主/副文案是**有区分的** ✗别写成一样：
+       <span className="flex items-center gap-1">
+         {t('canvas.zoomSlider.zoomInOut')}                          ← 主文案：继承气泡字号
+         <span className="**text-xs** **opacity-70**">(Ctrl/⌘ + <Wre size={14}/>)</span>   ← 副文案
+       </span>
+     text-xs = 12px ✓（Tailwind 的 text-xs）· opacity-70 = 0.7 ✓ */
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ★★★★★ **用户明确排除的那一个：提示词/发送（生成）按钮** ✓
+     「所有其它按钮的 hover 提示都对齐官方 —— **除了** 发送按钮，那个保持原样」✓
+     → 该按钮带 `data-tooltip-legacy="true"` → 气泡回到**对齐官方之前**的那套取值 ✓
+       （圆角 12 · 6/12 · 12px/16px **w400** · 无阴影 · 无 blur · nowrap+省略号 · max-width 240 ✓）
+     ⚠️ 只有 `prompt-submit-btn` 一处用这个属性 ✗ 别扩散 ✓
+     ⚠️ AGENTS.md 的总则是「一律 1:1 官方」✗ → 这里**按用户显式指示**保留旧值 ✓（已在汇报里写明 ✓）
+   ══════════════════════════════════════════════════════════════════════════ */
+.app-tooltip[data-legacy='true'] {
+  max-width: min(240px, calc(100vw - 16px));
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow-wrap: normal;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  /* 旧版**只有 opacity 淡入**（没有 transform 动画 ✓）→ 连 transform 的过渡一起关掉 ✗✓
+     ⚠️ 否则从「非 legacy 的关闭态」（`[data-position=top]` 带着 `scale(.95) translateY(8px)` ✗）
+        切进来的那一瞬会**继承一次 0.95 缩放过渡** ✗（现场 DOM 复测抓到过 matrix(0.95,…) ✓ 已修 ✓）
+     这条 transition 与对齐官方**之前**的 `.app-tooltip` 逐字一致 ✓ */
+  transition:
+    opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0.15s;
+}
+.app-tooltip[data-legacy='true'][data-position='top'],
+.app-tooltip[data-legacy='true'][data-position='bottom'],
+.app-tooltip[data-legacy='true'][data-position='left'],
+.app-tooltip[data-legacy='true'][data-position='right'] {
+  transform: none;
+}

@@ -1,0 +1,236 @@
+/* ============================================
+   Canvas Right-click Context Menu
+   —— 按官方 `tap-command-container`（cmdk 命令面板）实测值重建
+   ============================================
+   官方实测（TapNow 0.4.66 / CDP 9444，空白画布右键 & 卡片内右键两处都量了）：
+   · 容器 class 逐字：
+       `bg-white rounded-lg tap-command-container dark:bg-card/85 border backdrop-blur-xl
+        p-1 !rounded-2xl max-h-[500px] fixed w-60 h-fit origin-top-left z-10 text-tap-text-1`
+     实测：宽 **240px**(w-60) · padding **4px**(p-1) · 圆角 **16px**(!rounded-2xl) ·
+          背景 `bg-card/85` = `oklab(0.239291 0.0000108778 0.00000478327 / 0.85)` ·
+          `backdrop-filter: blur(24px)` · 边框 `0.666667px rgba(255,255,255,0.1)` · **无阴影**
+   · 列表：`max-h-[300px] overflow-y-auto overflow-x-hidden flex flex-col`
+   · 分组：`[&_[cmdk-group-items]]:flex [&_[cmdk-group-items]]:flex-col [&_[cmdk-group-items]]:gap-1`
+     ⇒ 组内条目之间 **gap 4px**；分组标题（本菜单没有）
+   · 条目 class 逐字：
+       `relative text-tap-text-1 flex gap-2 select-none items-center outline-hidden
+        data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50
+        [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0
+        p-3 data-[selected=true]:bg-muted dark:data-[selected=true]:bg-muted rounded-lg cursor-pointer text-sm`
+     实测：padding **12px**(p-3) · gap **8px**(gap-2) · 字号 **14px**(text-sm) · 圆角 **12px** ·
+          文字色 **#fff**(text-tap-text-1) · 选中底 `bg-muted` · **无图标**（官方这些条目里 `svg` 为 null）
+   · 分隔线 class 逐字：`-mx-1 h-px bg-border my-1`
+     实测：高 1px · `margin: 4px -4px` · 背景 `rgba(255,255,255,0.1)`
+   · 快捷键是**行内跟在标签后面**（官方条目的文本就是「复制CtrlC」「删除⌫,del」「撤销CtrlZ」），
+     不是 MTV 原来那种右对齐 `<kbd>`。
+   ⚠️ MTV 没有官方那些 Tailwind 令牌（`--card` / `--muted` / `--border` / `--tap-text-1` 实测均未定义）
+      ⇒ 这里用官方**实测值**写死，不用 var()。 */
+
+.canvas-ctx-menu {
+  position: fixed;
+  z-index: 300;
+  /* ★ 字体 = 官方那套（实测：编辑器/菜单同源 `Inter, -apple-system, BlinkMacSystemFont`）
+     ⚠️ MTV 默认 computed 是 Tailwind v4 的 `ui-sans-serif, system-ui, sans-serif…` ⇒ 与官方不同 ✗
+     ⇒ 三个面板统一按官方 family 设死。 */
+  /* 官方原文串（zoom-slider-B3yfHu80.css @7929 的 .ProseMirror{font-family:…}）：官方**不打包 Inter**（fonts/ 目录无 Inter 文件）
+     ⇒ 只是字体栈，Windows 上双方都回退到系统字体 */
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';  /* 官方 `w-60` = 240px */
+  width: 240px;
+  box-sizing: border-box;
+  /* 官方 `p-1` */
+  padding: 4px;
+  /* 官方 `dark:bg-card/85` 实测值 */
+  background: oklab(0.239291 0.0000108778 0.00000478327 / 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  /* 官方 `border` 实测 0.666667px rgba(255,255,255,0.1) */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* 官方 `!rounded-2xl` = 16px */
+  border-radius: 16px;
+  /* 官方 `shadow: none` */
+  box-shadow: none;
+  transform-origin: top left;
+  /* ★ 官方进场动画实测（CDP 读 `getAnimations()[0].effect.getKeyframes()`）：
+       `animation-name: enter; duration: 150ms; ease`，关键帧
+         from { opacity: 0; transform: translate3d(0,0,0) scale3d(0,0,0) rotate(0deg) }
+         to   { opacity: 1; transform: <内联的翻转 translate> }
+       ⇒ 即官方 `animate-in zoom-in fade-in`（tailwindcss-animate：`enter` 150ms + `zoom-in` = scale **0**）
+       ⚠️ MTV 原来是自己写的 `ctxFadeIn`（scale .9 + translateY(-4px)）—— 与官方不同，已替换。 */
+  animation: ctxEnter 150ms ease;
+  /* 官方内联 style：`maxHeight: calc(100vh - 20px); maxWidth: calc(100vw - 20px)` */
+  max-height: calc(100vh - 20px);
+  max-width: calc(100vw - 20px);
+}
+
+@keyframes ctxEnter {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* 官方列表容器：`max-h-[300px] overflow-y-auto` */
+.canvas-ctx-menu .canvas-ctx-list {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 官方组内 gap-1 = 4px */
+.canvas-ctx-menu .canvas-ctx-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Scoped under canvas-ctx-menu to avoid collision with sidebar.css .menu-row */
+.canvas-ctx-menu .menu-row {
+  display: flex;
+  align-items: center;
+  /* 官方 `gap-2` = 8px */
+  gap: 8px;
+  /* 官方 `p-3` = 12px */
+  padding: 12px;
+  /* ⚠️ 别处有一条共享规则 `.menu-row{height:49px;padding:8px;margin:0 5px}`（实测命中）会把条目高度写死 49
+     ⇒ 必须显式归零。官方条目高 = 44px（`text-sm` 20px 行高 + `p-3` 上下 12），左右无外边距。 */
+  height: auto;
+  margin-left: 0;
+  margin-right: 0;
+  /* 官方 `rounded-lg` 实测 12px */
+  border-radius: 12px;
+  /* 官方 `text-sm` = 14px / line-height 20px（Tailwind text-sm 默认 0.875rem/1.25rem）
+     ⇒ 官方条目高 44px（20 + p-3 上下各 12）；MTV 原来继承行高 24px ⇒ 条目高 49px ✗ */
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  /* 官方 `text-tap-text-1` = #fff */
+  color: #ffffff;
+  cursor: var(--cursor-pointer, pointer);
+  white-space: nowrap;
+  user-select: none;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+/* 官方 `data-[selected=true]:bg-muted`（MTV 用 hover/选中同一档） */
+.canvas-ctx-menu .menu-row:hover,
+.canvas-ctx-menu .menu-row.active {
+  background: #2b2b2b; /* 官方 `data-[selected=true]:bg-muted` 的源码值：`--muted:#2b2b2b`（index-DV4al4p1.css @639319 暗色块） */
+  color: #ffffff;
+}
+
+.canvas-ctx-menu .menu-row:active {
+  background: #2b2b2b; /* 官方 `data-[selected=true]:bg-muted` 的源码值：`--muted:#2b2b2b`（index-DV4al4p1.css @639319 暗色块） */
+  transform: none;
+}
+
+.canvas-ctx-menu .menu-row.disabled {
+  opacity: 0.5; /* 官方 `data-[disabled=true]:opacity-50` */
+  cursor: var(--cursor-default, default);
+  pointer-events: none;
+}
+
+.canvas-ctx-menu .menu-row.disabled:hover {
+  background: transparent;
+  color: #ffffff;
+}
+
+.canvas-ctx-menu .menu-row-split {
+  justify-content: space-between;
+}
+
+.canvas-ctx-menu .menu-rowlabel {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 官方没有右侧箭头/图标；子菜单箭头保留但按官方字号 */
+.canvas-ctx-menu .menu-arrow {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 1px;
+}
+
+.canvas-ctx-menu .menu-arrow-ml8 {
+  margin-left: 8px;
+}
+
+.canvas-ctx-menu .menu-row:hover .menu-arrow {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 官方快捷键 = 行内紧跟标签（「复制CtrlC」），不是右对齐 kbd；这里保留类名以免其它调用方报错，
+   但按官方做成行内小字、紧跟标签之后、无右边距 */
+/* ★ 官方条目高 = 44px（`text-sm` 20px 行高 + `p-3` 上下 12）。
+   ⚠️ 只给 `.menu-row` 设 line-height 不够：行内还有 label / 快捷键 span，它们继承全局 25.6px，
+      会把行高顶到 25.6 ⇒ 条目 49px ✗（实测踩到）⇒ 子元素统一 20px。 */
+.canvas-ctx-menu .menu-row span,
+.canvas-ctx-menu .menu-row kbd,
+.canvas-ctx-menu .menu-row .menu-rowlabel {
+  line-height: 20px;
+}
+/* ★ 官方快捷键元素（`use-waveform-data-DMduQqB-.js` @92632 逐字）：
+     `<span className="text-sm text-muted-foreground tracking-widest">{hotKey}</span>`
+   ⇒ 14px + `--muted-foreground` = **#7a7a7a** + `letter-spacing: .1em`（标签白、快捷键灰）
+   ⚠️ MTV 原来写成 `color: inherit`（= 白色）⇒ 与官方不同 ✗（用户："快捷键文本显示的颜色也不对"） */
+.canvas-ctx-menu .menu-kbd {
+  flex-shrink: 0;
+  font-size: 14px;
+  color: #7a7a7a;
+  letter-spacing: 0.1em;
+  margin-left: 0;
+  opacity: 1;
+}
+
+/* 官方分隔线 `-mx-1 h-px bg-border my-1` ⇒ 高 1px / margin 4px -4px / rgba(255,255,255,0.1) */
+.canvas-ctx-menu .menu-sep {
+  height: 1px;
+  margin: 4px -4px;
+  /* ⚠️ `separators.css` 里有一条共享规则 `.canvas-ctx-menu .menu-sep{background-color:var(--separator-color)}`
+     （= MTV 的 `rgba(232,232,237,.1)`，实测压过这里）⇒ 按官方 `bg-border` = `rgba(255,255,255,.1)` 提高优先级 */
+  background: rgba(255, 255, 255, 0.1) !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Submenu positioning */
+.canvas-ctx-menu .submenu {
+  animation: ctxEnter 150ms ease;
+}
+
+/* Submenu hover highlight on parent */
+.canvas-ctx-menu .menu-row.highlight {
+  background: #2b2b2b; /* 官方 `data-[selected=true]:bg-muted` 的源码值：`--muted:#2b2b2b`（index-DV4al4p1.css @639319 暗色块） */
+  color: #ffffff;
+}
+
+.canvas-ctx-menu .menu-row.highlight .menu-arrow {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 官方 `删除` 条目**没有**红色（条目统一 text-tap-text-1），保留类名但不着色 */
+.canvas-ctx-menu .menu-row-danger {
+  color: #ffffff;
+}
+
+.canvas-ctx-menu .menu-row-danger:hover {
+  background: #2b2b2b; /* 官方 `data-[selected=true]:bg-muted` 的源码值：`--muted:#2b2b2b`（index-DV4al4p1.css @639319 暗色块） */
+  color: #ffffff;
+}
+
+/* 官方条目 `tips`（`page-DVqoHdTT.js`@1374650 `U.tips && J(U.tips)`）：
+   标签右侧的 ⓘ；官方 `J` 是「tooltip 放右侧 + `NA`（lucide `info`）图标」，
+   图标色取 `text-muted-foreground` 并按官方 `translate-y-px` 下沉 1px。 */
+.canvas-ctx-menu .menu-row-tip {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  transform: translateY(1px);
+  color: #7a7a7a; /* 官方 `--muted-foreground` */
+  cursor: help;
+}
+
+.canvas-ctx-menu .menu-row:hover .menu-row-tip {
+  color: rgba(255, 255, 255, 0.85);
+}

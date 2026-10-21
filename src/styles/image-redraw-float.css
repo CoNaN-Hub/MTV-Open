@@ -1,0 +1,650 @@
+/* ============================================================================
+   ImageFloatingRedrawEditor —— 官方「浮动重绘编辑器」（`floatingEditorMode === 'redraw'`）
+   ★★ 本文件的每条数值都来自 **9444 官方实测**（实拍 outerHTML + computed style），不是从源码猜的：
+     顶栏 outerHTML（逐字）：
+       `<div class="flex items-center gap-1 p-2 rounded-full bg-sidebar backdrop-blur shadow-lg border border-border">`
+         `✕`         `… hover:bg-accent h-8 w-8 rounded-full text-muted-foreground hover:text-destructive`
+         `分隔`       `<div roles="none" class="shrink-0 bg-border w-[1px] h-6 mx-1">`
+         `工具组`     `<div role="group" class="flex-row p-1 flex items-center gap-1 rounded-full bg-input/60">`
+                     `button` `… data-[state=on]:text-white hover:bg-tap-secondary text-tap-text-1 h-8 w-8 rounded-full p-0
+                               data-[state=on]:bg-white/20 transition-all duration-300`（role=radio / aria-checked）
+         `粗细`       `<div class="flex items-center gap-2 px-1"><div class="flex items-center gap-2 h-8 w-24">
+                        <div class="w-6 h-6 … rotate-90"><svg 24><path d="M4 12 C8 6, 14 20, 20 12" stroke-width={max(1.5,w*.12)}/></svg>`
+                        radix slider：track `bg-white/18 h-1.5 rounded-full` · range `bg-white` · thumb `h-4 w-4 rounded-full
+                        border-2 border-white bg-white shadow-md group-hover:scale-110`
+         `撤销/重做`  `<div class="flex items-center gap-1">` + `hover:bg-accent hover:text-accent-foreground h-8 w-8 rounded-full`
+       顶栏实测：`[1088,76,384×57]`、gap 4、padding 8、radius 999、bg `#1c1c1c`、border `#ffffff1a`、
+       shadow-lg `0 2px 4px 0 #0000001a, 0 4px 6px -1px #0000001a`；工具组 bg = white 8.94%；
+       工具键 32×32，选中 `bg-white/20`；滑块 track 6px / thumb 16×16。
+
+     底栏 outerHTML（逐字）：
+       `<div class="absolute left-1/2 -translate-x-1/2 z-50 w-[500px] -bottom-[130px]">`
+         `<div class="flex-1 flex flex-col gap-2 p-2 rounded-2xl bg-background/90 backdrop-blur shadow-xl border border-border">`
+           `<textarea … resize-none min-h-[60px] text-sm bg-transparent border-muted placeholder="描述你想改变什么...">`
+           `<div class="flex justify-between items-center flex-wrap gap-2 text-nowrap">`
+             `<div class="flex items-center gap-2 flex-1">`  hidden file input ·
+               `button.h-8.w-8.rounded-full.text-muted-foreground.hover:text-foreground.hover:bg-muted`（tabler `paperclip` 18px）·
+               `div.text-xs.text-muted-foreground`（「绘制蒙版以重绘」）
+             `<div class="flex items-center gap-2">`
+               `button` 分辨率 chip：`border bg-input/30 hover:bg-input/80 rounded-md py-1 h-8 px-2 text-xs text-muted-foreground hover:text-foreground`
+               `button` 次数 chip：同上（文案 `x1`）
+               `button` 模型 chip：`hover:bg-accent hover:text-accent-foreground rounded-md gap-1.5 px-2 text-sm font-normal h-8`
+               `div` 生成胶囊：`flex items-center gap-1 rounded-full p-1 border border-white/10`
+                    + `backdrop-filter: blur(10px)` + `background: radial-gradient(94.74% 157.5% at 50% 21.25%, #1a1a1a 0%, #656766 100%)`
+                    内含 `div.flex.items-center.text-sm.text-popover-foreground.font-medium.pl-1`（16px 图标 + `min-w-8 text-[12px] tabular-nums`）
+                    + `button.aspect-square.w-6.5.h-6.5.rounded-full.bg-white.text-black.hover:bg-white/50.disabled:opacity-50`
+       底栏实测：`[1030,1239,500×121]`；inner radius 16 / padding 8 / border .667px `#ffffff1a`；
+       textarea `483×60` bg white 4.47% / border `#2b2b2b` / radius 10 / padding `8px 12px` / 14px；
+       chip 32 高；生成圆钮 26×26；参考图钮 32×32（色 `#8b8b8b`）。
+   ★ 坐标系：面板画在节点内、随画布缩放 ⇒ 一切「固定屏幕像素」乘 `--irf-scale`（= 1/zoom）。
+   ★★ 字体：官方这套 UI 的 font-family 实测为 **`Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`**
+      而 MTV 全局是 `ui-sans-serif, system-ui, …` ⇒ 这里按官方给整套浮层指定字体（用户指出「字体不对」）。
+   ============================================================================ */
+
+.irf-root,
+.irf-root button,
+.irf-root textarea,
+.irf-root input {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.irf-root {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: visible;
+  pointer-events: none;
+  --irf-scale: var(--float-scale, 1);
+}
+
+/* 外框：官方 `outline-2 outline-primary/30`（**真 outline**：9444 实测 `solid 2px oklab(…)/0.3`、offset 0px）
+   ★★ 形状（用户明确）：**蓝线是直角，不能圆角** ⇒ 外框本身 `border-radius: 0`（上一版我加了 16px ✗ 已撤）。
+   ★★ 卡片本体（画面 + 绘制层）保持卡片自己的 **16px 圆角**，四角能看到底 —— 圆角只加在 image / canvas 上。 */
+.irf-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 0;                          /* 蓝线 = 直角 */
+  pointer-events: auto;
+  outline: calc(2px * var(--irf-scale)) solid rgba(31, 162, 220, 0.3);
+  outline-offset: 0;
+}
+
+.irf-image,
+.irf-paint {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;                       /* 卡片本体圆角（与卡片一致，四角可见） */
+}
+.irf-image { object-fit: fill; pointer-events: none; user-select: none; }
+/* 绘制层：可见层（棋盘格 pattern 画在这里），必须压在 image 之上 */
+.irf-paint { z-index: 2; cursor: crosshair; touch-action: none; }
+.irf-image { z-index: 1; }
+
+/* 蒙版层（官方 `xhe` 的 **同一个 fabric canvas**：图案笔迹 + `temp-mosaic-rect` 虚线框都在它上面）
+   官方源码逐字：`r.jsx("canvas",{ref:i,style:{opacity:s==="redraw"||s==="erase"?.6:1}})`
+   （9444 实测两片 canvas 的 inline style 都是 `opacity: 0.6`）
+   ⇒ redraw / erase 下整层 **60% 不透明**：白笔画上去是**半透明白**，不是纯白；
+     原图不在 canvas 上（canvas 除笔迹外全透明），所以原图保持 100%。 */
+.irf-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+.irf-root[data-mode="redraw"] .irf-mask,
+.irf-root[data-mode="erase"] .irf-mask { opacity: 0.6; }
+
+/* 框选拖拽中的临时矩形（官方 fabric `v1`：`fill: transparent`、`stroke: rgba(0,0,0,0.5)`、
+   `strokeWidth: 1`、`strokeDashArray: [5,5]`、`excludeFromExport: true`）
+   ⚠️ 必须 `z-index: 3`：绘制层是 `z-index: 2`，虚线框若留 auto 就被它盖住（用户：「拖虚线框也没有了」） */
+.irf-rect {
+  position: absolute;
+  z-index: 3;
+  border: 1px dashed rgba(0, 0, 0, 0.5);
+  background: transparent;
+  pointer-events: none;
+}
+.irf-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+/* ══ 按钮原语（官方 shadcn Button 的 base + `hover:bg-accent` 变体）══
+   base：`inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium transition-colors
+          focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none
+          disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0` */
+.irf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 32px;                                /* h-8 w-8 */
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;                       /* rounded-full */
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.3s, background-color 0.3s;
+}
+.irf-btn:disabled { pointer-events: none; opacity: 0.5; }
+.irf-btn:hover:not(:disabled) { background: #404040; color: #fafafa; }   /* hover:bg-accent + hover:text-accent-foreground */
+.irf-btn svg { pointer-events: none; flex-shrink: 0; }
+
+/* ── 标注（annotate）专用：颜色选择器 / 保存钮（官方 `ghe` 的 annotate 分支） ── */
+
+/* 官方 `aJ`（颜色选择器）：触发器 `size-5 aspect-square rounded-full border cursor-pointer` */
+.irf-color-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+.irf-color-trigger {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid #ffffff1a;
+  border-radius: 999px;
+  cursor: pointer;
+}
+/* 官方 `ro`（PopoverContent）：`className:"w-auto"`，`side="bottom"`（默认）、`sideOffset={22}`
+   ⇒ 9444 实测：触发器 `[1352,109,20×20]`，面板 `[1337,151,49×305]`
+      = **触发器正下方 22px、水平居中对齐**（151-129 = 22 ✓；面板中心 1361.5 ≈ 触发器中心 1362 ✓）
+   面板本体（实测 computed）：`radius 16px`、`padding 20px 12px`、`gap 16px`、
+     `bg rgba(0,0,0,0.6)`、`backdrop-filter blur(16px)`、`border 1px #ffffff26` */
+.irf-color-menu {
+  position: absolute;
+  top: calc(100% + 22px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 12px;
+  border: 1px solid #ffffff26;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 60;
+}
+/* 官方色块：`size-6 rounded-full border border-input transition-transform hover:scale-110` */
+.irf-color-swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #ffffff26;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.irf-color-swatch:hover { transform: scale(1.1); }
+.irf-color-swatch.is-on { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6); }
+
+/* 官方保存钮：`h-8 rounded-full px-4 gap-2` + `variant="white"`（白底黑字） */
+.irf-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #000000;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.irf-save:hover:not(:disabled) { background: rgba(255, 255, 255, 0.8); }
+.irf-save:disabled { opacity: 0.5; pointer-events: none; }
+
+/* 官方 `Ibs` 的文本对象：40px / #ff0000 / OpenSans / 左对齐；MTV 用同规格输入框编辑后再烙进标注层 */
+.irf-text-object {
+  position: absolute;
+  z-index: 5;
+  min-width: 120px;
+  min-height: 48px;
+  padding: 0;
+  border: 1px dashed rgba(255, 0, 0, 0.6);
+  background: transparent;
+  color: rgba(255, 0, 0, 1);
+  font-family: OpenSans, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 40px;
+  line-height: 1.15;
+  text-align: left;
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  cursor: move;
+}
+
+/* ── 顶栏 ──
+   ★★ 位置（官方 `gh e` 的 `absolute -top-16 … w-max`：**锚顶边**，顶边在面板顶上方 64px；
+      9444 实测：面板 top 140 → 顶栏 top 76 = 140 − 64 ✓）
+   ★★ MTV 的面板画在节点内、随画布缩放 ⇒ 用 `scale(var(--irf-scale))` 把尺寸换算回屏幕像素。
+      **锚定边必须与 transform-origin 一致**，否则缩放会把锚点挪走：
+        上一版我写了 `transform-origin: center bottom`（缩放保持底边不动）却用 `top` 定位顶边
+        ⇒ 实测顶栏被挤到卡片**里面**（top 159，应在 76）✗ —— 现在 origin 改成 `center top`（与 `top` 同边）。 */
+.irf-toolbar {
+  position: absolute;
+  left: 50%;
+  top: calc(-64px * var(--irf-scale));        /* 官方 `-top-16` */
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 4px;                                   /* gap-1 */
+  width: max-content;
+  padding: 8px;                               /* p-2 */
+  border: 1px solid #ffffff1a;                /* border-border */
+  border-radius: 999px;
+  background: #1c1c1c;                        /* bg-sidebar */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 4px 0 #0000001a, 0 4px 6px -1px #0000001a;   /* shadow-lg */
+  pointer-events: auto;
+  transform: translateX(-50%) scale(var(--irf-scale));
+  transform-origin: center top;               /* ← 与 `top` 同边，缩放不动顶边 */
+}
+
+/* ✕：官方 `text-muted-foreground hover:text-destructive hover:bg-accent` */
+.irf-close { color: #7a7a7a; }
+.irf-close:hover:not(:disabled) { color: #934c4c; background: #404040; }
+
+/* 分隔：官方 `w-[1px] h-6 mx-1 bg-border` */
+.irf-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: #ffffff1a;
+}
+
+/* 工具组：官方 `p-1 flex items-center gap-1 rounded-full bg-input/60`（实测 bg = white 8.94%） */
+.irf-toolgroup {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* 工具键：官方 `h-8 w-8 rounded-full p-0 text-tap-text-1 hover:bg-tap-secondary
+   data-[state=on]:bg-white/20 data-[state=on]:text-white transition-all duration-300` */
+.irf-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #ffffff;                             /* text-tap-text-1（实测 rgb(255,255,255)） */
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+/* 官方 `hover:bg-tap-secondary` —— 官方 token 实测 `--tap-secondary: oklch(55.2% .016 285.938)`（原样抄，勿换算） */
+.irf-tool:hover:not(:disabled) { background: oklch(55.2% 0.016 285.938); }
+.irf-tool[data-state='on'] { background: rgba(255, 255, 255, 0.2); color: #ffffff; }
+
+/* 粗细：官方外层 `flex items-center gap-2 px-1`、内层 `flex items-center gap-2 h-8 w-24` */
+.irf-size-outer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.irf-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  width: 96px;
+}
+.irf-size-icon {
+  display: flex;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(90deg);
+  color: #f5f5f5;                             /* text-foreground */
+}
+
+/* 官方 radix Slider：track `bg-white/18 h-1.5 rounded-full` · range `bg-white` · thumb 16×16 白圆 border-2 */
+.irf-slider {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  width: 100%;
+  height: 20px;
+  touch-action: none;
+  user-select: none;
+}
+.irf-slider-track {
+  position: relative;
+  display: block;
+  flex-grow: 1;
+  height: 6px;                                /* h-1.5 */
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+.irf-slider-range {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: #ffffff;
+}
+.irf-slider-thumb {
+  position: absolute;
+  top: 50%;
+  width: 16px;                                /* h-4 w-4 */
+  height: 16px;
+  margin-top: -8px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #ffffff;
+  box-shadow: 0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a;   /* shadow-md */
+  transition: transform 0.15s ease-in-out;
+  pointer-events: none;
+}
+.irf-slider:hover .irf-slider-thumb { transform: scale(1.1); }        /* group-hover:scale-110 */
+/* 交互层：透明 input 覆盖在上面（可拖、可键盘），视觉完全由上面的 track/range/thumb 表达 */
+.irf-slider input[type='range'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.irf-undo-group { display: flex; align-items: center; gap: 4px; }
+
+/* ── 底栏 ──
+   ★★ 位置（官方 `Dhe` 的 `absolute … -bottom-[130px]`：**锚底边**，底边在面板底下方 130px；
+      9444 实测：面板 bottom 1204 → 底栏 bottom 1334 = 1204 + 130 ✓）
+   ⇒ MTV 侧 `bottom: calc(-130px * scale)` + `transform-origin: center bottom`（同边，缩放不动底边）。 */
+.irf-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-130px * var(--irf-scale));    /* 官方 `-bottom-[130px]` */
+  z-index: 50;
+  width: 500px;                               /* w-[500px] */
+  pointer-events: auto;
+  transform: translateX(-50%) scale(var(--irf-scale));
+  transform-origin: center bottom;
+}
+/* 官方 `Fhe` 的底栏容器：`mode==='redraw' ? "-bottom-[130px]" : "-bottom-[64px]"`
+   （erase 没有描述框 ⇒ 底栏矮一截，紧贴卡片下沿 64px） */
+.irf-root[data-mode="erase"] .irf-bar {
+  bottom: calc(-64px * var(--irf-scale));
+}
+.irf-bar-inner {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 8px;                                   /* gap-2 */
+  padding: 8px;                               /* p-2 */
+  border: 1px solid #ffffff1a;                /* border-border */
+  border-radius: 16px;                        /* rounded-2xl */
+  background: rgba(15, 15, 15, 0.9);          /* bg-background/90 */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 20px 25px -5px #0000001a, 0 8px 10px -6px #0000001a;   /* shadow-xl */
+}
+
+/* 描述框：官方 `rounded-md border border-muted bg-input/30 px-3 py-2 min-h-[60px] text-sm resize-none` */
+.irf-textarea {
+  min-height: 60px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;                          /* px-3 py-2 */
+  border: 1px solid #2b2b2b;                  /* border-muted（实测 0.667px rgb(43,43,43)） */
+  border-radius: 10px;                        /* rounded-md */
+  background: rgba(255, 255, 255, 0.045);     /* bg-input/30（实测 white 4.47%） */
+  color: #f5f5f5;
+  font-family: inherit;
+  font-size: 14px;                            /* text-sm */
+  line-height: 20px;
+  resize: none;
+  outline: none;
+  box-shadow: 0 1px 2px 0 #0000000d;          /* shadow-xs */
+}
+.irf-textarea::placeholder { color: #7a7a7a; }         /* placeholder:text-muted-foreground */
+/* 官方 textarea 聚焦态（9444 force-pseudo 实测）：
+   `border-color: rgb(43,43,43)` → **`rgba(115,115,115,0.1)`**（= `--ring`），ring 计算出来是**全透明**
+   ⇒ 官方这条聚焦反馈**只有描边变化、且很淡**。这里照抄（用户：「输入区没有高亮或者变化」= 之前我这边连描边都没变）。 */
+.irf-textarea:focus,
+.irf-textarea:focus-visible {
+  border-color: rgba(115, 115, 115, 0.1);
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* 行：官方 `flex justify-between items-center flex-wrap gap-2 text-nowrap` */
+.irf-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.irf-row-left { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.irf-row-right { display: flex; align-items: center; gap: 8px; }
+.irf-selectors { display: flex; align-items: center; gap: 8px; }
+
+/* 参考图钮：官方 `h-8 w-8 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted`（paperclip **16px**）
+   实测官方底色透明、字形色 = `rgb(122,122,122)`（`--muted-foreground`） */
+.irf-ref-btn { color: #7a7a7a; }
+.irf-ref-btn:hover:not(:disabled) { color: #f5f5f5; background: #2b2b2b; }
+
+/* 官方 `khe`：**选中参考图之后**，回形针钮换成一张 40×40 的缩略图卡（逐字）
+   `relative size-10 rounded-md overflow-hidden border border-border shrink-0 group`
+   + 右上角移除钮 `absolute top-0 right-0 bg-black/50 text-white rounded-bl-md p-0.5 hover:bg-destructive/80`（✕ 12px） */
+.irf-ref-card {
+  position: relative;
+  width: 40px;                                /* size-10 */
+  height: 40px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid #ffffff1a;                /* border-border */
+  border-radius: 6px;                         /* rounded-md */
+}
+.irf-ref-card-img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.irf-ref-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  padding: 2px;                               /* p-0.5 */
+  border: 0;
+  border-bottom-left-radius: 6px;             /* rounded-bl-md */
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.irf-ref-remove:hover { background: rgba(147, 76, 76, 0.8); }   /* hover:bg-destructive/80 */
+
+/* 提示：官方 `text-xs text-muted-foreground` */
+.irf-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: #7a7a7a;
+}
+
+/* chip（分辨率 / 次数）：官方 `border bg-input/30 hover:bg-input/80 rounded-md py-1 h-8 px-2 text-xs
+   text-muted-foreground hover:text-foreground` */
+.irf-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 4px 8px;
+  border: 1px solid #ffffff1a;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #7a7a7a;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+}
+.irf-chip:hover { background: rgba(255, 255, 255, 0.12); color: #f5f5f5; }
+
+.irf-times { position: relative; }
+
+/* 模型 chip：MTV 复用 `ModelSelector`（官方节点同款皮）—— 在底栏里按官方 chip 口径覆盖：
+   官方实测 `[1314,1318,108×32]`：`color rgb(245,245,245)` · `font-size 14px` · `font-weight **400**` ·
+   `padding 0 8px` · `border-radius 10px` · 图标 **16×16** · 名称 `text-transform: capitalize`。
+   ⚠️ MTV 的 `ModelSelector` 自带紫灰字（实测 `rgb(136,136,160)`）⇒ 这里拉回官方 `#f5f5f5`（用户指出「模型名称颜色不对」）。 */
+.irf-bar .model-selector { height: 32px; }
+.irf-bar .model-selector-trigger {
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #f5f5f5;
+}
+.irf-bar .model-selector-trigger:hover { background: #404040; color: #fafafa; }
+.irf-bar .model-selector-trigger > span,
+.irf-bar .model-selector-trigger .model-selector-name,
+.irf-bar .model-selector-trigger span:not(.model-selector-icon) {
+  color: #f5f5f5;
+  font-size: 14px;
+  font-weight: 400;
+  text-transform: capitalize;
+}
+.irf-bar .model-selector-icon,
+.irf-bar .model-selector-icon > * {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+}
+
+/* 生成胶囊：官方 `flex items-center gap-1 rounded-full p-1 border border-white/10`
+   + `backdrop-filter: blur(10px)` + 官方径向渐变 */
+.irf-generate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  background: radial-gradient(94.74% 157.5% at 50% 21.25%, #1a1a1a 0%, #656766 100%);
+}
+.irf-generate-count {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding-left: 4px;                          /* pl-1 */
+  color: #fafafa;                             /* text-popover-foreground */
+  font-size: 14px;
+  font-weight: 500;
+}
+.irf-generate-number {
+  display: inline-flex;
+  width: max-content;
+  min-width: 32px;                            /* min-w-8 */
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;                            /* text-[12px] */
+  line-height: 1;
+}
+.irf-generate-btn {
+  display: flex;
+  width: 26px;                                /* w-6.5 h-6.5 */
+  height: 26px;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #000000;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.irf-generate-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.5); }
+.irf-generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 弹层（官方 Radix `Zs`：`bg-popover rounded-lg p-1` + 条目 `rounded-sm px-2 py-1.5 text-sm`） */
+.irf-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 4px);
+  z-index: 60;
+  min-width: 128px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid #ffffff1a;
+  border-radius: 12px;
+  background: #262626;                       /* --popover */
+  box-shadow: 0 10px 15px -3px #0000001a, 0 4px 6px -4px #0000001a;
+}
+.irf-pop--times { left: auto; right: 0; min-width: 64px; }
+.irf-pop--list { min-width: 200px; max-height: 200px; }
+.irf-pop-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #ccc;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.irf-pop-item:hover,
+.irf-pop-item.is-on { background: #404040; color: #fafafa; }
+.irf-pop-thumb { width: 24px; height: 24px; flex-shrink: 0; border-radius: 4px; object-fit: cover; }
+.irf-pop-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.irf-pop-empty { display: block; padding: 6px 8px; font-size: 12px; color: #7a7a7a; }
+
+/* 官方 `fpe`：打开浮动编辑器时节点失去选中（MTV 用 DOM 属性补视觉，同 crop 编辑器） */
+.react-flow__node[data-redraw-mode='true'] {
+  outline: 1px solid rgba(255, 255, 255, 0.2) !important;
+  outline-color: rgba(255, 255, 255, 0.2) !important;
+  z-index: 1001;
+}

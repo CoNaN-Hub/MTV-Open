@@ -1,0 +1,436 @@
+/**
+ * ai/generationRuntime — 对话媒体生成统一入口。
+ *
+ * ChatPanel / Agent 工具不再直接选择 Provider 或调用具体图片、视频、音频服务，
+ * 而是统一走 runMediaGeneration(intent)，由本模块完成：
+ *   1. 解析并剥离 @model{...} 引用（extractModelMention / stripModelMentions）；
+ *   2. 解析媒体模型（resolveMediaModel），统一校验模型类型、API Key、ComfyUI / 即梦等前置条件；
+ *   3. 按 kind 分发到 generateImage / generateVideo / generateAudio；
+ *   4. 产物落盘（persistGeneratedMedia），并如实区分「生成成功」与「已保存到项目」两种状态，
+ *      失败不再被吞掉，避免签名 URL 过期或 blob 失效后留下打不开的产物。
+ *
+ * 产物落盘失败后可通过 retryMediaArtifactPersist 重新写盘。
+ */
+import { useAppStore } from '../../store/useAppStore';
+import {
+  isTauriEnv,
+  isTransientMediaUrl,
+  persistMediaUrlToProjectData,
+} from '../fileService';
+import { comfyBaseUrlFor } from '../comfyServers';
+import { isRunningHubWorkflow, mediaProviderConfigId, workflowExecution, runningHubConnection } from '../workflowExecutionService';
+import { getRunningHubModel } from './providers/runninghubModelManifest';
+import { catalogImageAspectRatioDefault, catalogImageSizeDefault } from './modelParamCatalog';
+import { workflowApiConnection } from '../workflowApi/workflowApiAdapter';
+import { getCloudWorkflowPersistedOutput } from '../workflowExecutionService';
+import type {
+  MediaGenerationIntent,
+  MediaGenerationResult,
+  MediaKind,
+  MediaPersistenceStatus,
+  ResolvedMediaModel,
+} from '../../types/media';
+import { generateImage } from './generateImage';
+import { generateVideo } from './generateVideo';
+import { generateAudio, persistAudioGenerationResult } from './generateAudio';
+import { findMediaModelOption } from '../../components/nodes/shared/defaultModels';
+import { videoLongSideFromLabel } from '../aiDimensions';
+import { resolveProjectGenerationPrompt } from '../projectSettingsService';
+import type { BaseNodeData, NodeType } from '../../types';
+import { tagGeneratedProjectAssetSafely } from '../fs/generatedAssetTags';
+
+const MODEL_MENTION_RE = /@model\{([^|}\s]+)(?:\|[^}]*)?\}/i;
+
+const MEDIA_NODE_TYPES: Record<MediaKind, NodeType> = {
+  image: 'ai-image',
+  video: 'ai-video',
+  audio: 'ai-audio',
+};
+
+const MEDIA_LABELS: Record<MediaKind, string> = {
+  image: '图片',
+  video: '视频',
+  audio: '音频',
+};
+
+export const MEDIA_PERSIST_FAILED_MESSAGE = '产物未能写入项目目录，当前是临时地址，重启后可能失效';
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new DOMException('请求已取消', 'AbortError');
+}
+
+export function extractModelMention(input: string): string | undefined {
+  return MODEL_MENTION_RE.exec(input)?.[1]?.trim() || undefined;
+}
+
+export function stripModelMentions(input: string): string {
+  return input.replace(new RegExp(MODEL_MENTION_RE.source, 'gi'), '').replace(/\s{2,}/g, ' ').trim();
+}
+
+export function resolveMediaModel(kind: MediaKind, modelRef?: string): ResolvedMediaModel {
+  const config = useAppStore.getState().config;
+  if (!modelRef) {
+    const label = kind === 'image' ? '图片' : kind === 'video' ? '视频' : '音频';
+    throw new Error(`请先通过 @ 选择${label}模型`);
+  }
+
+  const option = findMediaModelOption(
+    modelRef,
+    config.generalModels ?? [],
+    config,
+    useAppStore.getState().workflows,
+  );
+  if (!option) throw new Error('未找到 @ 引用的媒体模型');
+  if (option.mediaKind !== kind) {
+    const label = kind === 'image' ? '图片' : kind === 'video' ? '视频' : '音频';
+    throw new Error(`模型“${option.label}”不能用于${label}生成`);
+  }
+
+  if (option.provider === 'general') {
+    const generalId = option.value.slice('general/'.length);
+    const generalModel = (config.generalModels ?? []).find((model) => model.id === generalId);
+    if (!generalModel) throw new Error('未找到 @ 引用的通用模型配置');
+    const provider = config.providers[generalModel.providerConfigId];
+    if (!provider?.baseUrl || !generalModel.modelId) {
+      throw new Error(`模型“${generalModel.name}”的接口配置不完整`);
+    }
+    return {
+      configId: option.value,
+      requestModel: `general/${generalModel.id}`,
+      provider: 'general',
+      audioPurpose: option.audioPurpose,
+    };
+  }
+
+  if (option.workflowId) {
+    const workflow = useAppStore.getState().workflows.find((item) => item.id === option.workflowId);
+    if (workflow?.adapterType === 'workflow-api' && workflow.workflowApi) {
+      workflowApiConnection(config.providers[workflow.workflowApi.connectionId], workflow.workflowApi);
+      const execution = workflowExecution(workflow);
+      return { configId: option.value, requestModel: execution.model, provider: execution.provider, workflowId: workflow.id };
+    }
+    if (isRunningHubWorkflow(workflow) && workflow?.runninghub) {
+      runningHubConnection(config.providers, workflow.runninghub.connectionId);
+      const execution = workflowExecution(workflow);
+      return { configId: option.value, requestModel: execution.model, provider: execution.provider, workflowId: workflow.id };
+    }
+    if (!comfyBaseUrlFor(option.workflowId)) {
+      throw new Error('未配置 ComfyUI 服务地址\n请在「设置 → ComfyUI」中配置');
+    }
+    return {
+      configId: option.value,
+      requestModel: 'comfyui/workflow',
+      provider: 'comfyui',
+      workflowId: option.workflowId,
+    };
+  }
+
+  if (option.provider === 'dreamina') {
+    if (!config.dreaminaAuth?.loggedIn) throw new Error('请先登录即梦账号');
+  } else if (!config.providers[mediaProviderConfigId(option.provider)]?.apiKey) {
+    throw new Error(`请先配置 ${option.provider} 的 API Key`);
+  }
+
+  return {
+    configId: option.value,
+    requestModel: option.value,
+    provider: option.provider,
+    audioPurpose: option.audioPurpose,
+  };
+}
+
+async function saveGeneratedMedia(
+  url: string,
+  projectId: string,
+  kind: MediaKind,
+  artifactId: string,
+) {
+  const baseName = `对话${MEDIA_LABELS[kind]}-${artifactId}`;
+  return persistMediaUrlToProjectData(url, projectId, MEDIA_NODE_TYPES[kind], baseName);
+}
+
+interface MediaPersistOutcome {
+  status: MediaPersistenceStatus;
+  filePath?: string;
+  assetUrl?: string;
+  sourceUrl?: string;
+  error?: string;
+}
+
+/**
+ * 落盘生成产物，并如实返回结果。
+ * 失败不再被吞掉：调用方据此把「生成成功」和「已保存到项目」分开呈现，
+ * 否则签名 URL 过期或 blob 失效后，用户手里就只剩一个打不开的产物。
+ */
+async function persistGeneratedMedia(
+  url: string,
+  projectId: string | null | undefined,
+  kind: MediaKind,
+  artifactId: string,
+): Promise<MediaPersistOutcome> {
+  if (!projectId || !isTauriEnv()) return { status: 'skipped' };
+  try {
+    const saved = await saveGeneratedMedia(url, projectId, kind, artifactId);
+    if (!saved?.filePath) return { status: 'failed', error: MEDIA_PERSIST_FAILED_MESSAGE };
+    return {
+      status: 'saved',
+      filePath: saved.filePath,
+      assetUrl: saved.mediaUrl,
+      sourceUrl: saved.sourceUrl,
+    };
+  } catch (error) {
+    return {
+      status: 'failed',
+      error: error instanceof Error ? error.message : MEDIA_PERSIST_FAILED_MESSAGE,
+    };
+  }
+}
+
+async function tagSavedGeneratedMedia(
+  filePath: string | undefined,
+  projectId: string | null | undefined,
+  prompt: string,
+): Promise<void> {
+  if (!filePath || !projectId) return;
+  await tagGeneratedProjectAssetSafely({ filePath, projectId, prompt });
+}
+
+export async function runMediaGeneration(
+  intent: MediaGenerationIntent,
+  projectId?: string | null,
+  signal?: AbortSignal,
+  targetNodeId?: string,
+  runninghubTaskContext?: import('../../types/runninghub').RunningHubTaskContext,
+): Promise<MediaGenerationResult> {
+  throwIfAborted(signal);
+
+  const prompt = stripModelMentions(intent.prompt);
+  if (!prompt) throw new Error('媒体生成提示词不能为空');
+
+  const store = useAppStore.getState();
+  const targetProjectId = projectId ?? store.currentProjectId;
+  const projectSettings = store.projects.find(
+    (project) => project.id === targetProjectId,
+  )?.settings;
+  const effectivePrompt = resolveProjectGenerationPrompt({
+    prompt,
+    data: {
+      label: '对话媒体生成',
+      type: MEDIA_NODE_TYPES[intent.kind],
+      role: 'generator',
+    } as BaseNodeData,
+    settings: projectSettings,
+    customStyles: store.customStyles,
+  });
+
+  const model = resolveMediaModel(intent.kind, intent.modelRef);
+  if (model.provider === 'runninghubwf' && [intent.aspectRatio, intent.resolution, intent.duration].some((value) => value !== undefined)) throw new Error('请通过工作流参数设置比例、分辨率或时长');
+  if (model.provider === 'workflow-api' && useAppStore.getState().workflows.find((workflow) => workflow.id === model.workflowId)?.workflowApi?.version === 2
+    && [intent.aspectRatio, intent.resolution, intent.duration].some((value) => value !== undefined)) throw new Error('自定义工作流请通过 workflowInputs 设置参数');
+  if (
+    intent.kind === 'audio'
+    && intent.audioPurpose
+    && model.audioPurpose
+    && intent.audioPurpose !== model.audioPurpose
+  ) {
+    throw new Error(`所选模型不支持${intent.audioPurpose === 'music' ? '音乐' : '语音'}生成`);
+  }
+  const runninghubModelParameters = { ...intent.runninghubModelParameters };
+  if (model.provider === 'runninghub') {
+    const definition = getRunningHubModel(model.requestModel);
+    for (const [name, value] of Object.entries({ aspectRatio: intent.aspectRatio, resolution: intent.resolution, duration: intent.duration })) {
+      if (value === undefined) continue;
+      const field = definition?.parameters.find((field) => field.name === name || (name === 'aspectRatio' && field.name === 'ratio'));
+      if (!field) throw new Error(`所选 RunningHub 操作没有 ${name} 参数，请读取模型专属参数`);
+      if (runninghubModelParameters[field.name] !== undefined && runninghubModelParameters[field.name] !== String(value)) throw new Error('通用参数与模型专属参数冲突');
+      runninghubModelParameters[field.name] = String(value);
+    }
+  }
+  const id = `media-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+  if (intent.kind === 'image') {
+    /**
+     * round 120 修正（用户现场：指令里写了 3:4，卡上与实际请求却都是 1:1）：
+     * 旧代码是 `projectSettings?.generation?.imageSize || '2K'` /
+     * `…imageAspectRatio || '1:1'` —— **完全不读 `intent.aspectRatio`**（视频分支 @295-300 是读的）。
+     * ⇒ `media_generate({aspectRatio:'3:4'})` 在图片这条链上被静默丢弃。
+     * 现与视频分支同优先级：**请求显式值 > 项目默认 > 目录默认 > 不填**。
+     * round 122（用户裁决①）：清晰度的兜底**不再是常量 `'2K'`** ——
+     * 改成 `catalogImageSizeDefault(model.configId, imageAspectRatio)`（该模型的目录默认）；
+     * 目录里 16/30 个图片模型有 `defaults.imageSize`，其余 **不填**（`undefined` 交给接口/连接默认）。
+     * 硬填 `'2K'` 是真 bug：`nano-banana-flash-lite` 只支持 `["1K"]`。
+     */
+    const imageAspectRatio = intent.aspectRatio
+      ?? (projectSettings?.generation?.imageAspectRatio || catalogImageAspectRatioDefault(model.configId));
+    /* ★ 2026-10-15（用户现场：确认卡上选 `2K` 却没生效）：请求级 `intent.imageSize` **最高优先**。
+       官方那张卡的清晰度胶囊（`imageSizeOptions:["1K","2K","4K"]`，见
+       `vendor-packages-DRvCmDjR.js` @1095139 的 `rq`）选中后由服务端直接作为请求参数下发；
+       MTV 此前没有这一级（只有「项目默认 > 目录默认」）⇒ 卡上选了等于没选。
+       优先级因此与比例/时长同构：**请求显式 > 项目默认 > 目录默认 > 不填**。 */
+    const imageSize = intent.imageSize
+      || projectSettings?.generation?.imageSize
+      || catalogImageSizeDefault(model.configId, imageAspectRatio ?? '');
+    const result = await generateImage({
+      prompt: effectivePrompt,
+      model: model.requestModel,
+      provider: model.provider,
+      imageSize,
+      aspectRatio: imageAspectRatio,
+      workflowId: model.workflowId,
+      workflowInputs: intent.workflowInputs, runninghubModelParameters: model.provider === 'runninghub' ? runninghubModelParameters : undefined,
+      nodeId: ['runninghubwf', 'runninghub', 'workflow-api'].includes(model.provider) ? targetNodeId : undefined,
+      runninghubTaskContext,
+
+      workflowApiTaskContext: model.provider === 'workflow-api' ? runninghubTaskContext : undefined,
+    }, signal);
+    throwIfAborted(signal);
+    const savedCloud = getCloudWorkflowPersistedOutput(result.workflowApiOutputs ?? result.runninghubOutputs, result.url);
+    const persisted: MediaPersistOutcome = savedCloud ? { ...savedCloud, status: savedCloud.persistence } : await persistGeneratedMedia(result.url, projectId, intent.kind, id);
+    if (persisted.status === 'failed' && isTransientMediaUrl(result.url)) {
+      throw new Error(persisted.error || MEDIA_PERSIST_FAILED_MESSAGE);
+    }
+    await tagSavedGeneratedMedia(persisted.filePath, projectId, effectivePrompt);
+    throwIfAborted(signal);
+    return {
+      id,
+      kind: intent.kind,
+      runninghubOutputs: result.runninghubOutputs,
+
+      workflowApiOutputs: result.workflowApiOutputs, workflowApiTaskId: result.workflowApiTaskId,
+      deliveryMode: intent.deliveryMode,
+      url: persisted.assetUrl || result.url,
+      sourceUrl: persisted.sourceUrl || result.url,
+      filePath: persisted.filePath,
+      persistence: persisted.status,
+      persistError: persisted.error,
+      width: result.width,
+      height: result.height,
+      prompt,
+      modelId: model.configId,
+      provider: model.provider,
+      createdAt: Date.now(),
+    };
+  }
+
+  if (intent.kind === 'video') {
+    const directGeneralProtocol = ((model.provider === 'general' || model.provider === 'runninghub') && !model.workflowId) || model.provider === 'workflow-api';
+    const aspectRatio = intent.aspectRatio
+      ?? (directGeneralProtocol ? undefined : projectSettings?.generation?.videoAspectRatio);
+    const resolution = intent.resolution
+      ?? (directGeneralProtocol ? undefined : projectSettings?.generation?.videoResolution);
+    const duration = intent.duration
+      ?? (directGeneralProtocol ? undefined : projectSettings?.generation?.videoDuration);
+    const result = await generateVideo({
+      prompt: effectivePrompt,
+      model: model.requestModel,
+      provider: model.provider,
+      seedanceRatio: aspectRatio,
+      seedanceResolution: resolution,
+      seedanceDuration: duration,
+      // 工作流只认数字长边，档位换算后再传
+      videoResolution: directGeneralProtocol ? undefined : videoLongSideFromLabel(resolution),
+      workflowId: model.workflowId,
+      workflowInputs: intent.workflowInputs, runninghubModelParameters: model.provider === 'runninghub' ? runninghubModelParameters : undefined,
+      nodeId: ['runninghubwf', 'runninghub', 'workflow-api'].includes(model.provider) ? targetNodeId : undefined,
+      runninghubTaskContext,
+      workflowApiTaskContext: model.provider === 'workflow-api' ? runninghubTaskContext : undefined,
+    }, signal);
+    throwIfAborted(signal);
+    const savedCloud = getCloudWorkflowPersistedOutput(result.workflowApiOutputs ?? result.runninghubOutputs, result.url);
+    const persisted: MediaPersistOutcome = savedCloud ? { ...savedCloud, status: savedCloud.persistence } : await persistGeneratedMedia(result.url, projectId, intent.kind, id);
+    if (persisted.status === 'failed' && isTransientMediaUrl(result.url)) {
+      throw new Error(persisted.error || MEDIA_PERSIST_FAILED_MESSAGE);
+    }
+    await tagSavedGeneratedMedia(persisted.filePath, projectId, effectivePrompt);
+    throwIfAborted(signal);
+    return {
+      id,
+      kind: intent.kind,
+      runninghubOutputs: result.runninghubOutputs,
+      workflowApiOutputs: result.workflowApiOutputs, workflowApiTaskId: result.workflowApiTaskId,
+      deliveryMode: intent.deliveryMode,
+      url: persisted.assetUrl || result.url,
+      sourceUrl: persisted.sourceUrl || result.url,
+      filePath: persisted.filePath,
+      persistence: persisted.status,
+      persistError: persisted.error,
+      prompt,
+      modelId: model.configId,
+      provider: model.provider,
+      createdAt: Date.now(),
+    };
+  }
+
+  const result = await generateAudio({
+    prompt: effectivePrompt,
+    model: model.requestModel,
+    provider: model.provider,
+    workflowId: model.workflowId,
+    workflowInputs: intent.workflowInputs, runninghubModelParameters: model.provider === 'runninghub' ? runninghubModelParameters : undefined,
+    nodeId: ['runninghubwf', 'runninghub', 'workflow-api'].includes(model.provider) ? targetNodeId : undefined,
+    runninghubTaskContext,
+
+    workflowApiTaskContext: model.provider === 'workflow-api' ? runninghubTaskContext : undefined,
+  }, signal);
+  throwIfAborted(signal);
+  const persisted = await persistAudioGenerationResult(
+    result,
+    projectId,
+    `对话音频-${id}`,
+  );
+  await tagSavedGeneratedMedia(persisted.filePath, projectId, effectivePrompt);
+  throwIfAborted(signal);
+  return {
+    id,
+    kind: intent.kind,
+    runninghubOutputs: result.runninghubOutputs,
+
+    workflowApiOutputs: result.workflowApiOutputs, workflowApiTaskId: result.workflowApiTaskId,
+    deliveryMode: intent.deliveryMode,
+    url: persisted.mediaUrl,
+    sourceUrl: persisted.sourceUrl || persisted.outputUrl,
+    filePath: persisted.filePath,
+    persistence: persisted.persistence,
+    persistError: persisted.persistError,
+    prompt,
+    modelId: model.configId,
+    provider: model.provider,
+    audioPurpose: intent.audioPurpose,
+    createdAt: Date.now(),
+  };
+}
+
+/**
+ * 重新把已生成的产物写入项目目录（用于落盘失败后的重试下载）。
+ * 成功时返回指向本地文件的新产物，失败时抛出可直接展示的原因。
+ */
+export async function retryMediaArtifactPersist(
+  artifact: MediaGenerationResult,
+  projectId?: string | null,
+): Promise<MediaGenerationResult> {
+  if (!isTauriEnv()) throw new Error('浏览器模式不支持把产物保存到项目目录');
+  const targetProjectId = projectId ?? useAppStore.getState().currentProjectId;
+  if (!targetProjectId) throw new Error('当前没有打开的项目，无法保存产物');
+
+  const sourceUrl = artifact.sourceUrl || artifact.url;
+  if (!sourceUrl) throw new Error('产物已没有可用的下载地址，请重新生成');
+
+  const persisted = await persistGeneratedMedia(
+    sourceUrl,
+    targetProjectId,
+    artifact.kind,
+    artifact.id,
+  );
+  if (persisted.status !== 'saved') {
+    throw new Error(persisted.error || MEDIA_PERSIST_FAILED_MESSAGE);
+  }
+  await tagSavedGeneratedMedia(persisted.filePath, targetProjectId, artifact.prompt);
+  return {
+    ...artifact,
+    url: persisted.assetUrl || artifact.url,
+    sourceUrl: persisted.sourceUrl || artifact.sourceUrl,
+    filePath: persisted.filePath,
+    persistence: 'saved',
+    persistError: undefined,
+  };
+}

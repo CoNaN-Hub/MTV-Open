@@ -1,0 +1,960 @@
+/* ============================================
+   React Flow Overrides — Dark Theme    连线
+   ============================================ */
+
+/* ── 连线菜单的 command 占位节点必须**完全隐形** ──
+   官方（zoom-slider `uZe`）它只渲染：
+     <div className="w-px h-px">
+       <Handle type="target" position={Left}  className="invisible"/>
+       <Handle type="source" position={Right} className="invisible"/>
+     </div>
+   ⚠️ MTV 的画布节点样式会套到 `.react-flow__node` 上 ⇒ 占位节点被画成**带边框/底色的空盒子** ✗
+   （用户截图：连线看着接到那个方盒上）⇒ 尺寸/边框/底色/shadow/内距全部清掉 ✓ */
+.react-flow__node-command-menu {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  pointer-events: none;
+}
+.react-flow__node-command-menu .react-flow__handle {
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: none;
+  background: transparent;
+}
+
+/* Suppress non-passive touchstart warning in Chromium (Tauri WebView2).
+   React Flow needs preventDefault() for drag/pan, so its listeners are
+   intentionally non-passive. Telling the browser we handle touch ourselves
+   eliminates the console violation warning. */
+.react-flow__pane {
+  touch-action: none;
+}
+
+/* ★★★★ **去掉 `will-change: transform`** ✗✓ —— 这是「模糊 + 一卡一卡」的**真正根因** ✓
+   原注释写「GPU composite layer — critical for smooth drag/zoom in Tauri WebView2」✗
+   但**实测结论完全相反** ✓：
+     `will-change: transform` 会把整个 `.react-flow__viewport` 提升为**独立合成层** ✗
+       → 该层被浏览器**光栅化成位图** ✗（按当时的 scale 栅格化）
+       → 缩放时：位图**先被放大**（→ 卡片/文字/描边/网格**全部发糊** ✗）
+                 → 再异步重新栅格化（→ **掉帧、一卡一卡** ✗）
+       → 又因编辑面板是画布外的 fixed 层，两者刷新时机不同 → **间距偏移** ✗
+     **官方实测：`.react-flow__viewport` 的 `will-change = auto`** ✓（根本没设 ✓）
+       → 每帧**矢量重绘** → 任何缩放下都锐利、流畅 ✓
+   （官方值来自同视窗同 zoom 0.5×2 的 CDP 实测 ✅，非推测 ✓）*/
+/* .react-flow__viewport {
+     will-change: transform;
+   } */
+
+/* ⚠️ React Flow 自带面板的 margin —— **必须保持 15px**。
+   官方全部面板实测（dump 官方 .react-flow__panel）：
+     左竖条  53×337 @15,463   margin: 15px
+     左下控制 293×40 @15,1208 margin: 15px
+     右上     201×40          margin: 16px 15px 15px
+   即官方就是 React Flow 的**默认值 15px** ✓
+   MTV 原来写的是 `8px !important` ✗ —— 导致左下控制条落在 距左8/距下8（应 15/15）✗，
+   就是用户反馈的「位置不太对」。 */
+.react-flow__panel {
+  margin: 15px !important;
+}
+
+.react-flow__node {
+  cursor: var(--cursor-move, move);
+}
+
+/* 连线本体 — TapNow 官方：rgba(255,255,255,.376) · 2px，hover 不变（§1.3 / §12.2 / D3） */
+.react-flow__edge-path {
+  stroke: var(--canvas-edge) !important;
+  stroke-width: 2 !important;
+  transition: stroke var(--transition-base), stroke-width var(--transition-base);
+}
+
+/* 选中连线 — TapNow 官方：**纯白** · 2px（checklist D4） */
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #fff !important;
+  stroke-width: 2 !important;
+}
+.react-flow__edge.selected .react-flow__edge-marker {
+  fill: #fff !important;
+}
+
+/* 选中的连线由上面的纯白 2px 表达；原先沿连线流动的光带（SVG animateMotion + 品牌色）
+   已按 TapNow 官方实测删除 —— 官方画布**零关键帧动画、连线没有流动效果**
+   （Design.md §12.4 / §12.5 / §14.4 · checklist D8）。 */
+
+.react-flow__handle {
+  transition:
+    transform var(--transition-base),
+    border-color var(--transition-base),
+    background-color var(--transition-base);
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.3);
+}
+
+/* Connection Line — TapNow 官方拖拽预览线：#B1B1B7 · 1px 实线（§1.3 / checklist D5） */
+.react-flow__connectionline {
+  stroke: #b1b1b7 !important;
+  stroke-width: 1 !important;
+  z-index: 0 !important;
+}
+
+/* ① 拖拽线 = **实线**（官方 9444 实测 computed：
+      path.stroke = rgb(177,177,183) · stroke-width 1px · stroke-dasharray **none** · animation **none**；
+      `g` 上只有 `react-flow__connection`，**没有** `animated` / 任何 validity 类）
+   ⚠️ 我上一轮按库里的 `.react-flow__connection .animated` 给线挂了蚂蚁线 ✗ —— 官方**从不**挂它，
+      用户：「节点连接线 官方是没有虚线状态的」⇒ 已撤掉挂类与相关 CSS ✓ */
+.react-flow__connection-path {
+  stroke: #b1b1b7;
+  stroke-width: 1;
+  stroke-dasharray: none;
+  animation: none;
+}
+.react-flow__connection { pointer-events: none; }
+
+/* ② 把手状态类（官方把手上就是这些类：`connectable / connectablestart / connectableend /
+      clickconnecting / connectingfrom / connectingto / valid / connectionindicator`）
+      —— 「拖起来以后所有可连把手变成可落点」靠的就是 `connectionindicator` ✓ */
+.react-flow__handle.connectingfrom { pointer-events: all; }
+.react-flow__handle.connectionindicator { pointer-events: all; cursor: crosshair; }
+.react-flow__handle.valid { pointer-events: all; }
+
+/* ③ 左右 `+` 把手的**弹簧出入动画**（官方 `.node-handle-plus*` @58684 逐字）：
+      默认藏在 ±24px 外 + opacity 0；`-visible`（或卡片 group:hover）时弹到 0 位 ✓ */
+.node-handle-plus {
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.node-handle-plus-right { transform: translate(-24px); }
+.node-handle-plus-left { transform: translate(24px); }
+.node-handle-plus-visible,
+.group:hover .node-handle-plus:not(.node-handle-plus-force-hidden) {
+  opacity: 1;
+  transform: translate(0);
+  pointer-events: auto;
+}
+.node-suppress-handle-plus-hover.group:hover .node-handle-plus-right:not(.node-handle-plus-visible):not(.node-handle-plus-force-hidden) {
+  opacity: 0;
+  transform: translate(-24px);
+  pointer-events: none;
+}
+.node-suppress-handle-plus-hover.group:hover .node-handle-plus-left:not(.node-handle-plus-visible):not(.node-handle-plus-force-hidden) {
+  opacity: 0;
+  transform: translate(24px);
+  pointer-events: none;
+}
+
+/* ④ 「不能被连接的目标卡 → 模糊 + 压暗 + 去 outline」（官方 `.node-disabled-blur` @58607 逐字）
+      JS 侧对应 `C.isDisabled && 'node-disabled-blur cursor-not-allowed'`（`zoom-slider` @1225510）✓ */
+.node-disabled-blur {
+  position: relative;
+  filter: blur(3px);
+  transition: filter 0.3s;
+}
+/* 特异性提到 (0,2,0)：MTV 的 `.canvas-node-lod-boundary::after` 等规则会盖掉官方这条 */
+.node-disabled-blur.node-disabled-blur::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #000000b3;
+  pointer-events: none;
+  z-index: 20;
+}
+.react-flow__node:has(.node-disabled-blur) { outline: none !important; }
+.react-flow__node:has(.node-disabled-blur):hover { outline: none !important; }
+
+/* ⑤ 「拖到卡片上」的扫光动画 = 官方 `flowing-border`（`zoom-slider-B3yfHu80.css` @53681 逐字）
+      JS 侧条件（`zoom-slider-3ZcFvYQO.js` @1225218）：
+        xe = (正在连本卡) || …            → 卡片外壳 xe ? 'flowing-border' : 'bg-card'
+        ye = 连接方向 === 'left'          → 追加 'flow-reverse'（扫光反向）
+      ⇒ 拖拽中目标卡挂类 = 扫光持续；连上/离开 → 换回 `bg-card` = **动画立即停** ✓
+      ⚠️ 必须挂在卡片**内层 surface** 上（这条规则含 `position:relative`，挂到 `.react-flow__node`
+         会把 React Flow 的 `position:absolute` 顶掉、卡片会跳到 (0,0)）*/
+.flowing-border {
+  position: relative;
+  background-color: var(--card);
+  --flow-start: 100%;
+  --flow-end: -100%;
+}
+.flowing-border.flow-reverse {
+  --flow-start: 0%;
+  --flow-end: 200%;
+}
+.flowing-border::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, transparent 0%, transparent 20%, rgba(255, 255, 255, 0.55) 40%, rgba(255, 255, 255, 1) 50%, rgba(255, 255, 255, 0.55) 60%, transparent 80%, transparent 100%);
+  background-size: 200% 200%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.flowing-border::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 22px;
+  background: linear-gradient(90deg, transparent 0%, transparent 20%, rgba(255, 255, 255, 0.24) 40%, rgba(255, 255, 255, 0.58) 50%, rgba(255, 255, 255, 0.24) 60%, transparent 80%, transparent 100%);
+  background-size: 200% 200%;
+  filter: blur(8px);
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.flowing-border:hover::before,
+.flowing-border:hover::after {
+  opacity: 1;
+  animation: flowingLight 1.5s linear infinite;
+}
+@keyframes flowingLight {
+  0% { background-position: var(--flow-start) 50%; }
+  to { background-position: var(--flow-end) 50%; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ★ 官方 **App 级 React Flow 覆盖** —— 逐字抄自
+     `E:\TapNow-0.4.66\resources\web\assets\zoom-slider-B3yfHu80.css` @char43538 起那一整块。
+
+   官方那一块是**紧跟在 `@media(prefers-reduced-motion)` 之后的一整段**（同一次 dump 连续出现），
+   内容按顺序为：attribution 隐藏 → 边/连线/nodes/nodesselection 的 z-index → node-group 边框 →
+   animated 边 → `.react-flow__selection` → `.react-flow__node` 三态 → pile 系列 → edge transition →
+   resize-control → node-comment。
+   MTV 此前只抄了其中一部分（`.react-flow__node` / resize-control / nodesselection-rect），
+   缺的那些正是「框选打组时看着还是 MTV 的东西」的来源 ⇒ 本轮补齐。
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 官方：隐藏 React Flow 水印 */
+.react-flow__attribution {
+  display: none;
+}
+
+/* 官方 z-index 分层（逐字）：
+   `.react-flow .react-flow__edges,.react-flow .react-flow__edgelabel-renderer{z-index:0}`
+   `.react-flow svg.react-flow__connectionline{z-index:0}`
+   `.react-flow .react-flow__nodes{position:relative;z-index:1}`
+   `.react-flow .react-flow__nodesselection{z-index:0}` */
+.react-flow .react-flow__edges,
+.react-flow .react-flow__edgelabel-renderer {
+  z-index: 0;
+}
+.react-flow svg.react-flow__connectionline {
+  z-index: 0;
+}
+.react-flow .react-flow__nodes {
+  position: relative;
+  z-index: 1;
+}
+.react-flow .react-flow__nodesselection {
+  z-index: 0;
+}
+
+/* 官方：**任何** animated 边都不动（蚂蚁线全关），且不画虚线 */
+.react-flow__edge.animated path {
+  animation: none !important;
+  stroke-dasharray: 0;
+}
+
+/* 官方：边只对 opacity 做 0.16s 过渡（= 官方那条 expo-out 曲线） */
+.react-flow__edge {
+  transition: opacity 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* 官方：框选矩形 —— `border-radius:16px;border:1px solid #ffffff60`
+     （**没有** background 覆盖：填充来自 `.react-flow{--xy-selection-background-color:#ffffff20}`，
+      与官方同一个变量块 ⇒ 不重复写死）
+   ⚠️ MTV 原来写 `0.667px` 描边（旧记录称"官方实测"，与官方 CSS 的 **1px** 不符）⇒ 按源码改回 1px。 */
+.react-flow__selection {
+  border-radius: 16px;
+  border: 1px solid #ffffff60;
+}
+
+/* 官方：批注节点（`comment`）不吃 outline，且 z-index 抬到 5 */
+.react-flow__node-comment {
+  outline: none !important;
+  z-index: 5 !important;
+}
+.react-flow__node-comment.react-flow__node.selected {
+  outline: none !important;
+}
+
+/* Controls */
+.react-flow__controls {
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  background:
+    linear-gradient(var(--floating-surface-bg), var(--floating-surface-bg)) padding-box,
+    var(--glass-bevel-border) border-box !important;
+  backdrop-filter: blur(var(--glass-blur-lg)) !important;
+  border: 1px solid transparent !important;
+  box-shadow: var(--glass-shadow-floating) !important;
+}
+
+.react-flow__controls-button {
+  background-color: transparent !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--theme-text-secondary) !important;
+  fill: var(--theme-text-secondary) !important;
+  transition:
+    color var(--transition-base),
+    fill var(--transition-base),
+    background-color var(--transition-base),
+    border-color var(--transition-base) !important;
+}
+
+.react-flow__controls-button:hover {
+  background-color: var(--theme-hover) !important;
+  color: var(--theme-text) !important;
+  fill: var(--theme-text) !important;
+}
+
+.react-flow__controls-button svg {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* ============================================
+   MiniMap
+   ============================================ */
+
+.react-flow__minimap {
+  /* 官方画布**没有小地图**（实测整页仅 5 个 panel：左上竖条 / 顶中 / 左下控制条 / 右上簇 / attribution）。
+     按官方浮层设计原则统一到左下控制药丸那套：同底色 #2B2B2B · radius 16px · 无描边 · 无投影 · 无毛玻璃。 */
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: #2b2b2b !important;
+  backdrop-filter: none;
+}
+
+.react-flow__minimap-mask {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  shape-rendering: geometricPrecision;
+}
+
+
+/* ============================================
+   Node Handles (React Flow)
+   ============================================ */
+.node-handle {
+  /* ★★★★★ **锚点 = 官方的 6 流** ✗✓（官方实测 ✓）
+       官方 cls 写 `size-0` ✗，但 **React Flow 默认 `.react-flow__handle { width:6px; height:6px }`**
+         把它覆盖 ✓ → 实测 **12×12 屏（zoom 2）= 6 流** ✓✓
+       圆心：RF 把 6px 手柄摆成 `left:-3px` ✓ → **圆心正好落在节点边缘** ✓
+         MTV 写 0×0 ✓ → `left:0` ✓ → 圆心**同样**在边缘 ✓（位移基准一致 ✓）
+         为与官方逐项一致（含命中区 ✓）这里也设 **6** ✓
+     `+` 圆由下方 `::after` 画 ✓（`translate(-50%,-50%)` 居中 ✓）
+     z-index 官方为 auto ✓ —— MTV 的 `+` 在卡片外需盖住边缘 ✓ 保留较低层级 ✓ */
+  width: 6px !important;
+  height: 6px !important;
+  z-index: 15;
+  border: none !important;
+  background: transparent !important;
+  overflow: visible !important;
+  transition: border-color var(--transition-base), background var(--transition-base) !important;
+}
+
+.node-handle:hover {
+  /* 官方实测（forcePseudoState）：+ 按钮的 cursor 是 crosshair，不是 none/pointer */
+  cursor: crosshair;
+}
+
+/* 官方 node-handle-plus 实测：
+   31×31 圆 · border 2px rgb(122,122,122) · tabler plus 居中
+   **常态 opacity 0 且被平移 24px 藏进卡片内**；卡片 hover 时滑出并淡入：
+     transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)
+   官方是 handle 内再套一层 div 放这个圆；MTV 用 ::after 等效实现，一次覆盖全部节点类型。
+   注：官方没有 MTV 原来那个彩色 gooey 圆点，两者叠在一起会脏，所以隐藏它。 */
+.node-handle .gooey-btn-wrapper {
+  display: none !important;
+}
+
+.node-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* 官方实测：官方量到的 48×48 是**屏幕值**（缩放=2），换算到画布流坐标是 **24×24**。
+     ⚠️ 别再按屏幕值写 —— 曾误写成 48，`+` 圆在画面上大了一倍（用户一眼看出）。 */
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgb(122, 122, 122);
+  border-radius: 999px;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%237A7A7A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5l0 14'/%3E%3Cpath d='M5 12l14 0'/%3E%3C/svg%3E");
+  background-size: 24px 24px;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* ⚠️ 隐藏态 pointer-events: none（官方如此），显示态才 auto —— 见下面的可见规则 */
+  pointer-events: none;
+  cursor: crosshair;
+  /* 官方实测（流坐标，缩放=2）：圆在**卡片外侧** ——
+     常态中心在卡边外 13px、透明度 0；悬浮向外再滑 24px 到卡边外 37px。 */
+  opacity: 0;
+  /* 磁吸位移（--magnet-x/--magnet-y 由 useHandleMagnet 写入）。
+     显示/隐藏位与过渡**全部照抄官方 CSS**（zoom-slider-B3yfHu80.css）：
+       .node-handle-plus        { opacity:0; transition: transform .3s cubic-bezier(.34,1.56,.64,1),
+                                                            opacity   .3s cubic-bezier(.34,1.56,.64,1) }
+       .node-handle-plus-right  { transform: translate(-24px) }   ← 隐藏位：向卡内 24
+       .node-handle-plus-left   { transform: translate(24px) }
+       .node-handle-plus-visible{ opacity:1; transform:translate(0); pointer-events:auto }
+     官方容器是贴卡边的 80×80 正圆（flex 居中）→ 圆心的**显示位在卡边外 40 流**，
+     隐藏位 = 显示位 −24 = **卡边外 16 流**。（MTV 原来写 25/37 ✗ 是我自己量的，错了。） */
+  transform: translate(-50%, -50%) translateX(var(--handle-plus-hidden, 0px))
+    translate(var(--magnet-x, 0px), var(--magnet-y, 0px));
+  transition:
+    transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+    border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ★★★★★ **官方实测（同一次 dump ✓ 权威 ✓）：显示位 = 卡边外 37 流** ✗✓
+   实测数据（官方页面 · 卡片 500×500 屏 = 250×250 流 · zoom 2 ✓）：
+     Handle 锚点 12×12 屏 = **6 流** ✓
+     加号容器 .node-handle-plus **48×48 屏 = 24 流** ✓ · op=1 · transform=identity（显示位 ✓）
+     ★★ **加号圆心 相对卡片左/右边 = 37.00 流**（在卡片**外** ✓✓）
+     ★ **圆心 Y 相对卡片中线 = 0.00 流** ✓（垂直居中 ✓）
+     svg 24 流 · stroke rgb(122,122,122) ✓ · sw 2px ✓ · 外层命中区 80 流 ✓
+   → 显示位 **37** ✓（我此前写 40 ✗ —— 又一次"自己推的" ✗ 用户："距离不对劲" ✓✓）
+   → 隐藏位 = 显示位 − 24 = **13** ✓（照抄官方 `translate(-24px)` ✓）
+     （我此前写 16 ✗）*/
+/* ★★★★★ **按官方源码 + 实测对齐（左右对称 ✓）** ✓✓
+   官方源码（EXE `zoom-slider-B3yfHu80.css` ✓）：`-right{translate(-24px)}` · `-left{translate(24px)}` ·
+   `-visible{translate(0)}` → **对称 ±24** ✓
+   官方实测（同一次 dump ✓）：显示位圆心 **卡边外 37 流** · Y 居中 0.00 ✓ · 圆 24 流 ✓
+   本文件 ::after 是 `left:50%;top:50%` + `translate(-50%,-50%)`，6 流手柄正骑在卡边上
+   → 圆心天生落在卡边 → `--handle-plus-shown` **就是**圆心离卡边的流距离 ✓
+   ⇒ 显示位 = **37** ✓ · 隐藏位 = 37 − 24（官方 `translate(-24px)`）= **13** ✓
+   ⚠️ 我此前写 49/25 ✗✓ —— 把 `translate(-50%,-50%)` 的半个身位 12 **又加了一次** ✗。
+      实测证据（zoom 1 · 卡片右边）：::after `left=3px tx=37 w=24` → 圆心 = 卡边 **+49** ✗（官方 37）
+      改后：tx = −12 + 37 = 25 → 圆心 = 卡边 **+37** ✓（已复测 ✓） */
+.react-flow__handle-right::after {
+  --handle-plus-shown: 37px;
+  --handle-plus-hidden: 13px;
+}
+
+.react-flow__handle-left::after {
+  --handle-plus-shown: -37px;
+  --handle-plus-hidden: -13px;
+}
+
+/* ★★★★★ 显示条件（**t1134/t1135 官方实测 + 官方 CSS 逐字** —— 修正上一轮的错误结论）：
+   官方 CSS（`zoom-slider-B3yfHu80.css` @58684 逐字）：
+     `.node-handle-plus-visible,
+      .group:hover .node-handle-plus:not(.node-handle-plus-force-hidden) { opacity:1; transform:translate(0); pointer-events:auto }`
+   ⇒ ① **悬停卡片就滑出 `+`** ✓（`.group:hover` 那条）
+      ② 单选（`-visible`）也滑出 ✓
+      ③ 多选时全部 `force-hidden` ✓
+   ⚠️ 上一轮我把这条判成「官方悬停零变化」并把 `:hover` 触发删了 ✗ —— **测量陷阱**：
+      官方窗口被遮挡时 `document.visibilityState === 'hidden'` ⇒ Chromium **节流 rAF**
+      ⇒ `opacity/transform` 的 0.3s 过渡**卡在旧值 0**，而**不参与过渡的 `pointer-events` 已经是 `auto`** ✓
+      当时量到的「只有 pointer-events 变了」正是**这条 hover 规则命中的指纹**，被我读反了 ✗✓
+      （t1134 复现：官方 hover 时 `pe=auto` 而 `op=0` —— 同一原因 ✓）
+      用户也明确说过：「悬浮在角色卡上时 左右 + 按钮应该出现」✓ */
+.react-flow__node:hover .node-handle::after {
+  opacity: 1;
+  transform: translate(-50%, -50%) translateX(var(--handle-plus-shown, 0px))
+    translate(var(--magnet-x, 0px), var(--magnet-y, 0px));
+  pointer-events: auto;
+}
+
+.react-flow__node.selected .node-handle::after {
+  opacity: 1;
+  transform: translate(-50%, -50%) translateX(var(--handle-plus-shown, 0px))
+    translate(var(--magnet-x, 0px), var(--magnet-y, 0px));
+  /* 官方：只有显示态才 pointer-events:auto（隐藏态不挡鼠标） */
+  pointer-events: auto;
+}
+
+/* 磁吸（`useHandleMagnet` 写 `--magnet-*`）：官方 `Gke` 的 mousemove 跟随同样只在可见时才有意义 */
+.node-handle.is-magnet::after {
+  opacity: 1;
+  transform: translate(-50%, -50%) translateX(var(--handle-plus-shown, 0px))
+    translate(var(--magnet-x, 0px), var(--magnet-y, 0px));
+  pointer-events: auto;
+}
+
+/* 多选（≥2）时隐藏所有节点的 `+`（官方 `p = Fg() > 1` ⇒ force-hidden）；
+   画布容器上由 Canvas 写 `data-multi-selection="true"`。 */
+[data-multi-selection='true'] .node-handle::after {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* 自己 hover 时变白（官方 hover:text-foreground / hover:border-foreground） */
+.node-handle:hover::after {
+  border-color: rgb(245, 245, 245);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23F5F5F5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5l0 14'/%3E%3Cpath d='M5 12l14 0'/%3E%3C/svg%3E");
+}
+
+/* ★ 性能模式豁免 —— 不写这条，`+` 就完全没有出现动画。
+   base.css 的 `html[data-performance-mode] *::before/::after { transition-duration: .01ms !important }`
+   **没有任何豁免通道** ✗（元素那条有 `:not([data-performance-motion='essential'])`，伪元素那条没有），
+   于是 `+` 圆的 transition 被压成 1e-05s（实测计算值）→ 动画消失
+   （用户反馈"刷新后左右+没动画、也不跟随光标动"）。
+   这里用**更高特异性的 !important** 把官方那套 0.3s 弹性过渡还原（与官方 CSS 逐字一致）。 */
+html[data-performance-mode] .node-handle::after {
+  transition-delay: 0s !important;
+  transition-duration: 0.3s, 0.3s, 0.15s !important;
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1), cubic-bezier(0.34, 1.56, 0.64, 1),
+    cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* 连线「剪刀」断开按钮 — 官方实测完整规格：
+   外层 div.nopan.nodrag.absolute.z-[1001] · transform: translate(x,y) translate(-50%,-50%)（正中跟随鼠标）
+   按钮 size-8(32×32) · rounded-full · bg-zinc-900/80 rgba(24,24,27,.8) · backdrop-blur-sm
+        border 1px zinc-700/50 rgba(63,63,70,.5) · transition-all .2s
+        hover → bg-zinc-800/90 rgba(39,39,42,.9) · border zinc-600 #52525b
+   图标 tabler-cut · 18×18(viewBox 24) · stroke-width 2 · rotate(-45deg)
+        text-zinc-400 #a1a1aa → hover 白 · transition-colors .2s
+   aria-label = "delete edge" */
+.edge-scissors-layer {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1001;
+  transform: translate(var(--scissors-x, 0px), var(--scissors-y, 0px)) translate(-50%, -50%);
+  pointer-events: auto;
+}
+
+/* 官方 `Lpe`：**视口正在平移/缩放时强制隐藏剪刀**（`if (Ll.getState().isViewportMoving) return`，
+   并在视口移动结束时 `forceHide()`）。MTV 在画布交互期间会给
+   `document.documentElement` 加 `canvas-interacting`（见 Canvas.tsx CANVAS_INTERACTING_CLASS）
+   ⇒ 直接用它隐藏，等价且零 JS 开销 ✓ */
+html.canvas-interacting .edge-scissors-layer {
+  display: none;
+}
+
+.edge-scissors-btn {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(63, 63, 70, 0.5);
+  border-radius: 999px;
+  background: rgba(24, 24, 27, 0.8);
+  backdrop-filter: blur(4px);
+  color: #a1a1aa;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.edge-scissors-btn:hover {
+  background: rgba(39, 39, 42, 0.9);
+  border-color: #52525b;
+  color: #ffffff;
+}
+
+.edge-scissors-btn > svg {
+  transform: rotate(-45deg);
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ★★★★★ **左 `+` 只在「参考卡」上隐藏** —— 修正谓词（t1135 官方逐节点实测）
+   官方实测（同一份 dump，每个节点查 `.node-handle-plus-*-force-hidden`）：
+     · 角色库应用到画布的卡（`hasImg=true`）→ **左 forceHidden=false · 右 false** ⇒ **左右都可用** ✓✓
+     · 参考/上传卡（`cls` 里是 `nopan selectable`、无 `canvas-node`）→ **左 forceHidden=true**
+   官方源码侧的谓词（`zoom-slider` `nZe` 门禁）：左柄命令表只在
+     `data.type ∈ {DEFAULT, GENERATE}`（空卡 / **生成**卡）时返回；其它（参考卡）返回 `[]` ⇒ force-hidden
+   ⚠️ MTV 原来是 `.node-wrapper.has-media` ⇒ **凡有图就藏左 `+`** ✗ ——
+      角色卡本身就有图，于是左 `+` 永远看不到 ✗（用户：「左右 + 按钮应该出现 … 不管组内组外」✓）
+   ⚠️ 也不可用 `role === 'source'`：**角色库应用出来的卡也是 `role:'source'`**（`assetRowActions.ts:266`）✗
+   ⇒ 改用 **「来自磁盘上传」** 这个更窄的口径：`fileName`（只有 `useNodeCreation.ts` 上传路径写它）✓
+   注：只隐藏视觉圆钮，命中区保留 —— 与官方一致（官方隐藏的也是 `.node-handle-plus` 这一层）。 */
+.node-wrapper.is-reference-card .react-flow__handle-left::after {
+  display: none;
+}
+
+.react-flow__handle-left {
+  left: 0 !important;
+}
+.react-flow__handle-right {
+  right: 0 !important;
+}
+
+.react-flow__handle-left:hover {
+  transform: translate(-50%, -50%) !important;
+}
+
+.react-flow__handle-right:hover {
+  transform: translate(50%, -50%) !important;
+}
+
+/* ============================================
+   Gooey Btn — 叠加在 Handle 上的粘液按钮
+   ============================================ */
+/* 共享静态规则；每个按钮仅传入自己的滤镜引用，挂载节点不再反复插入全局样式表。 */
+.gooey-btn {
+  --x: 50;
+  --y: 50;
+  --a: 0%;
+  --button: hsl(var(--hue), 66%, 66%);
+
+  display: block; /* 避免 inline-block 基线空隙撑高 wrapper，导致按钮整体偏上 */
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  position: relative;
+  cursor: var(--cursor-pointer, pointer);
+  transition: scale 0.5s ease;
+  isolation: isolate;
+}
+
+.gooey-btn:hover {
+  --a: 100%;
+  scale: 1.1;
+  cursor: none;
+}
+
+.gooey-btn::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  filter: blur(8px) var(--gooey-filter) drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  background-image:
+    linear-gradient(0deg, var(--button), var(--button)),
+    radial-gradient(
+      30% 90% at calc(var(--x) * 1%) calc(var(--y) * 1%),
+      hsla(var(--hue), 77%, 77%, var(--a)) 0%,
+      transparent 80%
+    );
+  background-clip: content-box, border-box;
+  padding: 18px;
+  z-index: -1;
+}
+
+.gooey-btn-wrapper {
+  position: absolute;
+  z-index: 14;
+  pointer-events: none;
+  overflow: visible;
+  /* 默认隐藏，仅在节点 hover / 选中 / 手柄 hover 时淡入 */
+  opacity: 0;
+  transition: opacity var(--transition-base), visibility 0s var(--transition-base);
+}
+
+/* 节点 hover、选中，或手柄自身 hover 时显示两侧手柄 */
+.react-flow__node:hover .gooey-btn-wrapper,
+.react-flow__node.selected .gooey-btn-wrapper,
+.node-handle:hover .gooey-btn-wrapper {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+  transition: opacity var(--transition-base), visibility 0s 0s;
+}
+
+/* 拖拽节点时隐藏两侧粘液手柄，避免拖动过程中视觉干扰 */
+.react-flow__node.dragging .gooey-btn-wrapper,
+.react-flow__node-dragging .gooey-btn-wrapper {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ★★ 「画廊打开期间」强制隐藏两侧 `+`（= 官方 `.node-handle-plus-force-hidden` 的等价物）。
+   官方出处（运行端 chunk `tapnow://app/assets/course-api-base-url-0D9Dk52r.js`，0.4.81 0-based 偏移；
+   把手组件 `_Re` @1222713，`node-handle-plus-force-hidden` 的拼接 @1223730；`o`=isConnectable，
+   画廊打开时节点外壳传 `canAcceptInput/canProvideOutput:!O` @3244226）：
+     `className: Q("node-handle-plus", …, w&&"node-handle-plus-visible", …, !o&&"node-handle-plus-force-hidden")`
+   官方 CSS（9444 实测抠出，逐字）：
+     `.node-handle-plus-force-hidden { opacity: 0 !important; pointer-events: none !important; }`
+   9444 实测：展开态两个 `.node-handle-plus` 都带 `-force-hidden`（computed opacity 0 / pointer-events none）；
+   收起态换成 `-visible`（opacity 1）。
+
+   ⚠️⚠️ **上一版打错了目标（用户两张官方截图把它戳穿）**：MTV 画面上那颗 `+` **不是** `.gooey-btn`
+      —— 本文件 @386 早就写了 `.node-handle .gooey-btn-wrapper { display: none !important }`，
+      真正画 `+` 的是本文件 `.node-handle::after`（@390 起，官方 node-handle-plus 圆的等效实现）。
+      ⇒ 旧规则 `.node.gallery-open .gooey-btn-wrapper{…}` 是**死规则**（那元素全局 display:none），
+      「展开态 `+` 仍在」根本没被修掉。现在直接打 `::after` ✓
+
+   ⚠️ 出现条件与官方一致 = **仅画廊打开期间**（`.node.gallery-open` 由 ImageNode.tsx 按 `galleryOpen` 挂类）；
+      未选中 / 普通悬浮 / 正常选中的显示规则（`.react-flow__node:hover` / `.react-flow__node.selected` /
+      `.node-handle.is-magnet`）全部照旧 —— 官方正常选中时 `+` 是**有**的，不能一刀切 ✓
+
+   ⚠️ 放到上面显示规则**之后**：本选择器 `.node.gallery-open .node-handle::after` 与
+      `.react-flow__node.selected .node-handle::after` 同为 3 个类 + 1 伪元素 ⇒ 靠源码顺序取胜
+      ⇒ 不需要 `!important`（官方那份 `!important` 只是它自己的类选择器不够特异）。
+      隐藏位/隐藏 transform 照抄上面基础规则：`translate(-50%,-50%) translateX(--handle-plus-hidden)`。 */
+.node.gallery-open .node-handle::after {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) translateX(var(--handle-plus-hidden, 0px))
+    translate(var(--magnet-x, 0px), var(--magnet-y, 0px));
+}
+
+/* Per-type handle colors (applied via handle-source class on visible handles) */
+/* .handle-text {
+  background: #1fa2dc !important;
+  border-color: #90c4e5 !important;
+  pointer-events: auto !important;
+  z-index: 10;
+}
+
+.handle-image {
+  background: #22c55e !important;
+  border-color: #4ade80 !important;
+  pointer-events: auto !important;
+  z-index: 10;
+}
+
+.handle-video {
+  background: #3b82f6 !important;
+  border-color: #60a5fa !important;
+  pointer-events: auto !important;
+  z-index: 10;
+}
+
+.handle-audio {
+  background: #f97316 !important;
+  border-color: #fb923c !important;
+  pointer-events: auto !important;
+  z-index: 10;
+} */
+
+
+/* wrapper 锚点取 Handle 自身位置（left/right = 0），translate 把按钮中心外推按钮半径（20px ×
+   inv-zoom），再 scale(var(--gooey-inv-zoom)) 绕中心反向补偿缩放。translate 在 scale 之前，
+   translate 量最终会被 scale 抵消：视觉偏移 = 20px × inv-zoom × zoom = 20px（屏幕像素恒定），
+   因此按钮始终紧贴节点边缘外侧、不侵入节点内部。 */
+.gooey-btn-left {
+  left: 0;
+  top: 50%;
+  transform: translate(calc(-50% - 10px * var(--gooey-inv-zoom, 1)), -50%)
+             scale(var(--gooey-inv-zoom, 1));
+}
+
+.gooey-btn-right {
+  right: 0;
+  top: 50%;
+  transform: translate(calc(50% + 10px * var(--gooey-inv-zoom, 1)), -50%)
+             scale(var(--gooey-inv-zoom, 1));
+}
+
+.gooey-btn-left .gooey-btn::before {
+  padding: 19px 10px 19px 26px;
+}
+
+.gooey-btn-right .gooey-btn::before {
+  padding: 19px 26px 19px 10px;
+}
+
+/* ── 操作记录浮层（画布右上角） ── */
+/* 下移到顶部 Header / Windows 窗口按钮那一条带以下，避免视觉上挤在一起 */
+.canvas-history-slot {
+  margin-top: 80px !important;
+}
+
+/* 内置聊天助手展开时整体左移，让出助手面板的宽度（数值跟随 .chat-panel） */
+.canvas-history-wrap {
+  transition: transform 0.28s ease-out;
+}
+
+/* React 显式保持打开状态；展开后父级命中区覆盖整块面板。 */
+.canvas-history-wrap[data-open='true'] {
+  width: 208px;
+}
+
+/* 打开或锁定常显时恢复面板命中。 */
+.canvas-history-wrap[data-open='true'] .canvas-history-panel {
+  transform: none;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.canvas-history-wrap[data-open='true'] .canvas-history-hint {
+  opacity: 0;
+}
+
+/* 画布内不出现品牌色（Design.md §7「黑为底、白为墨、透明度为层级」）——
+   操作记录（撤销/还原）的激活态改用中性白透明度档 */
+.canvas-history-btn--on {
+  background: var(--white-alpha-12);
+  color: var(--theme-text);
+}
+
+.canvas-history-btn--on:hover:not(:disabled) {
+  background: var(--white-alpha-15);
+  color: var(--theme-text);
+}
+
+.canvas-history-panel {
+  width: 208px;
+  /* 弹层配方 = 官方 dropdown：bg-popover / border-white/10 / rounded-2xl / shadow-2xl / backdrop-blur
+     （原来：硬灰描边 `--theme-border` + 无投影 ✗）*/
+  border: 1px solid var(--popover-border);
+  border-radius: var(--popover-radius);
+  background: color-mix(in srgb, var(--popover-bg) 90%, transparent);
+  box-shadow: var(--popover-shadow);
+  backdrop-filter: blur(var(--popover-blur));
+  overflow: hidden;
+  font-size: 11px;
+}
+
+.canvas-history-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 6px;
+}
+
+.canvas-history-panel__title {
+  flex: 1;
+  min-width: 0;
+  padding-left: 4px;
+  color: var(--theme-text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.canvas-history-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--theme-text-secondary);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 0.12s, color 0.12s;
+}
+
+.canvas-history-btn:hover:not(:disabled) {
+  background: var(--theme-hover);
+  color: var(--theme-text);
+}
+
+.canvas-history-btn:disabled {
+  opacity: 0.35;
+  cursor: var(--cursor-default, default);
+}
+
+.canvas-history-btn--ghost {
+  color: var(--theme-text-muted);
+}
+
+.canvas-history-list {
+  max-height: 220px;
+  margin: 0;
+  padding: 0 4px 4px;
+  overflow-y: auto;
+  list-style: none;
+  border-top: 1px solid color-mix(in srgb, var(--theme-border) 60%, transparent);
+}
+
+.canvas-history-empty {
+  padding: 10px 8px;
+  color: var(--theme-text-muted);
+  text-align: center;
+}
+
+.canvas-history-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: 7px;
+  color: var(--theme-text-secondary);
+  line-height: 16px;
+}
+
+.canvas-history-item__icon {
+  flex-shrink: 0;
+  color: var(--theme-text-muted);
+}
+
+.canvas-history-item__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-history-item.is-current {
+  background: var(--white-alpha-06);
+  color: var(--theme-text);
+}
+
+.canvas-history-item.is-current .canvas-history-item__icon {
+  color: var(--theme-text-secondary);
+}
+
+/* 已被撤销、可重做的操作 */
+.canvas-history-item.is-undone {
+  opacity: 0.45;
+}
+
+.canvas-history-item__badge {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--white-alpha-12);
+  color: var(--theme-text-secondary);
+  font-size: 9px;
+}
+
+/* Custom cursors over @xyflow/react's own rules: its stylesheet is imported from
+   Canvas.tsx, so it lands after index.css and one extra class is needed to outrank
+   it. grab/grabbing are left to the vendor - the cursor pack has no hand glyph. */
+.react-flow .react-flow__pane.selection,
+.react-flow .react-flow__edge.selectable,
+.react-flow .react-flow__node.selectable,
+.react-flow .react-flow__controls-button {
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.react-flow .react-flow__node {
+  cursor: var(--cursor-default, default);
+}
+
+.react-flow .react-flow__handle.connectionindicator {
+  cursor: var(--cursor-crosshair, crosshair);
+}
+
+.react-flow .react-flow__edgeupdater {
+  cursor: var(--cursor-move, move);
+}
+
+/* ★ 官方缩放光标 = **库自带的关键字** `ew-resize / ns-resize / nwse-resize / nesw-resize`
+   （`zoom-slider-B3yfHu80.css` @37837 起），官方全仓 CSS **没有**任何 `--cursor-*` 变量体系
+   （搜 `--cursor-` 与 `cursor:var(` 均 0 命中）⇒ MTV 原来这四条 `var(--cursor-*-resize, …)`
+   会用自造 PNG 光标盖掉官方关键字 ✗（用户：「按照官方css来」）⇒ 删除，交回库的关键字规则。 */
+
+/* 官方剪刀的**禁用态**（不可删的边）：`aria-disabled:cursor-not-allowed aria-disabled:opacity-70
+   aria-disabled:hover:bg-zinc-900/80 aria-disabled:hover:border-zinc-700/50` —— 悬停不变化、整体压暗 ✓ */
+.edge-scissors-btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.edge-scissors-btn[aria-disabled='true']:hover {
+  background: rgba(24, 24, 27, 0.8);
+  border-color: rgba(63, 63, 70, 0.5);
+}
+.edge-scissors-btn[aria-disabled='true'] > svg {
+  color: #71717a;
+}

@@ -1,0 +1,17 @@
+//! MTV 导演画布 桌面进程入口；按 CLI 参数进入隔离的 ONNX Worker 或启动 Tauri 主应用。
+
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+fn main() {
+    // --onnx-worker 模式：独立的推理子进程
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && args[1] == "--onnx-worker" {
+        #[cfg(feature = "local-onnx")]
+        mtv_desktop_lib::onnx::worker::run();
+        #[cfg(not(feature = "local-onnx"))]
+        eprintln!("x64-legacy 版本未包含本地 ONNX Runtime");
+        return;
+    }
+
+    mtv_desktop_lib::run();
+}

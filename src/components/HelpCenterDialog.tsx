@@ -1,0 +1,654 @@
+/**
+ * 按需加载的帮助中心：内容（分类 / 条目 / 文案 / 演示）原样保留，**外壳**逐字对齐官方设置弹窗
+ * （`.settings-panel-dialog` + 官方左栏 `.settings-panel-nav` + 官方右栏 `.settings-content`/`.settings-row`）。
+ */
+import { useEffect, useRef, useState } from 'react';
+import { Icon } from '@iconify/react';
+import HelpMentionDemo from './HelpMentionDemo';
+import ModalOverlay from './shared/ModalOverlay';
+import { SettingsPaneBody, SettingsPaneHeader } from './settings/SettingsPane';
+
+const HELP_CATEGORIES = [
+  {
+    id: 'getting-started',
+    label: '快速开始',
+    icon: 'mdi:rocket-launch-outline',
+    summary: '从创建节点到获得第一份结果',
+    items: [
+      {
+        title: '创建内容节点',
+        description: '点击左侧加号选择文本、图像、视频、音频、全景、动画或 3D 导演台节点。也可以直接按数字键 1-7 快速创建对应节点。',
+      },
+      {
+        title: '补充输入与模型',
+        description: '选中节点后填写提示词、选择模型，并按需要添加参考素材。模型不可用时，先到“设置 > API Key”完成对应服务配置。',
+      },
+      {
+        title: '生成并继续编排',
+        description: '在节点中发起生成。结果会保留在当前项目中，可继续连接到下游节点，也可在左侧“输出历史”中回看。',
+      },
+    ],
+  },
+  {
+    id: 'canvas',
+    label: '画布导航',
+    icon: 'mdi:cursor-move',
+    summary: '选择、平移、缩放与快速定位',
+    items: [
+      {
+        title: '选择与多选',
+        description: '点击节点进行选择；按住 Shift 点击可追加选择。框选手势会跟随“设置 > 常规”中的画布交互模式。',
+        shortcut: 'Shift + 点击',
+      },
+      {
+        title: '平移与缩放',
+        description: 'Figma 模式使用右键或中键拖动画布、滚轮缩放；经典模式使用左键拖动画布、Ctrl + 滚轮缩放。触控板可直接使用双指手势。',
+      },
+      {
+        title: '找回画布内容',
+        description: '按 F 将全部内容适配到当前视野；按 M 显示或隐藏小地图。画布右下角的缩放控件可精确调整比例。',
+        shortcut: 'F / M',
+      },
+      {
+        title: '使用画布右键菜单',
+        description: '在画布空白处右键可创建生成节点或源节点，也可粘贴、撤销、重做和打开项目文件夹；存在选中内容时还可复制节点文件或删除所选内容。',
+        shortcut: '右键画布空白处',
+      },
+    ],
+  },
+  {
+    id: 'nodes',
+    label: '节点与连线',
+    icon: 'mdi:vector-polyline',
+    summary: '组织节点、建立数据流与批量编辑',
+    items: [
+      {
+        title: '移动与编辑节点',
+        description: '拖动节点标题区域调整位置。单独选中一个节点后按 Space，可直接打开该节点的提示词对话框，集中调整提示词、参数和参考内容。',
+        shortcut: '选中节点 + Space',
+      },
+      {
+        title: '自定义节点工具栏',
+        description: '单独选中节点后，长按节点上方的浮动工具栏可进入工具栏编辑状态；可添加、移除或拖拽排序按钮，完成后会保存当前布局。',
+        shortcut: '长按节点上方工具栏',
+      },
+      {
+        title: '连接上下游',
+        description: '从节点的输出连接点拖向另一个节点的输入连接点。把连线释放到画布空白处时，可从菜单中创建后续节点。',
+      },
+      {
+        title: '批量整理',
+        description: '多选节点后可使用浮动工具栏对齐、分布或分组。Ctrl + G 用于分组或取消分组，误操作可用 Ctrl + Z 撤销。',
+        shortcut: 'Ctrl/⌘ + G',
+      },
+      {
+        title: '快速复制与节点菜单',
+        description: '按住 Ctrl/⌘ 拖动非分组节点，会在原位置留下一个副本。右键节点可复制、剪切、创建副本、另存为或打开文件位置，媒体节点还会按类型提供角色库和外部编辑器入口。',
+        shortcut: 'Ctrl/⌘ + 拖动节点',
+      },
+    ],
+  },
+  {
+    id: 'shortcuts',
+    label: '快捷操作',
+    icon: 'mdi:keyboard-outline',
+    summary: '少点几次鼠标，更快完成高频编辑',
+    items: [
+      {
+        title: '快速打开提示词',
+        description: '先单独选中一个普通内容节点，再按 Space 打开提示词对话框。正在输入文字、多选节点、分组节点或 Markdown 节点时不会触发。',
+        shortcut: '选中节点 + Space',
+      },
+      {
+        title: '锁定节点缩放比例',
+        description: '拖动节点右下角的尺寸控制点时按住 Shift，宽高会按当前比例一起变化；拖拽过程中也可以随时按下或松开 Shift 切换。',
+        shortcut: '拖拽缩放 + Shift',
+      },
+      {
+        title: '在鼠标位置创建节点',
+        description: '按 1-7 创建文本、图像、视频、音频、全景、动画和 3D 导演台节点；按 Alt + 1-5 创建文本、图像、视频、音频和 Markdown 源节点。',
+        shortcut: '1-7 / Alt + 1-5',
+      },
+      {
+        title: '复制、粘贴与删除',
+        description: 'Ctrl/⌘ + C 和 Ctrl/⌘ + V 用于复制、粘贴选中节点；未复制节点时，直接粘贴外部图片或文件会将内容导入画布。Delete 或 Backspace 删除当前选择。',
+        shortcut: 'Ctrl/⌘ + C / V',
+      },
+      {
+        title: '保存、撤销与重做',
+        description: 'Ctrl/⌘ + S 保存当前项目；Ctrl/⌘ + Z 撤销；Ctrl/⌘ + Y 或 Ctrl/⌘ + Shift + Z 重做。快捷键在输入框内会优先保留文字编辑行为。',
+        shortcut: 'Ctrl/⌘ + S / Z / Y',
+      },
+      {
+        title: '定位与资源搜索',
+        description: 'F 适配全部画布内容，M 切换小地图，Esc 关闭当前弹窗或菜单。Alt + Space 或 Ctrl + Shift + Space 可打开资源搜索窗口。',
+        shortcut: 'F / M / Esc',
+      },
+    ],
+  },
+  {
+    id: 'generation',
+    label: 'AI 生成',
+    icon: 'mdi:creation-outline',
+    summary: '配置模型、引用素材与处理生成结果',
+    items: [
+      {
+        title: '配置服务',
+        description: '在“设置 > API Key”中添加模型服务和密钥。ComfyUI 用户还需在对应设置页配置服务地址或安装目录。',
+      },
+      {
+        title: '选择正确的输入',
+        description: '不同媒体节点会显示各自支持的参数。参考图、首尾帧或音频素材可通过节点连接或节点内的素材入口补充。',
+      },
+      {
+        title: '批量生成图片',
+        description: '图片节点使用支持批量的普通模型且未选择工作流时，填写提示词后长按生成按钮，可选择一次生成 2-8 张；费用可能按实际张数计算。',
+        shortcut: '长按图片生成按钮',
+      },
+      {
+        title: '使用 ComfyUI 工作流',
+        description: '先在“设置 > ComfyUI”配置服务并进入工作流管理，导入工作流 JSON、确认分类和输入节点。保存后可在对应生成节点的模型选择器中直接选择。',
+      },
+      {
+        title: 'ComfyUI 调用要指定输入节点',
+        description: '未设置默认节点时，ComfyUI 调用需要在提示词中 @ 对应节点，提示词或参考图才会写入该输入。在工作流管理里展开工作流卡片、点击节点徽章设为该类型默认节点（显示为 ★），之后调用会自动注入，无须每次 @。',
+        shortcut: '@节点 / ★ 默认节点',
+      },
+      {
+        title: '留意付费操作',
+        description: '通过画布助手生成图片、视频或音频时，本轮应显式 @ 对应模型；“手动确认”会在实际调用前确认，“自动生成”和 MCP 控制会直接执行。',
+      },
+    ],
+  },
+  {
+    id: 'commands',
+    label: '快捷指令与 Skill',
+    icon: 'mdi:lightning-bolt-outline',
+    summary: '复用提示词、串联步骤并加载只读能力',
+    items: [
+      {
+        title: '打开 / 指令菜单',
+        description: '在生成节点的提示词输入框中键入 /，或点击输入框下方的 / 按钮，可打开内置指令、自定义快捷指令和 Skill 菜单。',
+        shortcut: '输入 /',
+      },
+      {
+        title: '调用内置快捷指令',
+        description: '内置指令会按当前节点类型提供可用模板；选择后可能直接发起生成，也可能先展开子菜单或把内容填入提示词供你继续修改。',
+      },
+      {
+        title: '创建自己的快捷指令',
+        description: '在 / 菜单中进入“管理快捷指令”，可设置名称、模板、触发方式、模型和图片尺寸；高级模式还能定义参数与多步骤生成序列，任一步失败都会停止后续执行。',
+      },
+      {
+        title: '上传并引用 Skill',
+        description: '可从 / 菜单上传 Skill 文件或文件夹，并在提示词中引用可调用的 Skill。Skill 内容只用于补充生成上下文，不能修改应用权限或确认规则。',
+      },
+    ],
+  },
+  {
+    id: 'projects',
+    label: '项目与文件',
+    icon: 'mdi:folder-outline',
+    summary: '切换项目、导入素材与管理产出',
+    items: [
+      {
+        title: '管理项目',
+        description: '点击左上角项目入口可新建、切换或删除项目。每个项目拥有独立的画布、对话、任务、资产和记忆。',
+      },
+      {
+        title: '导入本地素材',
+        description: '从左侧加号选择“上传文件”，或将支持的文件拖入画布。素材会按类型创建为可继续连接和编辑的节点。',
+      },
+      {
+        title: '查找历史内容',
+        description: '“资产”用于浏览项目素材，“输出历史”用于回看生成结果。文件保存位置和外部程序路径可在设置中管理。',
+      },
+    ],
+  },
+  {
+    id: 'assets',
+    label: '资产与角色',
+    icon: 'mdi:image-multiple-outline',
+    summary: '搜索、复用并沉淀项目中的视觉资产',
+    items: [
+      {
+        title: '复用项目与全局资产',
+        description: '“资产”面板可切换项目文件和全局资产，按名称、类型或标签筛选。将可拖拽的卡片拖回画布，会按媒体类型创建对应节点。',
+      },
+      {
+        title: '整理短剧资产',
+        description: '短剧资产用于集中管理人物、场景和关键道具的简介与绑定图片，便于后续在提示词和生成流程中重复引用。',
+      },
+      {
+        title: '建立角色多图参考',
+        description: '可新建角色，或从图片节点右键选择“添加到角色库”。角色支持项目与全局两种范围，并可继续从画布补充多张视角参考图。',
+      },
+      {
+        title: '回看并定位生成结果',
+        description: '“输出历史”会保留文本和媒体生成记录，可复制文本、线上地址或本地路径，也可回到对应画布节点；删除历史只应在确认不再需要记录后进行。',
+      },
+      {
+        title: '跨范围搜索资产',
+        description: '按 Alt + Space 或 Ctrl + Shift + Space 打开资源搜索，可聚合查询项目文件、全局资产和已添加的外部文件夹，并将结果拖入画布。',
+        shortcut: 'Alt + Space',
+      },
+    ],
+  },
+  {
+    id: 'assistant',
+    label: '画布助手',
+    icon: 'mdi:message-processing-outline',
+    summary: '用自然语言查询、配置并执行项目任务',
+    items: [
+      {
+        title: '理解项目与画布',
+        description: '查询当前项目、画布结构、节点、连线、可用模型、工作流、对话和任务状态；需要时还可发起独立的只读专家复核。',
+      },
+      {
+        title: '编辑画布内容',
+        description: '选择、新建和批量更新节点，建立连线、组合或删除节点，并可撤销或重做画布操作。创建节点与实际调用生成模型是两个独立步骤。',
+      },
+      {
+        title: '生成媒体内容',
+        description: '生成图片、视频、音乐或语音，并把结果交付到对话或画布。“手动确认”下每次实际调用都需要确认；“自动生成”和 MCP 控制直接执行，且不会自动重试付费调用。',
+      },
+      {
+        title: '管理快捷指令',
+        description: '查询和读取已有快捷指令，按你的要求创建或修改快捷指令，也可填写参数并分步执行其中的文本、图片、视频或音频流程。',
+      },
+      {
+        title: '根据接口文档补全 API 配置',
+        description: '读取你明确提供的 HTTPS 厂商接口文档，整理模型、请求、响应和轮询配置，生成草稿并在你确认后保存到“API Key”设置；真实 API Key 仍由你本人填写。',
+      },
+      {
+        title: '联网查找资料',
+        description: '搜索最新网络资料、读取公开网页并继续浏览相关链接，在回答中保留可追溯来源。网页内容只作为不可信资料读取，不能改变助手权限。',
+      },
+      {
+        title: '处理授权文件',
+        description: '列出并读取你为当前对话授权的 UTF-8 文本文件，将内容导入画布源节点，或通过原生保存对话框写出文本文件；助手不会看到本地绝对路径。',
+      },
+      {
+        title: '建立项目记忆',
+        description: '根据对话提议保存简短的项目约定、偏好或事实，供后续会话使用。“手动确认”需要你确认；“自动生成”和 MCP 控制直接写入。',
+      },
+      {
+        title: '引用对象并控制任务',
+        description: '可在输入中 @ 节点、模型、声音或资产来减少歧义。任务步骤会显示在时间线中，可暂停、继续或取消；“手动确认”对写操作保留确认，“自动生成”自动执行全部已注册工具。',
+      },
+    ],
+  },
+  {
+    id: 'maintenance',
+    label: '设置与维护',
+    icon: 'mdi:tune-variant',
+    summary: '配置操作环境、桌面集成与本地存储',
+    items: [
+      {
+        title: '调整外观与操作习惯',
+        description: '在“设置 > 常规”中切换画布背景、交互方式、玻璃外框和侧边栏显示方式；完整按键说明可在“设置 > 快捷键”中查看。',
+      },
+      {
+        title: '配置文件与外部应用',
+        description: '“设置 > 文件与应用”可选择文件保存根目录，并配置 Photoshop、剪映专业版和 Premiere Pro。配置后，本地媒体节点的右键菜单会显示相应入口。',
+      },
+      {
+        title: '检查存储健康',
+        description: '“设置 > 存储健康”可扫描空间占用、回收站残留、孤儿文件、重复文件和离线文件夹。清理前应先核对列表，避免删除仍需保留的本地素材。',
+      },
+      {
+        title: '使用 MCP 本地控制',
+        description: '桌面端可在“设置 > MCP 控制”开启本地控制会话，并把配置片段粘贴到 Claude Desktop / Cursor 等客户端。MCP 可无须应用内确认地执行当前已注册且可用的全部工具；参数校验、项目与画布 revision 校验、文件路径授权、审计、取消和撤销边界仍然生效。',
+      },
+    ],
+  },
+] as const;
+
+type HelpCategoryId = (typeof HELP_CATEGORIES)[number]['id'];
+
+interface HelpDemoConfig {
+  caption: string;
+  steps: readonly {
+    icon: string;
+    label: string;
+    tone: string;
+  }[];
+}
+
+const HELP_DEMOS = {
+  'getting-started': {
+    caption: '创建节点，补充模型与输入，然后获得第一份生成结果。',
+    steps: [
+      { icon: 'lucide:plus', label: '创建节点', tone: 'border-primary/25 bg-primary/10 text-accent-primary' },
+      { icon: 'lucide:settings-2', label: '选择模型', tone: 'border-blue-400/25 bg-blue-500/10 text-blue-400' },
+      { icon: 'lucide:sparkles', label: '生成结果', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+  canvas: {
+    caption: '先选中内容，再平移或缩放画布，最后快速适配全部节点。',
+    steps: [
+      { icon: 'lucide:mouse-pointer-2', label: '选择内容', tone: 'border-primary/25 bg-primary/10 text-accent-primary' },
+      { icon: 'lucide:move', label: '平移缩放', tone: 'border-cyan-400/25 bg-cyan-500/10 text-cyan-400' },
+      { icon: 'lucide:scan', label: '适配视野', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+  nodes: {
+    caption: '选中节点后按 Space，可直接进入提示词与参数编辑。',
+    steps: [
+      { icon: 'lucide:box-select', label: '选中节点', tone: 'border-blue-400/25 bg-blue-500/10 text-blue-400' },
+      { icon: 'lucide:keyboard', label: '按 Space', tone: 'border-amber-400/25 bg-amber-500/10 text-amber-400' },
+      { icon: 'lucide:panel-top-open', label: '打开编辑', tone: 'border-primary/25 bg-primary/10 text-accent-primary' },
+    ],
+  },
+  shortcuts: {
+    caption: '拖动节点尺寸时按住 Shift，可随时切换为等比缩放。',
+    steps: [
+      { icon: 'lucide:move-diagonal-2', label: '拖动尺寸', tone: 'border-blue-400/25 bg-blue-500/10 text-blue-400' },
+      { icon: 'lucide:arrow-up', label: '按住 Shift', tone: 'border-amber-400/25 bg-amber-500/10 text-amber-400' },
+      { icon: 'lucide:proportions', label: '锁定比例', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+  generation: {
+    caption: '在画布助手中明确引用模型，确认调用后再生成媒体内容。',
+    steps: [
+      { icon: 'lucide:at-sign', label: '引用模型', tone: 'border-primary/25 bg-primary/10 text-accent-primary' },
+      { icon: 'lucide:badge-check', label: '确认调用', tone: 'border-amber-400/25 bg-amber-500/10 text-amber-400' },
+      { icon: 'lucide:image', label: '生成内容', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+  commands: {
+    caption: '打开 / 菜单，选择快捷指令或 Skill，再决定直接执行或继续编辑。',
+    steps: [
+      { icon: 'lucide:slash', label: '打开菜单', tone: 'border-primary/25 bg-primary/10 text-accent-primary' },
+      { icon: 'lucide:library-big', label: '选择能力', tone: 'border-amber-400/25 bg-amber-500/10 text-amber-400' },
+      { icon: 'lucide:play', label: '填入或执行', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+  projects: {
+    caption: '项目、导入素材与资产历史保持在同一个独立工作空间中。',
+    steps: [
+      { icon: 'lucide:folder-plus', label: '新建项目', tone: 'border-primary/25 bg-primary/10 text-accent-primary' },
+      { icon: 'lucide:file-up', label: '导入素材', tone: 'border-blue-400/25 bg-blue-500/10 text-blue-400' },
+      { icon: 'lucide:archive', label: '管理资产', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+  assets: {
+    caption: '搜索现有资产，选择合适版本，再拖入画布或沉淀为角色参考。',
+    steps: [
+      { icon: 'lucide:search', label: '搜索筛选', tone: 'border-primary/25 bg-primary/10 text-accent-primary' },
+      { icon: 'lucide:images', label: '选择资产', tone: 'border-blue-400/25 bg-blue-500/10 text-blue-400' },
+      { icon: 'lucide:panel-top-open', label: '拖入画布', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+  assistant: {
+    caption: '描述任务并确认执行计划，助手会把每一步结果写回正确项目。',
+    steps: [
+      { icon: 'lucide:message-square', label: '描述任务', tone: 'border-blue-400/25 bg-blue-500/10 text-blue-400' },
+      { icon: 'lucide:list-checks', label: '确认计划', tone: 'border-amber-400/25 bg-amber-500/10 text-amber-400' },
+      { icon: 'lucide:workflow', label: '执行画布', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+  maintenance: {
+    caption: '先完成环境配置，再扫描存储状态，按需连接桌面与外部工具。',
+    steps: [
+      { icon: 'lucide:settings-2', label: '配置环境', tone: 'border-primary/25 bg-primary/10 text-accent-primary' },
+      { icon: 'lucide:scan-search', label: '扫描存储', tone: 'border-amber-400/25 bg-amber-500/10 text-amber-400' },
+      { icon: 'lucide:plug-zap', label: '连接工具', tone: 'border-emerald-400/25 bg-emerald-500/10 text-emerald-400' },
+    ],
+  },
+} satisfies Record<HelpCategoryId, HelpDemoConfig>;
+
+function HelpDemo({ categoryId }: { categoryId: HelpCategoryId }) {
+  const rootRef = useRef<HTMLElement>(null);
+  const [playbackKey, setPlaybackKey] = useState(0);
+  const demo = HELP_DEMOS[categoryId];
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    let cancelled = false;
+    let context: { revert: () => void } | undefined;
+
+    // GSAP is only needed while the help demo is mounted.
+    void import('gsap').then(({ gsap }) => {
+      if (cancelled || !rootRef.current) return;
+
+      context = gsap.context(() => {
+        const steps = gsap.utils.toArray<HTMLElement>('[data-help-demo-step]');
+        const connectors = gsap.utils.toArray<HTMLElement>('[data-help-demo-connector]');
+        const caption = root.querySelector<HTMLElement>('[data-help-demo-caption]');
+
+        gsap.set(steps, { opacity: 0.35, transform: 'translateY(4px) scale(0.96)' });
+        gsap.set(connectors, {
+          opacity: 0.35,
+          transform: 'scaleX(0)',
+          transformOrigin: 'left center',
+        });
+        if (caption) gsap.set(caption, { opacity: 0, transform: 'translateY(4px)' });
+
+        const timeline = gsap.timeline();
+        steps.forEach((step, index) => {
+          timeline.to(step, {
+            opacity: 1,
+            transform: 'translateY(0) scale(1)',
+            duration: 0.28,
+            ease: 'power3.out',
+          }, index === 0 ? 0 : '>+0.06');
+
+          const connector = connectors[index];
+          if (connector) {
+            timeline.to(connector, {
+              opacity: 1,
+              transform: 'scaleX(1)',
+              duration: 0.32,
+              ease: 'power2.inOut',
+            }, '>-0.04');
+          }
+        });
+
+        if (caption) {
+          timeline.to(caption, {
+            opacity: 1,
+            transform: 'translateY(0)',
+            duration: 0.24,
+            ease: 'power3.out',
+          }, '>-0.05');
+        }
+      }, root);
+    });
+
+    return () => {
+      cancelled = true;
+      context?.revert();
+    };
+  }, [categoryId, playbackKey]);
+
+  return (
+    <section
+      ref={rootRef}
+      aria-label={`${demo.caption} 操作演示`}
+      className="help-dialog__demo relative mb-5 overflow-hidden rounded-lg border border-border bg-background/60 px-3 py-3"
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-30 [background-image:radial-gradient(var(--separator-color)_1px,transparent_1px)] [background-size:12px_12px]"
+        aria-hidden="true"
+      />
+      <div className="relative mb-3 flex items-center justify-between gap-3">
+        <span className="text-[11px] font-medium text-muted-foreground">操作演示</span>
+        <button
+          type="button"
+          aria-label="重新播放操作演示"
+          data-tooltip="重新播放"
+          onClick={() => setPlaybackKey((key) => key + 1)}
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+        >
+          <Icon icon="lucide:rotate-ccw" width="14" height="14" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="relative flex min-h-14 items-center">
+        {demo.steps.map((step, index) => (
+          <div key={step.label} className="contents">
+            <div
+              data-help-demo-step
+              className={`flex h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1.5 rounded-lg border px-1.5 ${step.tone}`}
+            >
+              <Icon icon={step.icon} width="17" height="17" aria-hidden="true" />
+              <span className="max-w-full truncate text-[10px] font-medium text-muted-foreground">{step.label}</span>
+            </div>
+            {index < demo.steps.length - 1 ? (
+              <div
+                data-help-demo-connector
+                className="mx-2 h-px min-w-3 flex-[0.35] bg-[var(--separator-color)]"
+                aria-hidden="true"
+              />
+            ) : null}
+          </div>
+        ))}
+      </div>
+
+      <p
+        data-help-demo-caption
+        className="relative mt-3 text-pretty text-[11px] leading-5 text-muted-foreground"
+      >
+        {demo.caption}
+      </p>
+    </section>
+  );
+}
+
+interface HelpCenterDialogProps {
+  onClose: () => void;
+}
+
+/**
+ * 帮助中心弹窗 —— **外壳**逐字对齐官方设置弹窗，内容（分类 / 条目 / 文案 / 演示）原样保留。
+ *
+ * 官方出处（全部照 `styles/settings-panel.css` 里已解析好的官方值，不新增自创版式/数值）：
+ *   · 对话框 = 官方 `settings-modal`（`course-api-base-url-CGXqZmAy.js`）⇒ `.settings-panel-dialog`
+ *     （1400×85vh/900px、r16、#0f0f0f、2px border），用法照 `SettingsPanel.tsx:78-84`。
+ *   · 标题 = 官方那个**没有可见标题栏**的 `sr-only <h2>`；右上角一颗 `.settings-panel-close`
+ *     （`absolute right-4 top-4` 的 24×24 + `lucide-x` 16px）—— 逐字照 `SettingsPanel.tsx:88-97`。
+ *   · 左栏 = 帮助分类 ⇒ 官方左栏 `.settings-panel-nav`（`w-44 sm:w-56 bg-muted/50 p-4 rounded-l-2xl`）
+ *     + 行 `.settings-panel-nav-item`（`w-full flex items-center gap-2 px-3 py-2 rounded-md
+ *     transition-all text-left text-sm font-normal` + hover / 选中 `aria-current`），
+ *     结构照 `settings/SettingsNavigation.tsx:119-143`。
+ *   · 右栏 = 选中分类的条目 ⇒ 官方 `.settings-content`（`flex-1 overflow-y-auto p-3`，
+ *     用法照 `SettingsPanel.tsx:123-127`，带 `data-overlay-scrollbar="off"`）
+ *     + 官方面板体/面板头/设置项行原语 `settings/SettingsPane.tsx`
+ *     （`.settings-pane-body` / `.settings-pane-header` / `.settings-row` / `.settings-row-title` /
+ *      `.settings-row-desc`）；shortcut 用官方键帽 `.o-kbd`（`styles/official-controls.css`）。
+ *
+ * ⚠️ 官方没有对应物的 MTV 内容（按用户要求「用官方同族排版包起来」并在此标注）：
+ *   · 操作演示区（`HelpDemo`）与 @ 节点演示（`HelpMentionDemo`）：官方设置面板没有这种区块，
+ *     用 `.settings-row settings-row--stacked` 包住；**两个演示组件本身一字未改**。
+ *   · 面板脚注（完整快捷键提示）：同样包在官方 `settings-row` 里，文案不变，小字用官方 `.o-muted`。
+ *   · 分类名/条目数没有官方分组标题对应物 ⇒ 左栏保留一个**无标题分组**
+ *     （`.settings-panel-nav-group` = 官方组内 `space-y-1`），项距与官方一致（4px）。
+ *
+ * 文案与 i18n：本组件（含外壳）一直使用写死的中文串，未接 `useT()`，此次保持原样。
+ */
+export default function HelpCenterDialog({ onClose }: HelpCenterDialogProps) {
+  const [activeHelpCategory, setActiveHelpCategory] = useState<HelpCategoryId>('getting-started');
+  const selectedHelpCategory = HELP_CATEGORIES.find(({ id }) => id === activeHelpCategory)
+    ?? HELP_CATEGORIES[0];
+
+  return (
+    <ModalOverlay
+      isOpen
+      onClose={onClose}
+      ariaLabel="MTV 导演画布 使用帮助"
+      className="settings-panel-dialog"
+      closeOnBackdrop={false}
+    >
+      {/* 官方对话框没有可见标题栏：标题是 `sr-only` 的 `<h2>`（`SettingsPanel.tsx:88` 逐字） */}
+      <h2 className="sr-only">使用帮助</h2>
+      <button
+        type="button"
+        aria-label="关闭帮助"
+        className="settings-panel-close"
+        onClick={() => onClose()}
+      >
+        <Icon icon="lucide:x" width={16} height={16} />
+      </button>
+
+      <div className="flex flex-1 min-h-0">
+        {/* 左栏 = 帮助分类（官方左栏 `.settings-panel-nav`；结构照 `SettingsNavigation.tsx:119-143`） */}
+        <div className="settings-panel-nav" data-testid="help-panel-nav">
+          <nav aria-label="帮助分类">
+            {/* ⚠️ MTV 内容：帮助分类只有一组、且官方没有对应组名 ⇒ 保留一个**无标题分组**；
+                `.settings-panel-nav-group` = 官方组内 `space-y-1`，项与项之间仍是官方那 4px */}
+            <div className="settings-panel-nav-group">
+              {HELP_CATEGORIES.map((category) => {
+                const isActive = category.id === activeHelpCategory;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    aria-current={isActive}
+                    data-testid={`help-panel-nav-${category.id}-btn`}
+                    className="settings-panel-nav-item"
+                    onClick={() => setActiveHelpCategory(category.id)}
+                  >
+                    <Icon icon={category.icon} width={18} height={18} aria-hidden="true" />
+                    <span>{category.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        </div>
+
+        {/* 右栏 = 选中分类的条目（官方 `.settings-content` + `p-3`，照 `SettingsPanel.tsx:123-127`；
+            `data-overlay-scrollbar="off"` 与设置面板一致：右栏不要 MTV 那条全局悬浮滑条） */}
+        <div
+          className="settings-content flex-1 overflow-y-auto overflow-x-hidden p-3"
+          data-overlay-scrollbar="off"
+        >
+          <SettingsPaneBody>
+            <SettingsPaneHeader
+              title={selectedHelpCategory.label}
+              description={selectedHelpCategory.summary}
+            />
+
+            <div className="mt-8 space-y-5">
+              {/* ── ⚠️ MTV 内容：操作演示区（官方设置面板无对应物 ⇒ 用官方同族 `.settings-row` 包住） ── */}
+              <section className="settings-row settings-row--stacked">
+                <HelpDemo categoryId={activeHelpCategory} />
+              </section>
+
+              {/* ── 分类条目 = 官方设置项行（左：`.settings-row-label` 标题+说明；右侧控件位放官方键帽） ── */}
+              {selectedHelpCategory.items.map((item) => (
+                <section key={item.title} className="settings-row">
+                  <div className="settings-row-label">
+                    <h3 className="settings-row-title">{item.title}</h3>
+                    <p className="settings-row-desc">{item.description}</p>
+                  </div>
+                  {'shortcut' in item && item.shortcut ? (
+                    <kbd className="o-kbd">{item.shortcut}</kbd>
+                  ) : null}
+                </section>
+              ))}
+
+              {/* ── ⚠️ MTV 内容：@ 节点演示（「AI 生成」分类专有，官方无对应物 ⇒ 同上包起来） ── */}
+              {activeHelpCategory === 'generation' ? (
+                <section className="settings-row settings-row--stacked">
+                  <HelpMentionDemo />
+                </section>
+              ) : null}
+
+              {/* ── ⚠️ MTV 内容：面板脚注（文案原样；官方无对应物 ⇒ 官方同族行 + 官方小字 `.o-muted`） ── */}
+              <section className="settings-row settings-row--stacked">
+                <div className="flex items-start gap-2">
+                  <Icon icon="mdi:keyboard-outline" width="16" height="16" className="mt-0.5 shrink-0" aria-hidden="true" />
+                  <p className="o-muted">完整快捷键可在“设置 &gt; 快捷键”中查看；按 Esc 可随时关闭当前弹窗或菜单。</p>
+                </div>
+              </section>
+            </div>
+          </SettingsPaneBody>
+        </div>
+      </div>
+    </ModalOverlay>
+  );
+}

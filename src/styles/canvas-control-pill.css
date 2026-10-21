@@ -1,0 +1,222 @@
+/* ============================================
+   画布左下控制条 — 对齐 TapNow 官方画布实测
+   官方：panel 293×40；主容器 241×40 · radius 16px · bg #2B2B2B ·
+         图标按钮 28×28 · radius 12px · 透明底 · 图标色 rgb(230,230,230) · hover 底 rgba(0,0,0,.4) ·
+         滑杆 77×6；间隙 12px；圆形帮助按钮 40×40 · radius 999px · bg #2B2B2B · help 图标 24×24
+   ============================================ */
+.canvas-control-cluster {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.canvas-control-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px 0 8px;
+  border-radius: 16px;
+  background: var(--canvas-control-bg, #2b2b2b);
+}
+/* 官方源码里容器内还有一层 aria-hidden 的内阴影层：
+     <div aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit]
+          shadow-[inset_0px_0.1px_0.4px_0px_rgba(255,255,255,0.25)]"/>
+   用 ::after 等价还原（不影响子元素点击）。 */
+.canvas-control-pill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0.1px 0.4px 0 rgba(255, 255, 255, 0.25);
+  pointer-events: none;
+}
+
+.canvas-control-item {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  border-radius: 12px; /* 官方 rounded-lg = var(--radius) = **12px**（.dark --radius:.75rem，不是 v3 默认 8px） */
+  background: transparent;
+  color: var(--canvas-control-fg, #e6e6e6); /* 官方 text-[#E6E6E6] */
+  cursor: var(--cursor-pointer, pointer);
+  /* 官方：transition-colors .15s */
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 官方源码（zoom-slider-3ZcFvYQO.js，逐字）：
+     EC = "group relative flex size-7 shrink-0 cursor-pointer items-center justify-center
+           rounded-lg text-[#E6E6E6]"                                   → 28×28 · r8 · 字色 #E6E6E6
+     _C = "absolute -inset-0.5 rounded-[10px] opacity-0
+           transition-opacity duration-200
+           group-hover:opacity-100 group-data-[active]:opacity-100
+           bg-black/40 backdrop-blur-[56px]
+           shadow-[0px_4px_16px_rgba(0,0,0,0.16),inset_0px_0.5px_0px_rgba(255,255,255,0.16)]"
+   → 高亮层：inset **-2px**（32×32）· r**10** · bg **rgba(0,0,0,.4)** + blur **56px** + 双层阴影
+     切换的是 **opacity**（不是 background-color ✗）
+   MTV 原来：圆角 12 ✗、bg transparent + hover 变色 ✗ → 已按官方改 */
+.canvas-control-item::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(56px);
+  -webkit-backdrop-filter: blur(56px);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.16),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.16);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.canvas-control-item:hover {
+  color: #ffffff;
+}
+
+/* 官方：`group-hover:opacity-100` + `group-data-[active]:opacity-100` */
+.canvas-control-item:hover::before,
+.canvas-control-item[data-active]::before,
+.canvas-control-item.is-active::before {
+  opacity: 1;
+}
+
+.canvas-control-item > svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* ═══ 缩放滑条 —— 逐字对齐官方 Radix 滑条实测结构 ═══
+   官方是 4 层：
+     [1] track  77×6  `relative grow overflow-hidden rounded-full **bg-white/18**`
+     [2] range  77×6  绝对定位 `**bg-white**`（已填充部分 = 纯白）
+     [3] 包裹   16×16 transform=matrix(1,0,0,1,-8,0)（thumb 居中偏移）
+     [4] thumb  16×16 `h-4 w-4 rounded-full **border-2 border-white bg-white shadow-md**
+                       transition-transform ease-in-out **group-hover:scale-110**`
+   ★ 2026 起**不再**用原生 `input[type=range]` + 两层渐变模拟 ——
+     官方 DOM 已由 `components/shared/OfficialSlider.tsx` 逐字复刻（轨道/填充/拇指都是真元素），
+     所以原来这里那一整段 `input[type='range'].canvas-control-slider` 的
+     `::-webkit-slider-runnable-track` / `::-webkit-slider-thumb` 覆写**已删除**（不再有该元素）。
+     下面只留外层宽度容器（官方 `flex w-[77px] items-center`）。 */
+
+/* 滑条外层：官方 `flex w-[77px] items-center` */
+.canvas-control-slider-wrap {
+  display: flex;
+  width: 77px;
+  align-items: center;
+}
+
+/* 绘图工具条（MTV 自有）与左下控制条同在 bottom-left。
+   官方左下只有控制条一项；MTV 的绘图条属额外功能，按设计原则**堆叠到控制条上方**。
+   注：必须用 `.react-flow__panel.…bottom.left` 全特异性 + !important ——
+   canvas-drawing.css（index.css 里更晚导入）设了 `bottom: 0`，React Flow 自带面板样式
+   还有 `margin: 15px`，普通 margin 写法都会被吃掉。 */
+.react-flow__panel.canvas-drawing-toolbar-slot.bottom.left {
+  bottom: 63px !important;
+}
+
+.canvas-control-help {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--canvas-control-bg, #2b2b2b);
+  color: var(--canvas-control-fg, #e6e6e6); /* 官方 text-[#E6E6E6] */
+  cursor: var(--cursor-pointer, pointer);
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.canvas-control-help:hover {
+  color: #ffffff;
+}
+
+/* 浅色主题（官方只有深色实测值，浅色按同一层级关系反相） */
+[data-theme='light'] .canvas-control-pill,
+[data-theme='light'] .canvas-control-help {
+  --canvas-control-bg: #ffffff;
+  --canvas-control-fg: #33364d;
+}
+
+[data-theme='light'] .canvas-control-item:hover {
+  background: rgba(51, 54, 77, 0.08);
+  color: #33364d;
+}
+
+/* ═══ 图标切换动画（官方源码：每个按钮两个图标叠放）═══
+   默认图标 : `transition-opacity duration-200` + `group-hover:opacity-0`
+   hover图标: `absolute opacity-0 transition-opacity duration-200
+               text-tap-text-1 group-hover:opacity-100`
+   激活态   : 默认图标 opacity-0，hover图标 opacity-100 text-white
+   官方实测三组：map 20→16 · grid 20→18 · focus 20→22 */
+.canvas-control-ico-default {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  /* ⚠️ 必须定位 + 抬 z-index ——
+     高亮层 `.canvas-control-item::before` 是 `position:absolute`（画在「定位元素」层），
+     而这个默认图标若保持 `static`（画在「常规流」层）就会被高亮层**整个盖住** ✗。
+     实测：按钮②「连线显隐」是**单图标**按钮，激活时图标完全不显示（截图里只有一个空方块）✗，
+           而 ③④ 因为可见图标是 absolute 的 `.canvas-control-ico-hover` 才没暴露这个问题 ✓
+     注意与 :hover / [data-active] 的 opacity 切换配合（只改层叠，不改显隐）✓ */
+  position: relative;
+  z-index: 1;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.canvas-control-ico-hover {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  /* 官方源码写的是 `text-tap-text-1`，但**实测为纯白** ✓
+     （强制 :hover 后实测 color = rgb(255, 255, 255)，默认态也已是白）
+     —— 按用户要求"源码 + 实测"，以实测为准 ✓ */
+  color: #ffffff;
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+/* 悬浮淡出**只对确有两个图标**的按钮生效 ——
+   ⚠️ 官方按钮②「连线显隐」的图标类名是 `lucide lucide-workflow relative z-10`
+      （**没有** `group-hover:opacity-0` ✓），所以悬浮时图标**不该淡出** ✓
+      实测官方按钮②：悬浮时 高亮 0→1，**图标 opacity 保持 1** ✓
+   无条件淡出会让它悬浮时图标消失 ✗（实测踩过） */
+.canvas-control-item:has(.canvas-control-ico-hover):hover .canvas-control-ico-default {
+  opacity: 0;
+}
+.canvas-control-item:has(.canvas-control-ico-hover):hover .canvas-control-ico-hover {
+  opacity: 1;
+}
+/* ⚠️ 关键：只有**确实有两个图标**的按钮才隐藏默认图标 ✗
+   —— 官方按钮②「连线显隐」是**单图标条件切换**（不是叠放淡出），
+      若无条件隐藏，激活时图标会**彻底消失**（实测踩过 ✗）。
+   用 :has() 精确匹配「含有 hover 图标」的按钮。 */
+.canvas-control-item:has(.canvas-control-ico-hover)[data-active] .canvas-control-ico-default {
+  opacity: 0;
+}
+.canvas-control-item:has(.canvas-control-ico-hover)[data-active] .canvas-control-ico-hover {
+  opacity: 1;
+  color: #ffffff;
+}
+/* 单图标按钮的激活态：图标保持可见，并转成白色（官方 `text-white`） */
+.canvas-control-item:not(:has(.canvas-control-ico-hover))[data-active] {
+  color: #ffffff;
+}

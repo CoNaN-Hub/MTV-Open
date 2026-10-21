@@ -1,0 +1,155 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   官方「扩图」浮动编辑器（`mode==='outpaint'`）—— 1:1 复刻
+   ──────────────────────────────────────────────────────────────────────────
+   官方源码出处（`E:\TapNow-0.4.66\resources\web\assets\page-DVqoHdTT.js`）：
+     · 宿主    `Fhe` @1341333（扩图没有顶栏；底栏 `-bottom-[64px]`；**没有**蓝色 outline）
+     · 覆盖层  `yhe` @1303000
+         `bg-black/80 backdrop-blur-md`（在 rect 内、图之下）
+       + `<img>` 定位 `left: (imageOffset.x) - rect.x`（图重画在 rect 内，所以留白区才是暗的）
+       + `border border-white/50` + 三分线（拖拽/命中手柄时才 `opacity-100`）
+       + 8 手柄：角点 24×24（两条 3px 白条）、上下边 12px 高 + `w-8 h-[3px]` 白条、
+         左右边 12px 宽 + `h-8 w-[3px]` 白条（都带 `-2px` 外扩与 `-5px` 负边距）
+       + `absolute inset-0 cursor-move`（整块拖动）
+     · 面板    `hf` @1024400（`layout==='safeArea'`）：屏幕坐标 `left:72 top:80 w=vw-144 h=vh-168`
+   ──────────────────────────────────────────────────────────────────────────
+   ★ 坐标系：`.opf-panel` 用**流坐标**（随画布缩放），`.opf-screen` 是「屏幕像素层」：
+       `width/height` = 面板的屏幕尺寸，`transform: scale(1/zoom)`
+     ⇒ 层内一切尺寸写**普通整数 px**（= 屏幕像素，任意 zoom 恒定），并把 `--irf-scale` 重置为 1，
+       于是底栏可以直接复用 redraw 的 `.irf-*`（同一套官方类名/数值）✓
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.opf-root {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* 官方 `hf` 的面板（safeArea 布局）：定位/尺寸都由 JS 按屏幕像素算好再 /zoom */
+.opf-panel {
+  position: absolute;
+  pointer-events: auto;
+}
+
+/* 屏幕像素层：内部 1px ≡ 1 屏幕 px；同时把 `--irf-scale` 归 1（底栏/手柄全部按屏幕像素写） */
+.opf-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  --irf-scale: 1;
+  pointer-events: auto;
+}
+
+/* 官方 `yhe` 的外层：`relative overflow-hidden select-none touch-none` + 容器尺寸 */
+.opf-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.opf-rect { position: absolute; }
+
+/* 官方：`absolute inset-0 pointer-events-none bg-black/80 backdrop-blur-md`（图加载完成后才出现） */
+.opf-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.opf-image-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.opf-image { position: absolute; max-width: none; object-fit: fill; }
+
+/* 官方：`absolute inset-0 border border-white/50 pointer-events-none` */
+.opf-border {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+/* 官方三分线：`opacity-0 → opacity-100 transition-opacity duration-200`（拖拽或命中手柄时显示） */
+.opf-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.opf-grid.is-on { opacity: 1; }
+.opf-grid-h { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255, 255, 255, 0.3); }
+.opf-grid-v { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(255, 255, 255, 0.3); }
+
+/* ── 8 个手柄（官方 `yhe` 的角点/边手柄，尺寸与光标逐字） ── */
+.opf-handle { position: absolute; z-index: 10; }
+.opf-handle-h,
+.opf-handle-v { position: absolute; background: #ffffff; }
+
+/* 角点：`-top-[2px] -left-[2px] w-6 h-6 cursor-nw-resize` + 两条 3px 白条 */
+.opf-handle--tl { left: -2px; top: -2px; width: 24px; height: 24px; cursor: nw-resize; }
+.opf-handle--tr { right: -2px; top: -2px; width: 24px; height: 24px; cursor: ne-resize; }
+.opf-handle--bl { left: -2px; bottom: -2px; width: 24px; height: 24px; cursor: sw-resize; }
+.opf-handle--br { right: -2px; bottom: -2px; width: 24px; height: 24px; cursor: se-resize; }
+.opf-handle--tl .opf-handle-h { top: 0; left: 0; right: 0; height: 3px; }
+.opf-handle--tl .opf-handle-v { top: 0; left: 0; bottom: 0; width: 3px; }
+.opf-handle--tr .opf-handle-h { top: 0; left: 0; right: 0; height: 3px; }
+.opf-handle--tr .opf-handle-v { top: 0; right: 0; bottom: 0; width: 3px; }
+.opf-handle--bl .opf-handle-h { bottom: 0; left: 0; right: 0; height: 3px; }
+.opf-handle--bl .opf-handle-v { top: 0; left: 0; bottom: 0; width: 3px; }
+.opf-handle--br .opf-handle-h { bottom: 0; left: 0; right: 0; height: 3px; }
+.opf-handle--br .opf-handle-v { top: 0; right: 0; bottom: 0; width: 3px; }
+
+/* 上下边：`-top-[2px] left-6 right-6 h-[12px] -mt-[5px] cursor-n-resize` + 居中 `w-8 h-[3px]` 白条 */
+.opf-handle--t {
+  left: 24px; right: 24px; top: -2px; height: 12px; margin-top: -5px;
+  cursor: n-resize; display: flex; align-items: center; justify-content: center;
+}
+.opf-handle--b {
+  left: 24px; right: 24px; bottom: -2px; height: 12px; margin-bottom: -5px;
+  cursor: s-resize; display: flex; align-items: center; justify-content: center;
+}
+/* 左右边：`top-6 bottom-6 -left-[2px] w-[12px] -ml-[5px] cursor-w-resize` + 居中 `h-8 w-[3px]` 白条 */
+.opf-handle--l {
+  top: 24px; bottom: 24px; left: -2px; width: 12px; margin-left: -5px;
+  cursor: w-resize; display: flex; align-items: center; justify-content: center;
+}
+.opf-handle--r {
+  top: 24px; bottom: 24px; right: -2px; width: 12px; margin-right: -5px;
+  cursor: e-resize; display: flex; align-items: center; justify-content: center;
+}
+.opf-handle-bar-h { width: 32px; height: 3px; border-radius: 999px; background: #ffffff; }
+.opf-handle-bar-v { width: 3px; height: 32px; border-radius: 999px; background: #ffffff; }
+
+/* 官方：`absolute inset-0 cursor-move`（整块拖动；手柄 `z-10` 在其上） */
+.opf-move { position: absolute; inset: 0; z-index: 0; cursor: move; }
+
+/* ── 底栏（官方 `Dhe` outpaint 分支）──
+   容器仍是 `absolute left-1/2 -translate-x-1/2 z-50 w-[500px]`，但 `-bottom-[64px]`
+   （`Fhe`：`mode==='redraw' ? '-bottom-[130px]' : '-bottom-[64px]'`） */
+.opf-screen .opf-bar { bottom: -64px; }
+
+/* 官方 `Ahe` 的 ✕：`variant="clean" shape="circle" size="sm"
+   className="h-8 w-8 p-0 rounded-full text-muted-foreground hover:text-destructive hover:bg-muted/60"` */
+.opf-cancel { color: #7a7a7a; }
+.opf-cancel:hover:not(:disabled) { color: #934c4c; background: rgba(43, 43, 43, 0.6); }
+
+/* 官方 `Ahe` 里的分隔：`w-px h-4 bg-border` */
+.opf-divider { width: 1px; height: 16px; background: #ffffff1a; flex-shrink: 0; }
+
+/* 官方 outpaint 的右半边是 `flex basis-full items-center gap-2`（**整行换行**）+ 胶囊 `ml-auto` */
+.irf-row-right-basis {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 8px;
+}
+.opf-generate { margin-left: auto; }
+/* 官方价格图标实测颜色 `rgb(204,204,204)` */
+.opf-generate .tabler-icon-coins { color: #cccccc; flex-shrink: 0; }

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "packageId": "ai-canvas-blender-runtime",
+  "packageVersion": "1.5.0",
+  "templateId": "ai_canvas_director",
+  "templateVersion": 1,
+  "jobProtocol": "ai-canvas-blender-job-v1",
+  "requestSchemaVersion": 1,
+  "resultManifestSchemaVersion": 1,
+  "createdWithBlenderVersion": "5.2.1 LTS",
+  "compatibility": {
+    "targets": ["windows-x86_64", "macos-x86_64", "macos-aarch64"],
+    "supportedVersionSeries": [
+      "4.5",
+      "5.0",
+      "5.1",
+      "5.2"
+    ]
+  },
+  "resources": [
+    {
+      "id": "template-init",
+      "relativePath": "scripts/startup/bl_app_templates_system/ai_canvas_director/__init__.py",
+      "bytes": 93996,
+      "sha256": "08e6d0c278affdead5a4d7b08519be0cd404f4ff35dfb2ead07ef032c373c190"
+    },
+    {
+      "id": "template-startup-blend",
+      "relativePath": "scripts/startup/bl_app_templates_system/ai_canvas_director/startup.blend",
+      "bytes": 91348,
+      "sha256": "a3e806fc2b910598b5f24c90127d02494fcbaf79a53f7e2eb7aee95f7f85e340"
+    },
+    {
+      "id": "character-female",
+      "relativePath": "scripts/startup/bl_app_templates_system/ai_canvas_director/assets/characters/ai_canvas_female_white.blend",
+      "bytes": 560000,
+      "sha256": "473115a74a17451c5d1489ccd2370f203969954126d32c4349061c5c5d120690"
+    },
+    {
+      "id": "character-male",
+      "relativePath": "scripts/startup/bl_app_templates_system/ai_canvas_director/assets/characters/ai_canvas_male_white.blend",
+      "bytes": 543063,
+      "sha256": "767911283f1e09295057dc4bdbe5e79e4e80eddd525ad74af1041b35e7425df9"
+    },
+    {
+      "id": "character-license",
+      "relativePath": "scripts/startup/bl_app_templates_system/ai_canvas_director/assets/characters/License_Standard.txt",
+      "bytes": 782,
+      "sha256": "c232257c8a2545520aa120cda96acb23d00a355d2e3339cba20b7ebf56f28a09"
+    },
+    {
+      "id": "job-script",
+      "relativePath": "jobs/ai_canvas_director_job_v1.py",
+      "bytes": 45780,
+      "sha256": "a62fbf9a553ce2615ea7be0415eb86a9907afec68b45e4a367ba1e0e969f9e3c"
+    }
+  ]
+}

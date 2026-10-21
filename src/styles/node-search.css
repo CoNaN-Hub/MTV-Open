@@ -1,0 +1,83 @@
+/* ============================================================================
+   官方「节点搜索」面板（`Vxe`）相关的两条 CSS —— 逐字取自官方样式表
+   `E:\TapNow-0.4.66\resources\web\assets\zoom-slider-B3yfHu80.css`
+   ========================================================================== */
+
+/* ── 1. 选中结果后给目标节点打的临时类（官方 `dO="node-search-focus-highlight"` @char1526670）──
+   官方原文（`zoom-slider-B3yfHu80.css` @61073 + @61631，逐字）：
+     .react-flow__node.node-search-focus-highlight{animation:canvasNodeFocusHighlight .95s ease-in-out 1}
+     @keyframes canvasNodeFocusHighlight{0%,to{outline:2px solid rgba(59,130,246,.55)!important;
+       box-shadow:0 0 8px 2px #3b82f62e}35%{outline:2px solid rgba(59,130,246,.95)!important;
+       box-shadow:0 0 20px 6px #3b82f66b}}
+   ⚠️ 动画时长 .95s 与官方组件的 `Exe=1100ms` 类存活时长**本来就不同**（官方如此，照抄）。 */
+.react-flow__node.node-search-focus-highlight {
+  animation: canvasNodeFocusHighlight 0.95s ease-in-out 1;
+}
+
+@keyframes canvasNodeFocusHighlight {
+  0%,
+  to {
+    outline: 2px solid rgba(59, 130, 246, 0.55) !important;
+    box-shadow: 0 0 8px 2px #3b82f62e;
+  }
+  35% {
+    outline: 2px solid rgba(59, 130, 246, 0.95) !important;
+    box-shadow: 0 0 20px 6px #3b82f66b;
+  }
+}
+
+/* ── 2. 结果行里「类型图标」的透明度 ──
+   官方 `Lxe` @char1528470 调用图标时**显式传 `opacity:1`**（覆盖图标组件自带的 0.2 / 0.6），
+   而 MTV 的 `OfficialIcon` 是把官方 DOM 原样注入、透明度是 SVG 里的**呈现属性**
+   `<g opacity="0.2">`。CSS 的 `opacity` 优先级高于呈现属性 ⇒ 这里用一条规则等价还原 `opacity:1`：
+   筛选条图标**不**加这个类（官方那边也不传 opacity ⇒ 保持自带透明度）✓ */
+.node-search-result-glyph g {
+  opacity: 1;
+}
+
+/* ── 3. 竖条「节点搜索」按钮的**打开态** ──
+   官方 `Hxe` @char1536660 的按钮类名里带 `t&&"bg-sidebar-accent text-sidebar-accent-foreground"`（t = 面板是否打开）
+   ⇒ 打开时的底色 / 字色与 hover 完全相同。
+   真机实测（CDP 9444）：打开时 `color #fafafa`（= MTV `--rail-icon-hover`）、`bg rgb(38,38,38)`
+   （= MTV `--rail-hover-bg`）✓ 两个变量与官方 `--sidebar-accent-foreground` / `--sidebar-accent` 同值。
+   用**独立类名**（不用 `.active`），以免动到「添加节点」按钮自己的 active 语义 ✓ */
+.sidebar-btn-v3.rail-node-search-open {
+  color: var(--rail-icon-hover);
+  background: var(--rail-hover-bg);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   4. 官方带**透明度修饰符**的那几个类 —— Tailwind v3 下必须在这里顶上 ✗→✓
+   ----------------------------------------------------------------------------
+   根因（本仓库踩过三次）：`tailwind.config.js` 里的 shadcn 色是 `var(--x)` 形式，
+   而 **Tailwind v3 无法给 `var(--x)` 注入 `/NN` 的 alpha** ⇒ `bg-popover/90`、
+   `hover:bg-accent/60`、`border-accent/70`、`bg-accent/40` 这些类**整个被丢掉**
+   （不报错、不警告，computed 直接是 `rgba(0,0,0,0)`）。
+   实测证据（CDP 对拍 官方 9444 / MTV 9333）：
+     · 弹窗底色  官方 `oklab(0.268617 … / 0.9)`  vs  MTV `rgba(0,0,0,0)` ← 面板**全透明**，
+                 用户看到的「底部面板颜色明显不对」就是这条
+     · 行缩略图  官方 `accent/40` + `border-accent/70`  vs  MTV 只有基础底色/边框
+
+   修法与**本仓库既有约定一致**（`styles/prompt.css`、`styles/sidebar.css`、`styles/nodes.css`
+   里都是这么写的：官方写 `bg-xxx/NN`，本地用算好的 rgba 顶上一条作用域规则）。
+   数值取 `--popover:#262626` = rgb(38,38,38)、`--accent:#404040` = rgb(64,64,64)。
+   ⚠️ 这属于「同一个根因的第 N 次发作」；根治要把 `tailwind.config.js` 的色阶改成
+      `rgb(var(--x-rgb) / <alpha-value>)` 通道式（需同步把 `base.css` 的十六进制变量改成通道三元组，
+      且 `--border/--input/--ring` 自带 alpha，不能直接套同一套模板），是大改，单独立项。 */
+.node-search-dialog {
+  background-color: rgba(38, 38, 38, 0.9); /* 官方 `bg-popover/90` */
+}
+.hover\:bg-accent\/60:hover {
+  background-color: rgba(64, 64, 64, 0.6);
+}
+.bg-accent\/40 {
+  background-color: rgba(64, 64, 64, 0.4);
+}
+.border-border\/60 {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+/* ⚠️ 必须放在 `border-border/60` **之后**：两者同优先级，选中态那条要后写才生效
+   （实测踩过：先写 accent/70 会被后面那条盖掉，缩略图边框退回白色 6%）。 */
+.border-accent\/70 {
+  border-color: rgba(64, 64, 64, 0.7);
+}

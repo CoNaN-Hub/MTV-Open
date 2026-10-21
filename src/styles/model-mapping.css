@@ -1,0 +1,488 @@
+/* ════════════════════════════════════════════════════════════════════════
+   设置 →「模型映射」（`components/settings/ModelMappingSettings.tsx`）
+
+   版式**严格照抄官方「权限」页**（`DesktopPermissionsSettings.tsx` 是同一套版式的 MTV 落点）：
+     · 居中定宽列 + 页头 20/600/28 + 说明 14/20
+     · 每个分区 `section`：标题 14/500/20（tracking-tight）+ 说明 12/20
+     · 单选设置卡片直接复用 `.settings-perm-group` / `.settings-perm-option`
+     · 映射列表**不是表格**：每条映射是一行**设置项**，展开的编辑区落在该卡片下方
+   这里只补「官方那套原语没有」的部分：定宽列、工具栏、列表行、展开详情、操作区。
+   色值口径与官方一致：背景 #0f0f0f / 卡片 rgba(43,43,43,.3) / 描边 rgba(255,255,255,.08)
+   / 主文字 #f5f5f5 / 次级 #7a7a7a / 选中与强调 #E8871E。
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── 居中定宽列（官方 `max-w-2xl` = 672px；本页内容更宽，用户指定 960–1040px） ── */
+.mm-page {
+  display: flex;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  flex-direction: column;
+  gap: 32px; /* 官方 `gap-8` */
+}
+/* 顶部标题固定：`.settings-pane-body` 是滚动容器，底色与对话框一致（#0f0f0f） */
+.mm-page > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0;
+  padding-bottom: 2px;
+  background: #0f0f0f;
+}
+
+/* ── 工具栏（搜索 / Provider / 状态 / 仅待审核 / 统计文字） ── */
+.mm-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* 搜索框：与官方字段皮同款（`rounded-lg border-white/10 bg-white/5`，36px）——
+   工具栏里它与两个官方 combobox 并排，必须同一套描边/圆角/高度。 */
+.mm-search {
+  display: flex;
+  flex: 1 1 240px;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #7a7a7a;
+}
+.mm-search > svg { flex: none; }
+.mm-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: #f5f5f5;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  outline: none;
+}
+.mm-search input::placeholder { color: #7a7a7a; }
+.mm-search:focus-within { border-color: rgba(255, 255, 255, 0.18); }
+
+/* 下拉：**官方 combobox**（与「个人简介」的国家 / 城市同一个组件）——
+   这里只给宽度；高度 / 圆角 / 描边 / 弹层（含搜索行、菜单 = 触发器同宽）全由官方皮负责。 */
+.mm-selectbox {
+  width: 168px;
+  flex: none;
+}
+/* ★ 触发器文字用**正常前景色**，不用官方 `is-empty` 的 `#646464`。
+   用户 2026 对照「个人简介」的国家 / 城市：那里的占位文字是白的，灰的「丑死了」。
+   （`.o-combobox--field .o-combobox__trigger.is-empty` 是 3 个类，这里 4 个类压过它。） */
+.mm-page .mm-selectbox .o-combobox__trigger,
+.mm-page .mm-selectbox .o-combobox__trigger.is-empty,
+.mm-page .mm-picker .o-combobox__trigger,
+.mm-page .mm-picker .o-combobox__trigger.is-empty {
+  color: var(--o-foreground);
+}
+
+.mm-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+.mm-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #cfcece;
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  user-select: none;
+}
+.mm-stats {
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+/* ── 列表容器（圆角设置卡片，内部虚拟滚动） ── */
+.settings-perm-group.mm-list-group {
+  display: block;
+}
+.mm-scroll {
+  min-height: 120px;
+  max-height: min(62vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.mm-canvas { position: relative; }
+.mm-window { position: absolute; top: 0; left: 0; width: 100%; }
+
+/* ── 单条映射 = 设置项行（非表格行） ── */
+.mm-item {
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mm-item-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1.5fr) minmax(0, 1.2fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+.mm-item-row:hover { background: rgba(43, 43, 43, 0.5); }
+.mm-item-row[aria-expanded='true'] { background: rgba(255, 255, 255, 0.04); }
+.mm-item-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+/* 待审核：左侧极细琥珀色强调线（**不做大面积黄色背景**） */
+.mm-item-row[data-review='true']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: #e8871e;
+}
+
+.mm-icon {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #cfcece;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.mm-main,
+.mm-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.mm-title {
+  overflow: hidden;
+  color: #f5f5f5;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mm-sub {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 16px;
+}
+.mm-sub > span {
+  flex: none;
+  overflow: hidden;
+  max-width: 40%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mm-sub > code {
+  overflow: hidden;
+  color: #7a7a7a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mm-canonical {
+  overflow: hidden;
+  color: #cfcece;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mm-basis {
+  overflow: hidden;
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 「目录中未找到」——映射登记着、但该平台最近一次拉取的目录里没有它。
+   只是标注（行照旧保留、照旧参与解析），所以用**灰字**，不抢待审核的琥珀色。 */
+.mm-catalog-missing {
+  overflow: hidden;
+  color: #5f5f5f;
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mm-tail {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+.mm-chevron { flex: none; transition: transform 150ms; }
+.mm-item-row[aria-expanded='true'] .mm-chevron { transform: rotate(180deg); }
+
+/* ── 状态 Badge（克制：低饱和底 + 同色字） ── */
+.mm-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.mm-badge[data-tone='verified'] { background: rgba(18, 183, 106, 0.14); color: #12b76a; }
+.mm-badge[data-tone='review'] { background: rgba(232, 135, 30, 0.16); color: #e8871e; }
+.mm-badge[data-tone='conflict'] { background: rgba(240, 68, 56, 0.14); color: #f04438; }
+.mm-badge[data-tone='deprecated'] { background: rgba(255, 255, 255, 0.06); color: #cfcece; }
+
+/* ── 展开后的编辑区（落在该卡片下方，延续分隔线 / 设置行形式） ── */
+.mm-detail {
+  padding: 0 14px 14px 54px; /* 与上方主标题对齐（28px 图标 + 12px 间距） */
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.mm-detail-block + .mm-detail-block { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.mm-detail-block { padding: 12px 0; }
+.mm-detail-heading {
+  margin: 0 0 8px;
+  color: #7a7a7a;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: normal;
+  text-transform: uppercase;
+}
+/* 事实网格：**最多两列**（1000px 列宽下三列会把「标签 + 值」挤成一团 —— 宁可两行也不要挤）。
+   值一栏 `minmax(0, 1fr)` + `overflow-wrap: anywhere`，长 canonicalId 换行不溢出。 */
+.mm-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 4px 16px;
+}
+.mm-fact {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}
+.mm-fact-label {
+  flex: none;
+  min-width: 112px;
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 20px;
+}
+.mm-fact-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #cfcece;
+  font-size: 12px;
+  line-height: 20px;
+}
+.mm-fact-value--mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+.mm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  min-width: 0;
+}
+.mm-field > span,
+.mm-field > label {
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 16px;
+}
+.mm-field--inline { flex-direction: row; align-items: center; gap: 8px; margin-top: 0; }
+.mm-input {
+  height: 32px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(43, 43, 43, 0.3);
+  color: #f5f5f5;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.mm-input::placeholder { color: #7a7a7a; }
+.mm-input:focus-visible { border-color: rgba(255, 255, 255, 0.18); }
+.mm-input--mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.mm-select .mm-input { cursor: pointer; }
+.mm-hint {
+  margin: 0;
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ── 操作区 ── */
+.mm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.mm-actions-primary,
+.mm-actions-secondary,
+.mm-create-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.mm-actions-secondary > .mm-field--inline { flex: 1 1 320px; }
+/* 「关联已有 Canonical Model」= 官方带搜索的 combobox（109 条，原生下拉没法用） */
+.mm-picker {
+  flex: 1 1 320px;
+  gap: 8px;
+}
+.mm-picker > span { flex: none; white-space: nowrap; }
+.mm-picker > .o-combobox { flex: 1 1 auto; min-width: 200px; }
+.mm-picker .o-combobox__trigger { height: 32px; padding: 0 10px; border-radius: 8px; }
+.mm-create {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(43, 43, 43, 0.3);
+}
+.mm-create-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 12px;
+}
+.mm-create-actions { margin-top: 12px; }
+
+/* 破坏性操作：低调红色**文字**按钮（不用整块红底） */
+.mm-actions-danger { display: flex; }
+.mm-danger {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #f04438;
+  font: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+}
+.mm-danger:hover { text-decoration: underline; text-underline-offset: 4px; }
+.mm-danger:focus-visible { outline: none; text-decoration: underline; text-underline-offset: 4px; }
+
+/* ── 空态 / 提示 / 恢复 ── */
+.mm-empty {
+  margin: 0;
+  padding: 24px 12px;
+  text-align: center;
+  color: #7a7a7a;
+  font-size: 13px;
+  line-height: 20px;
+}
+.mm-restore {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 16px;
+}
+.mm-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #cfcece;
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+}
+.mm-link:hover { color: #f5f5f5; text-decoration: underline; text-underline-offset: 4px; }
+.mm-alert {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(232, 135, 30, 0.35);
+  border-radius: 8px;
+  background: rgba(232, 135, 30, 0.08);
+  color: #e8871e;
+  font-size: 12px;
+  line-height: 16px;
+}
+/* 定尺占位：图标是网络异步来的，没有这个 slot 的话它到了会把文字横向推 20px */
+.mm-alert-icon {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* 列表的滚动条：**原生细滚动条 + 中性灰**，不是 MTV 那条蓝紫全局自绘滑条。
+   用户 2026：「滑条可以，但是那个颜色真的丑到爆炸」—— 指的就是 `--scrollbar-thumb:#3a3a50`（发蓝紫）。
+   照抄 `canvas-nav.css` 的 `.project-list`（上一轮同样是「滑条颜色不对」的定论）：
+     · JSX 上 `data-overlay-scrollbar="off"` ⇒ MTV 自绘那条不再接管；
+     · `scrollbar-color` 把 Chromium 切到**标准滚动条**渲染路径（会忽略 `::-webkit-scrollbar`）；
+     · `scrollbar-width: thin` **必须 `!important`** —— `index.css` 里
+       `[data-overlay-scrollbar][data-overlay-scrollbar]{scrollbar-width:none}`（0,2,0）比本类高一档。 */
+.mm-scroll {
+  scrollbar-color: rgb(64, 64, 64) transparent;
+  scrollbar-width: thin;
+}
+.mm-scroll[data-overlay-scrollbar='off'] {
+  scrollbar-width: thin !important;
+}
+/* 老内核兜底：退化成 8px 的 webkit 细条（同样是灰的） */
+.mm-scroll::-webkit-scrollbar {
+  display: block;
+  width: 8px;
+  height: 8px;
+}
+.mm-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: rgb(64, 64, 64);
+  background-clip: content-box;
+}
+.mm-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 窄屏：展开区与主标题同列，去掉左侧缩进 */
+@media (max-width: 720px) {
+  .mm-detail { padding-left: 14px; }
+  .mm-item-row { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .mm-meta { display: none; }
+}

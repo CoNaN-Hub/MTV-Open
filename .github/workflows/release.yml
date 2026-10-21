@@ -1,0 +1,177 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Typecheck, test and build
+        run: npm run ci
+
+  publish:
+    name: Publish ${{ matrix.target }}
+    needs: quality
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build with Tauri Action
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'AI Canvas v0.9.13 - 参考图传输强化与智能体/历史增强'
+          releaseBody: |
+            ## ✨ 版本摘要
+
+            AI Canvas v0.9.13 强化参考图传输与图像生成可靠性：补全 CCC 参考图传输模式并优先读取本地素材，修复中转站参考图协议、统一上传压缩，将请求编码改为异步并保留上游错误状态，编辑图片时注入输出画幅提示；同时优化智能体卡片布局并增加折叠大纲，支持删除生成历史文件及记录，复制媒体节点时生成独立文件，并在模型选择器中支持在 ComfyUI 中编辑工作流。此外修复画布展开分组的命中与拖入、整组回收暂存与路径校验、分组移动与同步时的文件覆盖与跨项目写入问题，并更新使用说明书与新用户教程。
+
+            ## 🖼️ 参考图与图像生成
+
+            - 补全 CCC 参考图传输模式，优先读取本地素材，减少不必要的上传。
+            - 修复中转站参考图协议，统一上传压缩策略。
+            - 请求编码改为异步并保留上游错误状态，优化参考图上传与请求失败提示。
+            - 编辑图片时注入输出画幅提示，便于对照生成尺寸。
+
+            ## 🤖 智能体与历史
+
+            - 优化智能体卡片布局，增加可折叠大纲。
+            - 支持删除生成历史文件及对应记录。
+
+            ## 📋 工作流与媒体
+
+            - 模型选择器支持在 ComfyUI 中直接编辑工作流。
+            - 复制媒体节点（拖拽复制、粘贴、整组粘贴、图片笔记与分镜格）时生成独立文件，不再共享原节点文件。
+
+            ## 🐛 修复
+
+            - 修复画布展开分组的命中与拖入行为。
+            - 整组回收改为项目根暂存，并加固路径校验。
+            - 分组移动文件时同步历史引用，防止同名覆盖；避免同步时搬移共享文件与跨项目写入。
+
+            ## ⚠️ 升级与兼容性
+
+            - 升级后已有插件会在首次加载时补全源码摘要，无需重新安装。
+            - 私有注册表目录（`plugin-private`）被用户手动删除时，已有插件会停用并要求重新安装；这是预期的失败关闭行为，不会从浏览器存储静默恢复。
+            - RunningHub 与 AutoDL 工作流需要配置对应的服务地址与凭据。
+            - Blender 原生运行时需要本机已安装 Blender，且需授权项目目录。
+            - Windows 旧款 CPU（不支持 AVX/AVX2）请使用名称含 `Legacy` 的安装包；该版本不包含本地 ONNX 功能。
+            - 本地语音转文本依赖桌面端 ONNX 运行时；Intel Mac 和 Windows Legacy 安装包不包含该功能。
+            - 视频剪辑器依赖本地编解码能力，实际可用导出编码格式取决于本机编解码器。
+            - 浏览器模式无法使用桌面端凭据存储，API Key 仅在当前会话有效，重启后需要重新填写。
+            - 视频剪辑窗口、应用内 ComfyUI、MCP 控制桥、长按圆环和本地文件导出仅在桌面版可用。
+
+            ## 📦 下载
+
+            - 🪟 Windows：使用 `.exe` 或 `.msi`。
+            - 🪟 Windows 旧款 CPU：使用名称含 `Legacy` 的 `.exe` 或 `.msi`；该版本不包含本地 ONNX 功能。
+            - 🍎 macOS：Apple Silicon 使用 `aarch64.dmg`，Intel 使用 `x64.dmg`。
+            - 🐧 Linux：使用 `.AppImage`、`.deb` 或 `.rpm`。
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          args: --target ${{ matrix.target }}
+
+  publish-windows-legacy:
+    name: Publish Windows x64 legacy
+    needs: publish
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build Windows x64 legacy
+        shell: pwsh
+        env:
+          RUSTFLAGS: -C target-cpu=x86-64 -C target-feature=-avx,-avx2,-fma
+        run: |
+          $legacyConfig = '{"productName":"AI Canvas Legacy","plugins":{"updater":{"endpoints":[]}},"bundle":{"createUpdaterArtifacts":false}}'
+          node node_modules/@tauri-apps/cli/tauri.js build `
+            --target x86_64-pc-windows-msvc `
+            --config $legacyConfig `
+            -- `
+            --no-default-features
+
+      - name: Upload Windows x64 legacy installers
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $bundleRoot = Resolve-Path "src-tauri/target/x86_64-pc-windows-msvc/release/bundle"
+          $artifacts = @(
+            Get-ChildItem -LiteralPath $bundleRoot -Recurse -File |
+              Where-Object { $_.Extension -in '.exe', '.msi' }
+          )
+          if ($artifacts.Count -eq 0) {
+            throw "No Windows x64 legacy installers were generated."
+          }
+          foreach ($artifact in $artifacts) {
+            gh release upload "${{ github.ref_name }}" $artifact.FullName --clobber
+          }

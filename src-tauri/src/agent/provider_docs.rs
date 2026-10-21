@@ -1,0 +1,424 @@
+//! Provider 文档的受限原生读取器，执行 URL、DNS/IP、重定向和响应体积校验。
+
+use reqwest::blocking::{Client, ClientBuilder};
+use reqwest::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE, LOCATION, USER_AGENT};
+use reqwest::redirect::Policy;
+use serde::{Deserialize, Serialize};
+use std::io::Read;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use url::{Host, Url};
+
+const MAX_PAGE_BYTES: usize = 3_000_000;
+const MAX_DOH_RESPONSE_BYTES: usize = 64 * 1024;
+const MAX_REDIRECTS: usize = 5;
+const MAX_URL_CHARS: usize = 2_048;
+const CLOUDFLARE_DOH_ENDPOINT: &str = "https://1.1.1.1/dns-query";
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderDocsReadResponse {
+    url: String,
+    status: u16,
+    content_type: String,
+    body: String,
+    fetched_at: u64,
+}
+
+#[derive(Deserialize)]
+struct DnsJsonResponse {
+    #[serde(rename = "Status")]
+    status: u32,
+    #[serde(rename = "Answer", default)]
+    answers: Vec<DnsJsonAnswer>,
+}
+
+#[derive(Deserialize)]
+struct DnsJsonAnswer {
+    #[serde(rename = "type")]
+    record_type: u16,
+    data: String,
+}
+
+fn now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
+fn is_fake_proxy_ipv4(ip: Ipv4Addr) -> bool {
+    let octets = ip.octets();
+    octets[0] == 198 && (18..=19).contains(&octets[1])
+}
+
+fn is_disallowed_ipv4(ip: std::net::Ipv4Addr) -> bool {
+    let octets = ip.octets();
+    ip.is_private()
+        || ip.is_loopback()
+        || ip.is_link_local()
+        || ip.is_broadcast()
+        || ip.is_documentation()
+        || ip.is_multicast()
+        || ip.is_unspecified()
+        || octets[0] == 0
+        || (octets[0] == 100 && (64..=127).contains(&octets[1]))
+        || (octets[0] == 192 && octets[1] == 0 && octets[2] == 0)
+        || (octets[0] == 192 && octets[1] == 88 && octets[2] == 99)
+        || is_fake_proxy_ipv4(ip)
+        || octets[0] >= 240
+}
+
+fn is_disallowed_ipv6(ip: std::net::Ipv6Addr) -> bool {
+    if let Some(mapped) = ip.to_ipv4_mapped() {
+        return is_disallowed_ipv4(mapped);
+    }
+    let segments = ip.segments();
+    ip.is_loopback()
+        || ip.is_unspecified()
+        || ip.is_multicast()
+        || (segments[0] & 0xfe00) == 0xfc00
+        || (segments[0] & 0xffc0) == 0xfe80
+        || (segments[0] == 0x2001 && segments[1] == 0x0db8)
+        || (segments[0] & 0xe000) != 0x2000
+}
+
+fn is_disallowed_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(value) => is_disallowed_ipv4(value),
+        IpAddr::V6(value) => is_disallowed_ipv6(value),
+    }
+}
+
+fn is_fake_proxy_ip(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(value) => is_fake_proxy_ipv4(value),
+        IpAddr::V6(value) => value.to_ipv4_mapped().is_some_and(is_fake_proxy_ipv4),
+    }
+}
+
+fn validate_url_shape(raw_url: &str) -> Result<Url, String> {
+    if raw_url.chars().count() > MAX_URL_CHARS {
+        return Err("厂商文档 URL 过长".to_string());
+    }
+    let url = Url::parse(raw_url).map_err(|_| "厂商文档 URL 无效".to_string())?;
+    if url.scheme() != "https" {
+        return Err("厂商文档只允许使用 HTTPS".to_string());
+    }
+    if !url.username().is_empty() || url.password().is_some() {
+        return Err("厂商文档 URL 不允许包含用户名或密码".to_string());
+    }
+    let host = url
+        .host()
+        .ok_or_else(|| "厂商文档 URL 缺少主机名".to_string())?;
+    if let Host::Domain(domain) = host {
+        let normalized = domain.trim_end_matches('.').to_ascii_lowercase();
+        if normalized == "localhost"
+            || normalized.ends_with(".localhost")
+            || normalized.ends_with(".local")
+            || normalized.ends_with(".internal")
+            || normalized.ends_with(".home.arpa")
+        {
+            return Err("不允许读取本机或内部域名".to_string());
+        }
+    }
+    if let Host::Ipv4(ip) = host {
+        if is_disallowed_ipv4(ip) {
+            return Err("不允许读取非公网 IPv4 地址".to_string());
+        }
+    }
+    if let Host::Ipv6(ip) = host {
+        if is_disallowed_ipv6(ip) {
+            return Err("不允许读取非公网 IPv6 地址".to_string());
+        }
+    }
+    if url.port_or_known_default() != Some(443) {
+        return Err("厂商文档只允许标准 HTTPS 端口".to_string());
+    }
+    Ok(url)
+}
+
+fn parse_doh_public_a_records(body: &[u8]) -> Result<Vec<Ipv4Addr>, String> {
+    let response: DnsJsonResponse =
+        serde_json::from_slice(body).map_err(|_| "安全 DNS 响应格式无效".to_string())?;
+    if response.status != 0 {
+        return Err(format!("安全 DNS 查询失败，状态码 {}", response.status));
+    }
+
+    let addresses = response
+        .answers
+        .into_iter()
+        .filter(|answer| answer.record_type == 1)
+        .map(|answer| {
+            answer
+                .data
+                .parse::<Ipv4Addr>()
+                .map_err(|_| "安全 DNS 返回了无效 IPv4 地址".to_string())
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    if addresses.is_empty() {
+        return Err("安全 DNS 未返回可用的公网 IPv4 地址".to_string());
+    }
+    if addresses.iter().copied().any(is_disallowed_ipv4) {
+        return Err("安全 DNS 返回了非公网 IPv4 地址".to_string());
+    }
+    Ok(addresses)
+}
+
+fn resolve_public_addresses_with_doh(host: &str) -> Result<Vec<SocketAddr>, String> {
+    let mut endpoint =
+        Url::parse(CLOUDFLARE_DOH_ENDPOINT).map_err(|_| "安全 DNS 端点无效".to_string())?;
+    endpoint
+        .query_pairs_mut()
+        .append_pair("name", host)
+        .append_pair("type", "A");
+    let response = ClientBuilder::new()
+        .redirect(Policy::none())
+        .no_proxy()
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|error| format!("创建安全 DNS 客户端失败: {error}"))?
+        .get(endpoint)
+        .header(ACCEPT, "application/dns-json")
+        .header(USER_AGENT, "AI-Canvas-ProviderDocs/0.5")
+        .send()
+        .map_err(|error| format!("安全 DNS 查询失败: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("安全 DNS 返回 HTTP {}", response.status().as_u16()));
+    }
+    if response
+        .headers()
+        .get(CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<usize>().ok())
+        .is_some_and(|length| length > MAX_DOH_RESPONSE_BYTES)
+    {
+        return Err("安全 DNS 响应超过大小限制".to_string());
+    }
+
+    let mut body = Vec::new();
+    response
+        .take((MAX_DOH_RESPONSE_BYTES + 1) as u64)
+        .read_to_end(&mut body)
+        .map_err(|error| format!("读取安全 DNS 响应失败: {error}"))?;
+    if body.len() > MAX_DOH_RESPONSE_BYTES {
+        return Err("安全 DNS 响应超过大小限制".to_string());
+    }
+
+    parse_doh_public_a_records(&body).map(|addresses| {
+        addresses
+            .into_iter()
+            .map(|address| SocketAddr::new(IpAddr::V4(address), 443))
+            .collect()
+    })
+}
+
+fn resolve_public_addresses(url: &Url) -> Result<Vec<SocketAddr>, String> {
+    let host = url
+        .host_str()
+        .ok_or_else(|| "厂商文档 URL 缺少主机名".to_string())?;
+    let addresses = (host, 443)
+        .to_socket_addrs()
+        .map_err(|_| "厂商文档域名解析失败".to_string())?
+        .collect::<Vec<_>>();
+    if addresses.is_empty() {
+        return Err("厂商文档域名没有可用地址".to_string());
+    }
+    if addresses
+        .iter()
+        .all(|address| is_fake_proxy_ip(address.ip()))
+    {
+        return resolve_public_addresses_with_doh(host);
+    }
+    // 过滤掉非公网地址，只保留可安全连接的公网地址；一条杂散记录（如同时返回的
+    // 私网 IPv6 或 CGNAT 地址）不应连累同一域名下正常的公网地址导致整页读取失败。
+    let public_addresses = addresses
+        .into_iter()
+        .filter(|address| !is_disallowed_ip(address.ip()))
+        .collect::<Vec<_>>();
+    if public_addresses.is_empty() {
+        return Err("厂商文档域名解析到了非公网地址".to_string());
+    }
+    Ok(public_addresses)
+}
+
+fn pinned_client(host: &str, address: SocketAddr) -> Result<Client, String> {
+    ClientBuilder::new()
+        .redirect(Policy::none())
+        .no_proxy()
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(Duration::from_secs(25))
+        .resolve(host, address)
+        .build()
+        .map_err(|error| format!("创建安全文档客户端失败: {error}"))
+}
+
+fn read_limited(response: reqwest::blocking::Response) -> Result<Vec<u8>, String> {
+    if response
+        .headers()
+        .get(CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<usize>().ok())
+        .is_some_and(|length| length > MAX_PAGE_BYTES)
+    {
+        return Err("厂商文档响应超过 1 MB 限制".to_string());
+    }
+    let mut bytes = Vec::new();
+    response
+        .take((MAX_PAGE_BYTES + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("读取厂商文档失败: {error}"))?;
+    if bytes.len() > MAX_PAGE_BYTES {
+        return Err("厂商文档响应超过 1 MB 限制".to_string());
+    }
+    Ok(bytes)
+}
+
+fn same_origin(left: &Url, right: &Url) -> bool {
+    left.scheme() == right.scheme()
+        && left.host_str().map(str::to_ascii_lowercase)
+            == right.host_str().map(str::to_ascii_lowercase)
+        && left.port_or_known_default() == right.port_or_known_default()
+}
+
+fn read_public_document(raw_url: String) -> Result<ProviderDocsReadResponse, String> {
+    let initial_url = validate_url_shape(&raw_url)?;
+    let mut current_url = initial_url.clone();
+
+    for redirect_count in 0..=MAX_REDIRECTS {
+        let addresses = resolve_public_addresses(&current_url)?;
+        let host = current_url
+            .host_str()
+            .ok_or_else(|| "厂商文档 URL 缺少主机名".to_string())?;
+        let client = pinned_client(host, addresses[0])?;
+        let response = client
+            .get(current_url.as_str())
+            .header(USER_AGENT, "AI-Canvas-ProviderDocs/0.5")
+            .send()
+            .map_err(|error| format!("厂商文档请求失败: {error}"))?;
+        let status = response.status();
+
+        if status.is_redirection() {
+            if redirect_count == MAX_REDIRECTS {
+                return Err("厂商文档重定向次数超过限制".to_string());
+            }
+            let location = response
+                .headers()
+                .get(LOCATION)
+                .and_then(|value| value.to_str().ok())
+                .ok_or_else(|| "厂商文档重定向缺少 Location".to_string())?;
+            let next_url = validate_url_shape(
+                current_url
+                    .join(location)
+                    .map_err(|_| "厂商文档重定向地址无效".to_string())?
+                    .as_str(),
+            )?;
+            if !same_origin(&initial_url, &next_url) {
+                return Err("厂商文档不允许跨站重定向".to_string());
+            }
+            current_url = next_url;
+            continue;
+        }
+
+        if !status.is_success() {
+            return Err(format!("厂商文档返回 HTTP {}", status.as_u16()));
+        }
+        let content_type = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .unwrap_or("text/plain")
+            .to_ascii_lowercase();
+        if !content_type.starts_with("text/")
+            && !content_type.starts_with("application/xhtml+xml")
+            && !content_type.starts_with("application/json")
+        {
+            return Err("厂商文档内容类型不受支持".to_string());
+        }
+        let bytes = read_limited(response)?;
+        return Ok(ProviderDocsReadResponse {
+            url: current_url.to_string(),
+            status: status.as_u16(),
+            content_type,
+            body: String::from_utf8_lossy(&bytes).into_owned(),
+            fetched_at: now_millis(),
+        });
+    }
+    Err("厂商文档读取失败".to_string())
+}
+
+#[tauri::command]
+pub async fn provider_docs_read(url: String) -> Result<ProviderDocsReadResponse, String> {
+    tauri::async_runtime::spawn_blocking(move || read_public_document(url))
+        .await
+        .map_err(|error| format!("厂商文档读取任务执行失败: {error}"))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_non_https_private_and_custom_port_urls() {
+        assert!(validate_url_shape("http://example.com/docs").is_err());
+        assert!(validate_url_shape("https://127.0.0.1/docs").is_err());
+        assert!(validate_url_shape("https://10.0.0.1/docs").is_err());
+        assert!(validate_url_shape("https://[::1]/docs").is_err());
+        assert!(validate_url_shape("https://example.local/docs").is_err());
+        assert!(validate_url_shape("https://example.com:8443/docs").is_err());
+        assert!(validate_url_shape("file:///tmp/docs").is_err());
+    }
+
+    #[test]
+    fn accepts_public_https_shape_and_same_origin_redirects() {
+        let start = validate_url_shape("https://docs.example.com/api").unwrap();
+        let same_site = validate_url_shape("https://docs.example.com/models").unwrap();
+        let other_site = validate_url_shape("https://example.com/models").unwrap();
+        assert!(same_origin(&start, &same_site));
+        assert!(!same_origin(&start, &other_site));
+    }
+
+    #[test]
+    fn recognizes_only_the_proxy_fake_ipv4_range() {
+        assert!(is_fake_proxy_ipv4(Ipv4Addr::new(198, 18, 0, 1)));
+        assert!(is_fake_proxy_ipv4(Ipv4Addr::new(198, 19, 255, 254)));
+        assert!(!is_fake_proxy_ipv4(Ipv4Addr::new(198, 17, 255, 255)));
+        assert!(!is_fake_proxy_ipv4(Ipv4Addr::new(198, 20, 0, 0)));
+    }
+
+    #[test]
+    fn parses_public_a_records_from_doh_json() {
+        let body = br#"{
+            "Status": 0,
+            "Answer": [
+                {"name": "docs.example.com", "type": 5, "TTL": 60, "data": "cdn.example.com"},
+                {"name": "cdn.example.com", "type": 1, "TTL": 60, "data": "203.0.113.10"},
+                {"name": "cdn.example.com", "type": 1, "TTL": 60, "data": "8.8.8.8"}
+            ]
+        }"#;
+
+        assert!(parse_doh_public_a_records(body).is_err());
+
+        let public_body = br#"{
+            "Status": 0,
+            "Answer": [
+                {"name": "docs.example.com", "type": 5, "TTL": 60, "data": "cdn.example.com"},
+                {"name": "cdn.example.com", "type": 1, "TTL": 60, "data": "8.8.8.8"}
+            ]
+        }"#;
+        assert_eq!(
+            parse_doh_public_a_records(public_body).unwrap(),
+            vec![Ipv4Addr::new(8, 8, 8, 8)]
+        );
+    }
+
+    #[test]
+    fn rejects_private_or_unsuccessful_doh_answers() {
+        let private_body = br#"{"Status":0,"Answer":[{"type":1,"data":"192.168.1.20"}]}"#;
+        let failed_body = br#"{"Status":3,"Answer":[]}"#;
+
+        assert!(parse_doh_public_a_records(private_body).is_err());
+        assert!(parse_doh_public_a_records(failed_body).is_err());
+    }
+}

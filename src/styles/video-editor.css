@@ -1,0 +1,10 @@
+/* 视频编辑器独立窗口 — 按区域拆分，暗色为基线，浅色由 [data-theme='light'] 覆盖
+   拆分后的 partial 必须按下面的顺序引入：
+   根变量与标题栏 → 主体布局 → 预览区 → 时间轴 → 叠加层 → 浅色主题覆盖。 */
+
+@import './video-editor-shell.css';
+@import './video-editor-layout.css';
+@import './video-editor-preview.css';
+@import './video-editor-timeline.css';
+@import './video-editor-overlays.css';
+@import './video-editor-theme.css';

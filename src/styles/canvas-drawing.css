@@ -1,0 +1,434 @@
+/* Excalidraw-inspired canvas note controls. See doc/licenses/excalidraw-MIT.txt. */
+.react-flow__panel.canvas-drawing-toolbar-slot.bottom.left {
+  bottom: 0;
+  left: 50px;
+  z-index: 40;
+}
+
+.canvas-drawing-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px;
+  max-width: calc(100vw - 80px);
+  overflow-x: auto;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background:
+    linear-gradient(var(--floating-surface-bg), var(--floating-surface-bg)) padding-box,
+    var(--glass-bevel-border) border-box;
+  box-shadow: var(--glass-shadow-floating);
+  backdrop-filter: blur(var(--glass-blur-lg));
+}
+
+.canvas-drawing-tool {
+  position: relative;
+  display: grid;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--theme-text);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.canvas-drawing-tool:hover {
+  background: var(--theme-hover);
+}
+
+.canvas-drawing-tool:active {
+  transform: scale(0.96);
+}
+
+.canvas-drawing-tool.is-active {
+  background: rgba(255, 255, 255, 0.20);
+  color: var(--accent-primary);
+}
+
+.canvas-drawing-tool:focus-visible,
+.canvas-note-option:focus-visible,
+.canvas-note-swatch:focus-visible,
+.canvas-note-link-form input:focus-visible,
+.canvas-note-link-form button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.canvas-drawing-tool-loading {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: canvas-note-pulse 900ms ease-in-out infinite alternate;
+}
+
+.react-flow__panel.canvas-note-style-panel-slot.top.left {
+  top: 72px;
+  left: 64px;
+  z-index: 35;
+}
+
+.canvas-note-style-panel {
+  box-sizing: border-box;
+  width: 288px;
+  max-height: calc(100vh - 150px);
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  background: var(--glass-panel-bg);
+  box-shadow: var(--glass-shadow-panel);
+  color: var(--theme-text);
+  backdrop-filter: blur(var(--glass-blur-md)) saturate(130%);
+}
+
+.canvas-note-panel-section + .canvas-note-panel-section {
+  margin-top: 16px;
+}
+
+.canvas-note-panel-section h3 {
+  margin: 0 0 8px;
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.canvas-note-panel-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.canvas-note-option {
+  display: grid;
+  width: 46px;
+  height: 42px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--theme-hover) 72%, transparent);
+  color: var(--theme-text);
+  cursor: var(--cursor-pointer, pointer);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.canvas-note-option:hover {
+  border-color: var(--theme-border);
+  background: var(--theme-hover);
+}
+
+.canvas-note-option.is-active {
+  border-color: rgba(255, 255, 255, 0.30);
+  background: rgba(255, 255, 255, 0.20);
+  color: var(--accent-primary);
+}
+
+.canvas-note-swatch {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 7px;
+  background: var(--note-swatch);
+  box-shadow: inset 0 0 0 1px var(--glass-ring);
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.canvas-note-swatch.is-transparent {
+  background-color: var(--theme-surface);
+  background-image:
+    linear-gradient(45deg, var(--theme-hover) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--theme-hover) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--theme-hover) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--theme-hover) 75%);
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-size: 12px 12px;
+}
+
+.canvas-note-swatch.is-active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--theme-surface), 0 0 0 3px rgba(255, 255, 255, 0.30);
+}
+
+.canvas-note-stroke-preview,
+.canvas-note-line-preview {
+  display: block;
+  width: 23px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.canvas-note-line-preview {
+  height: 2px;
+}
+
+.canvas-note-line-preview.is-dashed {
+  background: repeating-linear-gradient(90deg, currentColor 0 7px, transparent 7px 11px);
+}
+
+.canvas-note-line-preview.is-dotted {
+  background: repeating-linear-gradient(90deg, currentColor 0 2px, transparent 2px 6px);
+}
+
+.canvas-note-size-label {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.canvas-note-opacity-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+}
+
+.canvas-note-opacity-row input {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.canvas-note-opacity-row span {
+  color: var(--theme-text-secondary);
+  font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.canvas-note-link-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.canvas-note-link-form input,
+.canvas-note-link-form button {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid var(--theme-border);
+  border-radius: 6px;
+  background: var(--theme-card);
+  color: var(--theme-text);
+}
+
+.canvas-note-link-form input {
+  padding: 0 9px;
+}
+
+.canvas-note-link-form button {
+  padding: 0 11px;
+  cursor: var(--cursor-pointer, pointer);
+}
+
+.react-flow__node-canvas-note {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.react-flow__node-canvas-note[data-id='canvas-note-draft'] {
+  pointer-events: none;
+  opacity: 0.72;
+}
+
+.canvas-note-node {
+  position: relative;
+  box-sizing: border-box;
+  min-width: 2px;
+  min-height: 2px;
+  background: transparent;
+  color: var(--theme-text);
+  user-select: none;
+}
+
+/* React Flow 节点外壳不参与命中后，只让笔记的实际可见区域接收交互。 */
+.canvas-note-node--text,
+.canvas-note-node--image {
+  pointer-events: auto;
+}
+
+.canvas-note-node::after {
+  position: absolute;
+  z-index: 4;
+  inset: -4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  content: '';
+  pointer-events: none;
+}
+
+.canvas-note-node.is-selected::after {
+  border-color: var(--primary);
+}
+
+.canvas-note-shape {
+  display: block;
+  overflow: visible;
+  opacity: var(--canvas-note-opacity, 1);
+  pointer-events: visiblePainted;
+}
+
+.canvas-note-point-handles {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.canvas-note-point-handles circle {
+  fill: var(--theme-surface);
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: auto;
+  cursor: var(--cursor-move, move);
+}
+
+/* 曲率手柄：实心填充以区别于端点手柄 */
+.canvas-note-point-handles circle.is-curve-handle {
+  fill: var(--primary);
+  stroke: var(--theme-surface);
+  stroke-width: 2;
+  cursor: grab;
+}
+
+.canvas-note-point-handles circle.is-curve-handle:active {
+  cursor: grabbing;
+}
+
+.canvas-note-curve-guide {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.45;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.canvas-note-text,
+.canvas-note-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 8px;
+  overflow: hidden;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  line-height: 1.35;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: none;
+  opacity: var(--canvas-note-opacity, 1);
+}
+
+.canvas-note-text {
+  cursor: var(--cursor-text, text);
+}
+
+.canvas-note-textarea {
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--primary);
+  color: inherit;
+  user-select: text;
+}
+
+.canvas-note-image,
+.canvas-note-image-missing {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  opacity: var(--canvas-note-opacity, 1);
+}
+
+.canvas-note-image {
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.canvas-note-image--round {
+  border-radius: 12px;
+}
+
+.canvas-note-image--sharp {
+  border-radius: 1px;
+}
+
+.canvas-note-image-missing {
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--theme-border);
+  border-radius: 6px;
+  background: var(--theme-card);
+  color: var(--theme-text-muted);
+  font-size: 12px;
+}
+
+.canvas-drawing-root:not(.is-tool-select) .react-flow__pane,
+.canvas-drawing-root.is-tool-rectangle,
+.canvas-drawing-root.is-tool-diamond,
+.canvas-drawing-root.is-tool-ellipse,
+.canvas-drawing-root.is-tool-arrow,
+.canvas-drawing-root.is-tool-line,
+.canvas-drawing-root.is-tool-freehand,
+.canvas-drawing-root.is-tool-text {
+  cursor: var(--cursor-crosshair, crosshair);
+}
+
+.canvas-drawing-root.is-tool-image {
+  cursor: copy;
+}
+
+.canvas-drawing-root.is-tool-eraser {
+  cursor: cell;
+}
+
+@keyframes canvas-note-pulse {
+  from { opacity: 0.35; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (max-width: 900px) {
+  .react-flow__panel.canvas-drawing-toolbar-slot.bottom.left {
+    bottom: 52px;
+    max-width: calc(100vw - 80px);
+  }
+
+  .react-flow__panel.canvas-note-style-panel-slot.top.left {
+    top: auto;
+    left: 54px;
+    bottom: 62px;
+  }
+
+  .canvas-note-style-panel {
+    width: min(276px, calc(100vw - 74px));
+    max-height: 44vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-drawing-tool,
+  .canvas-note-option,
+  .canvas-drawing-tool-loading {
+    transition: none;
+    animation: none;
+  }
+}

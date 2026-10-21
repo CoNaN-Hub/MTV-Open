@@ -1,0 +1,1369 @@
+/**
+ * pollManager — 待续任务管理器
+ *
+ * 记录正在轮询的异步任务到 localStorage，支持：
+ * - 切换项目后恢复轮询
+ * - 关闭应用后重新打开继续轮询
+ *
+ * 存储结构按 projectId 隔离，每个节点最多一条待续记录。
+ */
+import { pollTask } from './pollTask';
+import { useAppStore } from '../store/useAppStore';
+import { persistMediaUrlToProjectData } from './fileService';
+import { applyImageBatchResults } from './imageBatchService';
+import { mapImageDimensions } from './aiDimensions';
+import { parseMultiPathResponse, splitCommaSeparatedUrls } from './ai/helpers';
+import { resolveComfyOutputUrl, type ComfyOutputKind, type ComfyOutputs } from './comfyOutputs';
+import { ComfyPendingError, pollComfyHistory } from './comfyPolling';
+import { completeCanvasDerivation, isCanvasDerivationFresh, registerCanvasDerivation } from './canvasDerivationGuard';
+import { pollResolvedModelProtocol } from './ai/modelProtocol';
+import {
+  extractFlowMusicLyrics,
+  extractFlowMusicTrack,
+  fetchFlowMusicTask,
+  submitFlowMusicGeneration,
+  type FlowMusicTaskState,
+} from './ai/apimartAudio';
+import type { BaseNodeData, NodeType } from '../types';
+import type { ResolvedModelProtocolPoll } from '../types/aiTypes';
+import {
+  APIMART_BASE_URL,
+  RUNNINGHUB_MODEL_BASE_URL,
+  VOLCENGINE_BASE_URL,
+} from '../constants/api';
+import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+
+// ═══════════════════════════════════════════
+// AbortController 注册表 — 节点删除时取消轮询
+// ═══════════════════════════════════════════
+
+const abortControllers = new Map<string, AbortController>();
+const runninghubMessageWaiters = new Map<string, () => void>();
+const workflowApiMessageWaiters = new Map<string, () => void>();
+
+function abortNodePolling(nodeId: string): void {
+  const controller = abortControllers.get(nodeId);
+  if (controller) {
+    controller.abort();
+    abortControllers.delete(nodeId);
+  }
+}
+
+/** 为节点注册轮询控制器，返回 AbortSignal 传给 pollTask */
+export function registerNodePolling(nodeId: string): AbortSignal {
+  abortNodePolling(nodeId); // 先取消旧轮询，但保留 pending task 以支持恢复
+  const controller = new AbortController();
+  abortControllers.set(nodeId, controller);
+  return controller.signal;
+}
+
+/** 取消节点的轮询（节点被删除时调用，同时清理 pending task） */
+export function cancelNodePolling(nodeId: string, preservePending = false): void {
+  abortNodePolling(nodeId);
+  // 同时清理 localStorage 中的待续任务记录
+  if (!preservePending) removePendingTask(nodeId);
+}
+
+/** 轮询正常结束/失败后清理注册表（不调用 abort） */
+export function cleanupNodePolling(nodeId: string, expectedSignal?: AbortSignal): boolean {
+  if (expectedSignal && abortControllers.get(nodeId)?.signal !== expectedSignal) return false;
+  abortControllers.delete(nodeId);
+  return true;
+}
+
+// ═══════════════════════════════════════════
+// 类型定义
+// ═══════════════════════════════════════════
+
+export interface PendingTask {
+  nodeId: string;
+  projectId: string;
+  nodeType: NodeType;
+  provider: string;
+  taskId: string;
+  taskType: 'apimart' | 'apimart-flow-music' | 'dreamina' | 'comfyui' | 'general' | 'custom-protocol' | 'volcengine' | 'runninghub' | 'runninghub-workflow' | 'workflow-api' | 'runninghub-model';
+  runninghubModelId?: string;
+  runninghubSubmissionUncertain?: boolean;
+  workflowApi?: import('../types/workflowApi').WorkflowApiTaskDescriptor;
+  workflowApiMessage?: import('../types/workflowApi').CloudWorkflowTaskContext;
+  runninghubRecoveryState?: 'disconnected' | 'cancel_pending' | 'submit_unknown' | 'save_pending';
+  runninghubOutputNodeIds?: string[];
+  runninghubWorkflowId?: string;
+  runninghubMessage?: import('../types/runninghub').RunningHubTaskContext;
+  /** Flow Music 当前远端任务阶段。 */
+  audioTaskStage?: 'lyrics' | 'music';
+  /** 本地 ComfyUI 恢复轮询用地址；厂商地址统一从 providerConfigId 解析。 */
+  baseUrl?: string;
+  /** 批量图片任务期望回填的结果数量；旧记录缺省为 1。 */
+  batchCount?: number;
+  /** 同一节点对应的多个异步任务 ID（APIMart / RunningHub 批量图片生成）。 */
+  taskIds?: string[];
+  /** 声明式协议任务从连接配置重新读取密钥，不在此处新增密钥副本。 */
+  providerConfigId?: string;
+  protocolPoll?: ResolvedModelProtocolPoll;
+  /** 任务是否已向远端提交（false 表示仅预设了 status=loading 但还未拿到 taskId） */
+  submitted: boolean;
+  /** ComfyUI 远端终态尚未确认，保留任务并提供续查/再次取消。 */
+  comfyRecoveryState?: 'disconnected' | 'cancel_pending';
+}
+
+// ═══════════════════════════════════════════
+// localStorage 持久化
+// ═══════════════════════════════════════════
+
+const STORAGE_KEY = 'ai_canvas_pending_tasks';
+
+interface LegacyPendingTask extends PendingTask {
+  apiKey?: string;
+}
+
+const PROVIDER_CONFIG_ID_BY_TASK_TYPE: Partial<Record<PendingTask['taskType'], string>> = {
+  apimart: 'apimart',
+  'apimart-flow-music': 'apimart',
+  volcengine: 'volcengine',
+  runninghub: 'runninghub-model',
+};
+
+function normalizeUrl(value?: string): string {
+  return value?.trim().replace(/\/+$/, '') || '';
+}
+
+function inferLegacyProviderConfigId(task: LegacyPendingTask): string | undefined {
+  if (task.providerConfigId) return task.providerConfigId;
+  const knownProviderConfigId = PROVIDER_CONFIG_ID_BY_TASK_TYPE[task.taskType];
+  if (knownProviderConfigId) return knownProviderConfigId;
+  if (task.taskType !== 'general') return undefined;
+
+  const legacyBaseUrl = normalizeUrl(task.baseUrl);
+  const legacyApiKey = task.apiKey || '';
+  return Object.entries(useAppStore.getState().config.providers).find(([, provider]) => (
+    normalizeUrl(provider.baseUrl) === legacyBaseUrl
+    && (legacyApiKey === '' || provider.apiKey === legacyApiKey)
+  ))?.[0];
+}
+
+function sanitizePendingTask(task: LegacyPendingTask): PendingTask {
+  const { baseUrl: legacyBaseUrl, ...safeTask } = task;
+  delete safeTask.apiKey;
+  const providerConfigId = inferLegacyProviderConfigId(task);
+  return {
+    ...safeTask,
+    providerConfigId,
+    ...(task.taskType === 'comfyui' && legacyBaseUrl ? { baseUrl: legacyBaseUrl } : {}),
+  };
+}
+
+function loadAll(): PendingTask[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const tasks = parsed
+      .filter((item): item is LegacyPendingTask => !!item && typeof item === 'object')
+      .map(sanitizePendingTask);
+    const serialized = JSON.stringify(tasks);
+    if (serialized !== raw) localStorage.setItem(STORAGE_KEY, serialized);
+    return tasks;
+  } catch {
+    return [];
+  }
+}
+
+function saveAll(tasks: PendingTask[]): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks.map(sanitizePendingTask)));
+}
+
+function resolveProviderTaskConfig(
+  task: PendingTask,
+  fallbackProviderConfigId?: string,
+  fallbackBaseUrl = '',
+): { apiKey: string; baseUrl: string } | undefined {
+  const providerConfigId = task.providerConfigId || fallbackProviderConfigId;
+  if (!providerConfigId) return undefined;
+  const provider = useAppStore.getState().config.providers[providerConfigId];
+  if (!provider?.apiKey) return undefined;
+  const baseUrl = normalizeUrl(provider.baseUrl || fallbackBaseUrl);
+  if (!baseUrl) return undefined;
+  return { apiKey: provider.apiKey, baseUrl };
+}
+
+/** 保存一条待续任务（同一 nodeId 会覆盖旧记录） */
+export function savePendingTask(task: PendingTask): void {
+  const tasks = loadAll().filter((t) => t.nodeId !== task.nodeId);
+  tasks.push(task);
+  saveAll(tasks);
+}
+
+/** 更新已保存的待续任务（如回填 taskId） */
+export function updatePendingTask(nodeId: string, patch: Partial<PendingTask>, expectedTaskId?: string): void {
+  const tasks = loadAll();
+  const idx = tasks.findIndex((t) => t.nodeId === nodeId);
+  if (idx === -1) return;
+  if (expectedTaskId !== undefined && tasks[idx].taskId !== expectedTaskId) return;
+  tasks[idx] = { ...tasks[idx], ...patch };
+  saveAll(tasks);
+}
+
+/** 移除一条待续任务（轮询完成/失败/取消时调用） */
+export function removePendingTask(nodeId: string, expectedTaskId?: string): void {
+  const tasks = loadAll();
+  const task = tasks.find((t) => t.nodeId === nodeId);
+  if (expectedTaskId !== undefined && task?.taskId !== expectedTaskId) return;
+  const currentProjectId = useAppStore.getState().currentProjectId;
+
+  // 后台请求可能在用户切换到其他项目后才结束。此时不能删除原项目的
+  // pending 记录，否则切回去时 loading 节点会被当作孤立任务。
+  if (task && currentProjectId && task.projectId !== currentProjectId) {
+    return;
+  }
+
+  saveAll(tasks.filter((t) => t.nodeId !== nodeId));
+  runninghubMessageWaiters.get(nodeId)?.();
+  runninghubMessageWaiters.delete(nodeId);
+  workflowApiMessageWaiters.get(nodeId)?.();
+  workflowApiMessageWaiters.delete(nodeId);
+}
+
+/** 清理指定项目的所有待续任务 */
+export function clearProjectTasks(projectId: string): void {
+  const tasks = loadAll().filter((t) => t.projectId !== projectId);
+  saveAll(tasks);
+}
+
+/** 获取指定项目的所有待续任务 */
+export function getPendingTasksForProject(projectId: string): PendingTask[] {
+  return loadAll().filter((t) => t.projectId === projectId);
+}
+
+// ═══════════════════════════════════════════
+// 结果应用（镜像 AINodeDialog 的完成逻辑）
+// ═══════════════════════════════════════════
+
+async function applyNodeResult(
+  nodeId: string,
+  resultUrl: string,
+  nodeLabel: string,
+  isCurrent?: () => boolean,
+  savedOutput?: { mediaUrl: string; sourceUrl: string; filePath?: string },
+): Promise<void> {
+  if (isCurrent && !isCurrent()) throw new ComfyPendingError('任务结果已保留，请回到原项目继续查询');
+  const store = useAppStore.getState();
+  const node = store.nodes.find((n) => n.id === nodeId);
+  if (!node) return;
+  const data = node.data as BaseNodeData;
+  const nodeType = data.type;
+  const currentProjectId = store.currentProjectId;
+
+  // 下载远程 URL 到本地
+  const guard = isCurrent ? registerCanvasDerivation(store, nodeId) : null;
+  let persisted;
+  try {
+    persisted = savedOutput ?? (currentProjectId
+      ? await persistMediaUrlToProjectData(resultUrl, currentProjectId, nodeType, nodeLabel)
+      : { mediaUrl: resultUrl, sourceUrl: resultUrl });
+    if (isCurrent && (!isCurrent() || !guard || !isCanvasDerivationFresh(guard, useAppStore.getState()))) {
+      throw new ComfyPendingError('画布已变化，任务结果已保留，请继续查询');
+    }
+  } finally {
+    if (guard) completeCanvasDerivation(guard);
+  }
+  const mediaUrl = persisted.mediaUrl;
+
+  const updateData: Partial<BaseNodeData> = {
+    output: persisted.sourceUrl,
+    sourceUrl: persisted.sourceUrl,
+    filePath: persisted.filePath,
+    thumbnailUrl: mediaUrl,
+    status: 'success',
+  };
+
+  if (nodeType === 'ai-image' || nodeType === 'ai-panorama' || nodeType === 'ai-animation') {
+    updateData.imageUrl = mediaUrl;
+  } else if (nodeType === 'ai-video') {
+    updateData.videoUrl = mediaUrl;
+  } else if (nodeType === 'ai-audio') {
+    updateData.audioUrl = mediaUrl;
+  }
+
+  store.updateNodeDataTransient(nodeId, updateData);
+  // 异步轮询完成的生图也要回写短剧资产绑图
+  if (nodeType === 'ai-image' || nodeType === 'ai-panorama') {
+    store.syncDramaAssetImageFromNode?.(nodeId, mediaUrl);
+  }
+  store.recordOutputHistory(nodeId, {
+    nodeId,
+    nodeLabel,
+    timestamp: Date.now(),
+    prompt: (data.prompt as string) || '',
+    output: persisted.sourceUrl,
+    nodeType,
+    model: (data.model as string) || '',
+    provider: (data.provider as string) || '',
+    status: 'success',
+    mediaUrl,
+    filePath: persisted.filePath,
+  });
+  store.showToast(`${nodeLabel} 生成已完成`);
+}
+
+function getBatchTaskNodeIds(
+  task: PendingTask,
+  nodes: ReadonlyArray<{ id: string; data: BaseNodeData }>,
+): string[] {
+  if (task.nodeType !== 'ai-image' || (task.batchCount ?? 1) <= 1) return [task.nodeId];
+  const sourceNode = nodes.find((node) => node.id === task.nodeId);
+  const batchGroupId = sourceNode?.data.batchGroupId;
+  if (!batchGroupId) return [task.nodeId];
+  return nodes
+    .filter((node) => node.id === task.nodeId || node.data.batchGroupId === batchGroupId)
+    .map((node) => node.id);
+}
+
+async function handleResumeError(
+  task: PendingTask,
+  err: unknown,
+): Promise<void> {
+  const msg = err instanceof Error ? err.message : String(err || '任务恢复失败');
+  const store = useAppStore.getState();
+  const nodeIds = new Set(getBatchTaskNodeIds(task, store.nodes));
+  for (const node of store.nodes) {
+    if (nodeIds.has(node.id) && node.data.status === 'loading') {
+      store.updateNodeDataTransient(node.id, { status: 'error', error: msg });
+    }
+  }
+  cleanupNodePolling(task.nodeId);
+  removePendingTask(task.nodeId);
+}
+
+// ═══════════════════════════════════════════
+// 各供应商恢复逻辑
+// ═══════════════════════════════════════════
+
+/* ── APIMart ── */
+
+interface ApimartTaskResult<TResult = Record<string, unknown>> {
+  code: number;
+  status?: string;
+  progress?: number;
+  result?: TResult;
+}
+
+async function fetchApimartTask(
+  apiKey: string,
+  baseUrl: string,
+  taskId: string,
+  signal?: AbortSignal,
+): Promise<ApimartTaskResult> {
+  const resp = await fetch(`${baseUrl}/tasks/${taskId}?language=zh`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    signal,
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const raw = (await resp.json()) as Record<string, unknown>;
+  if (raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) {
+    const d = raw.data as Record<string, unknown>;
+    return {
+      code: raw.code as number,
+      status: (d.status ?? raw.status) as string | undefined,
+      progress: (d.progress ?? raw.progress) as number | undefined,
+      result: d.result as Record<string, unknown> | undefined,
+    };
+  }
+  return raw as unknown as ApimartTaskResult;
+}
+
+function extractApimartUrls(
+  result: Record<string, unknown> | undefined,
+  nodeType: NodeType,
+): string[] {
+  if (!result) return [];
+  const extractUrls = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const url = (item as { url?: unknown }).url;
+      if (Array.isArray(url)) {
+        return splitCommaSeparatedUrls(url.filter((entry): entry is string => typeof entry === 'string'));
+      }
+      return typeof url === 'string' ? splitCommaSeparatedUrls([url]) : [];
+    });
+  };
+  if (nodeType === 'ai-video') {
+    const urls = extractUrls(result.videos);
+    if (urls.length > 0) return [urls[0]];
+  }
+  if (nodeType === 'ai-audio') {
+    const urls = extractUrls(result.audios);
+    if (urls.length > 0) return [urls[0]];
+  }
+  return extractUrls(result.images);
+}
+
+async function resumeApimart(task: PendingTask): Promise<void> {
+  const { nodeId, nodeType } = task;
+  const providerConfig = resolveProviderTaskConfig(task, 'apimart', APIMART_BASE_URL);
+  const taskIds = (task.taskIds?.length ? task.taskIds : [task.taskId]).filter(Boolean);
+  if (!providerConfig || taskIds.length === 0) {
+    await handleResumeError(task, new Error('任务恢复失败：缺少 API 配置'));
+    return;
+  }
+  const { apiKey, baseUrl } = providerConfig;
+  const node = useAppStore.getState().nodes.find((n) => n.id === nodeId);
+  const nodeData = node?.data as BaseNodeData | undefined;
+  const label = nodeData?.label || '';
+
+  const signal = registerNodePolling(nodeId);
+
+  try {
+    const settled = await Promise.allSettled(taskIds.map((taskId) => (
+      pollTask<ApimartTaskResult, string[]>({
+        fetchState: () => fetchApimartTask(apiKey, baseUrl, taskId, signal),
+        isComplete: (t) => {
+          if (t.status !== 'completed') return null;
+          const resolved = extractApimartUrls(t.result, nodeType);
+          if (resolved.length === 0) throw new Error('任务完成但未返回结果');
+          return resolved;
+        },
+        isFailed: (t) =>
+          t.status === 'failed' || t.status === 'error' ? `任务失败: ${t.status}` : null,
+        interval: 3000,
+        onFetchError: 'continue',
+        signal,
+      })
+    )));
+    const urls = settled.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+    if (urls.length === 0) {
+      const failed = settled.find((result) => result.status === 'rejected') as PromiseRejectedResult | undefined;
+      throw failed?.reason || new Error('任务完成但未返回结果');
+    }
+    const requestedCount = Math.max(1, task.batchCount ?? 1);
+    if (nodeType === 'ai-image' && requestedCount > 1 && nodeData) {
+      const imageSize = (nodeData.imageSize as string) || '2K';
+      const aspectRatio = (nodeData.aspectRatio as string) || '1:1';
+      const dimensions = mapImageDimensions(imageSize, aspectRatio);
+      const results = urls.slice(0, requestedCount).map((url) => ({ url, ...dimensions }));
+      await applyImageBatchResults({
+        nodeId,
+        batch: {
+          requestedCount,
+          results,
+          failedCount: Math.max(0, requestedCount - results.length),
+        },
+        projectId: task.projectId,
+        prompt: (nodeData.prompt as string) || '',
+        imageSize,
+        aspectRatio,
+      });
+    } else {
+      await applyNodeResult(nodeId, urls[0], label);
+    }
+    removePendingTask(nodeId);
+  } catch (err) {
+    await handleResumeError(task, err);
+  } finally {
+    cleanupNodePolling(nodeId);
+  }
+}
+
+/* ── RunningHub 标准模型 ── */
+
+interface RunningHubTaskResult {
+  status?: string;
+  errorCode?: string;
+  errorMessage?: string;
+  results?: Array<{ url?: string | null }> | null;
+}
+
+async function fetchRunningHubTask(
+  apiKey: string,
+  baseUrl: string,
+  taskId: string,
+): Promise<RunningHubTaskResult> {
+  const response = await fetch(`${baseUrl.replace(/\/+$/, '')}/query`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ taskId }),
+  });
+  const payload = await response.json().catch(() => ({})) as Record<string, unknown>;
+  const code = payload.code;
+  if (!response.ok || (typeof code === 'number' && code !== 0)) {
+    const message = typeof payload.msg === 'string' ? payload.msg : `HTTP ${response.status}`;
+    throw new Error(`RunningHub 任务查询失败：${message}`);
+  }
+  const data = payload.data;
+  return data && typeof data === 'object' && !Array.isArray(data)
+    ? data as RunningHubTaskResult
+    : payload as RunningHubTaskResult;
+}
+
+async function pollRunningHubTask(
+  apiKey: string,
+  baseUrl: string,
+  taskId: string,
+  signal: AbortSignal,
+): Promise<string[]> {
+  return pollTask<RunningHubTaskResult, string[]>({
+    fetchState: () => fetchRunningHubTask(apiKey, baseUrl, taskId),
+    isComplete: (result) => {
+      if (result.status?.toUpperCase() !== 'SUCCESS') return null;
+      const urls = result.results?.flatMap((item) => item.url ? [item.url] : []) ?? [];
+      if (urls.length === 0) throw new Error('RunningHub 任务完成但未返回图片');
+      return urls;
+    },
+    isFailed: (result) => result.status?.toUpperCase() === 'FAILED'
+      ? `RunningHub 任务失败：${result.errorMessage || result.errorCode || '未知错误'}`
+      : null,
+    interval: 3000,
+    signal,
+  });
+}
+
+async function resumeRunningHub(task: PendingTask): Promise<void> {
+  const { nodeId } = task;
+  const providerConfig = resolveProviderTaskConfig(
+    task,
+    'runninghub-model',
+    RUNNINGHUB_MODEL_BASE_URL,
+  );
+  const taskIds = (task.taskIds?.length ? task.taskIds : [task.taskId]).filter(Boolean);
+  if (!providerConfig || taskIds.length === 0) {
+    useAppStore.getState().updateNodeDataTransient(nodeId, {
+      status: 'error',
+      error: '任务恢复失败：缺少 RunningHub 模型 API 配置',
+    });
+    removePendingTask(nodeId);
+    return;
+  }
+  const { apiKey, baseUrl } = providerConfig;
+
+  const node = useAppStore.getState().nodes.find((item) => item.id === nodeId);
+  const nodeData = node?.data as BaseNodeData | undefined;
+  if (!nodeData) {
+    removePendingTask(nodeId);
+    return;
+  }
+
+  const signal = registerNodePolling(nodeId);
+  try {
+    const settled = await Promise.allSettled(
+      taskIds.map((taskId) => pollRunningHubTask(apiKey, baseUrl, taskId, signal)),
+    );
+    const urls = settled.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+    if (urls.length === 0) {
+      const failed = settled.find((result) => result.status === 'rejected') as PromiseRejectedResult | undefined;
+      throw failed?.reason || new Error('RunningHub 图片生成未返回可用结果');
+    }
+
+    const requestedCount = Math.max(1, task.batchCount ?? taskIds.length);
+    const imageSize = (nodeData.imageSize as string) || '2K';
+    const aspectRatio = (nodeData.aspectRatio as string) || '1:1';
+    const dimensions = mapImageDimensions(imageSize, aspectRatio);
+    if (requestedCount > 1) {
+      const results = urls.slice(0, requestedCount).map((url) => ({ url, ...dimensions }));
+      await applyImageBatchResults({
+        nodeId,
+        batch: {
+          requestedCount,
+          results,
+          failedCount: Math.max(0, requestedCount - results.length),
+        },
+        projectId: task.projectId,
+        prompt: (nodeData.prompt as string) || '',
+        imageSize,
+        aspectRatio,
+      });
+    } else {
+      await applyNodeResult(nodeId, urls[0], nodeData.label || '');
+    }
+    removePendingTask(nodeId);
+  } catch (error) {
+    await handleResumeError(task, error);
+  } finally {
+    cleanupNodePolling(nodeId);
+  }
+}
+
+async function pollFlowMusicTask(
+  apiKey: string,
+  baseUrl: string,
+  taskId: string,
+  signal: AbortSignal,
+): Promise<FlowMusicTaskState> {
+  return pollTask<FlowMusicTaskState, FlowMusicTaskState>({
+    fetchState: () => fetchFlowMusicTask(apiKey, baseUrl, taskId),
+    isComplete: (state) => state.status === 'completed' ? state : null,
+    isFailed: (state) =>
+      state.status === 'failed' || state.status === 'error'
+        ? `APIMart 音乐任务失败: ${state.status}`
+        : null,
+    interval: 3000,
+    onFetchError: 'continue',
+    signal,
+  });
+}
+
+/** Flow Music 使用独立查询端点，并支持歌词完成后继续提交音乐阶段。 */
+async function resumeApimartFlowMusic(task: PendingTask): Promise<void> {
+  const { nodeId } = task;
+  const providerConfig = resolveProviderTaskConfig(task, 'apimart', APIMART_BASE_URL);
+  if (!providerConfig) {
+    await handleResumeError(task, new Error('任务恢复失败：缺少 API 配置'));
+    return;
+  }
+  const { apiKey, baseUrl } = providerConfig;
+
+  const node = useAppStore.getState().nodes.find((item) => item.id === nodeId);
+  const data = node?.data as BaseNodeData | undefined;
+  if (!data) {
+    removePendingTask(nodeId);
+    return;
+  }
+
+  const signal = registerNodePolling(nodeId);
+  let taskId = task.taskId;
+  let stage = task.audioTaskStage ?? 'music';
+
+  try {
+    if (stage === 'lyrics') {
+      const generated = extractFlowMusicLyrics(
+        await pollFlowMusicTask(apiKey, baseUrl, taskId, signal),
+      );
+      useAppStore.getState().updateNodeDataTransient(nodeId, {
+        musicTitle: generated.title || data.musicTitle,
+        musicLyrics: generated.lyrics,
+      });
+      updatePendingTask(nodeId, {
+        taskId: '',
+        audioTaskStage: 'music',
+        submitted: false,
+      });
+      taskId = await submitFlowMusicGeneration(apiKey, baseUrl, {
+        soundPrompt: data.prompt || '',
+        lyrics: generated.lyrics,
+        title: generated.title || data.musicTitle,
+        bpm: data.musicBpm,
+        length: data.musicDuration ?? 60,
+      });
+      stage = 'music';
+      updatePendingTask(nodeId, { taskId, audioTaskStage: stage, submitted: true });
+    }
+
+    const result = extractFlowMusicTrack(
+      await pollFlowMusicTask(apiKey, baseUrl, taskId, signal),
+    );
+    const latestData = useAppStore.getState().nodes.find((item) => item.id === nodeId)?.data as BaseNodeData | undefined;
+    useAppStore.getState().updateNodeDataTransient(nodeId, {
+      musicClipId: result.clipId,
+      musicTitle: result.title || latestData?.musicTitle,
+      musicLyrics: result.lyrics || latestData?.musicLyrics,
+    });
+    await applyNodeResult(nodeId, result.url, data.label);
+    removePendingTask(nodeId);
+  } catch (err) {
+    await handleResumeError(task, err);
+  } finally {
+    cleanupNodePolling(nodeId);
+  }
+}
+
+/* ── 即梦 ── */
+
+interface DreaminaOutput {
+  url: string;
+  localPath: string;
+}
+interface DreaminaQuery {
+  status: 'pending' | 'success' | 'failed';
+  outputs: DreaminaOutput[];
+  failReason: string;
+}
+
+async function resumeDreamina(task: PendingTask): Promise<void> {
+  const { nodeId, taskId } = task;
+  const node = useAppStore.getState().nodes.find((n) => n.id === nodeId);
+  const label = (node?.data as BaseNodeData | undefined)?.label || '';
+
+  const signal = registerNodePolling(nodeId);
+
+  try {
+    const out = await pollTask<DreaminaQuery, DreaminaOutput>({
+      fetchState: () => invoke<DreaminaQuery>('dreamina_query_result', { submitId: taskId }),
+      isComplete: (r) =>
+        r.status === 'success' && r.outputs.length > 0 ? r.outputs[0] : null,
+      isFailed: (r) =>
+        r.status === 'failed' ? r.failReason || '即梦生成失败' : null,
+      interval: 3000,
+      maxDuration: 60 * 60 * 1000,
+      timeoutMsg: '即梦生成超时',
+      onFetchError: 'throw',
+      signal,
+    });
+
+    const url = out.localPath ? convertFileSrc(out.localPath) : out.url;
+    await applyNodeResult(nodeId, url, label);
+    removePendingTask(nodeId);
+  } catch (err) {
+    await handleResumeError(task, err);
+  } finally {
+    cleanupNodePolling(nodeId);
+  }
+}
+
+/* ── ComfyUI ── */
+
+async function resumeComfyUI(task: PendingTask): Promise<void> {
+  const { nodeId, taskId, baseUrl, nodeType } = task;
+  if (!baseUrl) {
+    useAppStore.getState().updateNodeDataTransient(nodeId, {
+      status: 'error',
+      error: '任务恢复失败：缺少 ComfyUI 地址',
+    });
+    removePendingTask(nodeId);
+    return;
+  }
+  const node = useAppStore.getState().nodes.find((n) => n.id === nodeId);
+  const label = (node?.data as BaseNodeData | undefined)?.label || '';
+
+  const signal = registerNodePolling(nodeId);
+  const isCurrent = () => !signal.aborted
+    && useAppStore.getState().currentProjectId === task.projectId
+    && getPendingTasksForProject(task.projectId).some((item) => item.nodeId === nodeId && item.taskId === taskId);
+  updatePendingTask(nodeId, { comfyRecoveryState: undefined }, taskId);
+
+  const kinds: ComfyOutputKind[] =
+    nodeType === 'ai-video' ? ['video', 'image']
+      : nodeType === 'ai-audio' ? ['audio', 'video', 'image']
+        : ['image'];
+  const extract = (outputs: ComfyOutputs) => resolveComfyOutputUrl(baseUrl, outputs, kinds);
+
+  try {
+    // 与实时生成共用轮询：ComfyUI 重启后 promptId 会彻底消失，那里会连 /queue 一起确认并直接判失败，
+    // 不再让恢复出来的任务空转一小时
+    const { url } = await pollComfyHistory(
+      baseUrl,
+      taskId,
+      'ComfyUI 任务恢复超时（1 小时）',
+      extract,
+      signal,
+    );
+    await applyNodeResult(nodeId, url, label, isCurrent);
+    removePendingTask(nodeId, taskId);
+  } catch (err) {
+    // 被删除、取消或新一轮查询替代时，不能清理当前任务或覆盖其界面状态。
+    if (signal.aborted) return;
+    if (err instanceof ComfyPendingError) {
+      updatePendingTask(nodeId, { comfyRecoveryState: 'disconnected' }, taskId);
+      if (isCurrent()) useAppStore.getState().updateNodeDataTransient(nodeId, { status: 'error', error: err.message });
+    } else if (isCurrent()) {
+      await handleResumeError(task, err);
+    }
+  } finally {
+    cleanupNodePolling(nodeId, signal);
+  }
+}
+
+/** 仅续查这个节点已提交的 ComfyUI 任务，不重新提交工作流。 */
+export async function resumeComfyUINodeTask(nodeId: string): Promise<void> {
+  const store = useAppStore.getState();
+  if (!store.currentProjectId || !store.nodes.some((node) => node.id === nodeId)) return;
+  const task = getPendingTasksForProject(store.currentProjectId).find((item) => (
+    item.nodeId === nodeId && item.taskType === 'comfyui' && item.submitted && item.taskId
+  ));
+  if (!task || abortControllers.has(nodeId)) return;
+  store.updateNodeDataTransient(nodeId, { status: 'loading', error: undefined });
+  await resumeComfyUI(task);
+}
+
+/* ── 通用异步 ── */
+
+async function resumeGeneral(task: PendingTask): Promise<void> {
+  const { nodeId, taskId, nodeType } = task;
+  const providerConfig = resolveProviderTaskConfig(task);
+  if (!providerConfig) {
+    await handleResumeError(task, new Error('任务恢复失败：缺少 API 配置'));
+    return;
+  }
+  const { apiKey, baseUrl } = providerConfig;
+  const node = useAppStore.getState().nodes.find((n) => n.id === nodeId);
+  const label = (node?.data as BaseNodeData | undefined)?.label || '';
+  const resultField =
+    nodeType === 'ai-video' ? 'videos' : nodeType === 'ai-audio' ? 'audios' : 'images';
+
+  const signal = registerNodePolling(nodeId);
+
+  try {
+    const { url } = await pollTask<Record<string, unknown>, { url: string }>({
+      fetchState: async () => {
+        const pollResp = await fetch(`${baseUrl}/tasks/${taskId}?language=zh`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!pollResp.ok) throw new Error(`HTTP ${pollResp.status}`);
+        return (await pollResp.json()) as Record<string, unknown>;
+      },
+      isComplete: (raw) => {
+        const t = (raw.data ?? raw) as Record<string, unknown>;
+        if (t.status === 'completed') {
+          const resolved = parseMultiPathResponse(
+            (t.result ?? raw) as Record<string, unknown>,
+            resultField,
+          );
+          if (resolved) return { url: resolved };
+          throw new Error('任务完成但未返回结果');
+        }
+        return null;
+      },
+      isFailed: (raw) => {
+        const t = (raw.data ?? raw) as Record<string, unknown>;
+        return t.status === 'failed' || t.status === 'error'
+          ? `任务失败: ${t.status}`
+          : null;
+      },
+      interval: 3000,
+      onFetchError: 'continue',
+      signal,
+    });
+    await applyNodeResult(nodeId, url, label);
+    removePendingTask(nodeId);
+  } catch (err) {
+    await handleResumeError(task, err);
+  } finally {
+    cleanupNodePolling(nodeId);
+  }
+}
+
+async function resumeCustomProtocol(task: PendingTask): Promise<void> {
+  const { nodeId, nodeType, providerConfigId, protocolPoll } = task;
+  const providerConfig = providerConfigId
+    ? useAppStore.getState().config.providers[providerConfigId]
+    : undefined;
+  if (!providerConfig?.apiKey || !protocolPoll) {
+    await handleResumeError(task, new Error('任务恢复失败：调用协议或连接配置已不存在'));
+    return;
+  }
+
+  const node = useAppStore.getState().nodes.find((item) => item.id === nodeId);
+  const nodeData = node?.data as BaseNodeData | undefined;
+  if (!nodeData) {
+    removePendingTask(nodeId);
+    return;
+  }
+
+  const signal = registerNodePolling(nodeId);
+  try {
+    const result = await pollResolvedModelProtocol(
+      protocolPoll,
+      providerConfig.apiKey,
+      signal,
+      providerConfig.baseUrl,
+    );
+    const urls = result.urls;
+    if (!urls) throw new Error('媒体模型任务完成但未返回结果 URL');
+    const requestedCount = Math.max(1, task.batchCount ?? 1);
+    if (nodeType === 'ai-image' && requestedCount > 1) {
+      const imageSize = nodeData.imageSize || '2K';
+      const aspectRatio = nodeData.aspectRatio || '1:1';
+      const dimensions = mapImageDimensions(imageSize, aspectRatio);
+      const results = urls.slice(0, requestedCount).map((url) => ({ url, ...dimensions }));
+      await applyImageBatchResults({
+        nodeId,
+        batch: {
+          requestedCount,
+          results,
+          failedCount: Math.max(0, requestedCount - results.length),
+        },
+        projectId: task.projectId,
+        prompt: nodeData.prompt || '',
+        imageSize,
+        aspectRatio,
+      });
+    } else {
+      const url = urls[0];
+      if (!url) throw new Error('任务完成但未返回结果 URL');
+      await applyNodeResult(nodeId, url, nodeData.label || '');
+    }
+    removePendingTask(nodeId);
+  } catch (error) {
+    await handleResumeError(task, error);
+  } finally {
+    cleanupNodePolling(nodeId);
+  }
+}
+
+/* ── 火山方舟 Seedance ── */
+
+async function resumeVolcengine(task: PendingTask): Promise<void> {
+  const { nodeId, taskId } = task;
+  const providerConfig = resolveProviderTaskConfig(task, 'volcengine', VOLCENGINE_BASE_URL);
+  if (!providerConfig) {
+    await handleResumeError(task, new Error('任务恢复失败：缺少 API 配置'));
+    return;
+  }
+  const { apiKey, baseUrl } = providerConfig;
+  const node = useAppStore.getState().nodes.find((n) => n.id === nodeId);
+  const label = (node?.data as BaseNodeData | undefined)?.label || '';
+
+  const signal = registerNodePolling(nodeId);
+
+  try {
+    const { url } = await pollTask<Record<string, unknown>, { url: string }>({
+      fetchState: async () => {
+        const resp = await fetch(`${baseUrl}/contents/generations/tasks/${taskId}`, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return (await resp.json()) as Record<string, unknown>;
+      },
+      isComplete: (raw) => {
+        const status = raw.status as string;
+        if (status === 'succeeded') {
+          const content = raw.content as Record<string, unknown> | undefined;
+          const videoUrl = content?.video_url as string | undefined;
+          if (videoUrl) return { url: videoUrl };
+          throw new Error('任务完成但未返回视频地址');
+        }
+        return null;
+      },
+      isFailed: (raw) => {
+        const status = raw.status as string;
+        if (status === 'failed') {
+          const err = raw.error as { message?: string } | undefined;
+          return `任务失败: ${err?.message || status}`;
+        }
+        return null;
+      },
+      interval: 3000,
+      onFetchError: 'continue',
+      signal,
+    });
+    await applyNodeResult(nodeId, url, label);
+    removePendingTask(nodeId);
+  } catch (err) {
+    await handleResumeError(task, err);
+  } finally {
+    cleanupNodePolling(nodeId);
+  }
+}
+
+// ═══════════════════════════════════════════
+// 恢复入口
+// ═══════════════════════════════════════════
+
+async function queryRunningHubPendingTask(task: PendingTask, connection: import('../types/runninghub').RunningHubConnection,
+  kind: import('../types/runninghub').RunningHubMediaKind, signal: AbortSignal, onStatus?: (stage: string) => void) {
+  if (task.taskType === 'runninghub-model') {
+    const { queryRunningHubModel } = await import('./ai/providers/runninghubMedia');
+    return queryRunningHubModel(connection, task.taskIds?.length ? task.taskIds : [task.taskId], kind, signal, onStatus);
+  }
+  const { queryRunningHubWorkflow } = await import('./ai/providers/runninghubWorkflow');
+  return queryRunningHubWorkflow(connection, task.taskId, kind, task.runninghubOutputNodeIds, signal, onStatus);
+}
+
+function runningHubMessageIsCurrent(task: PendingTask): boolean {
+  const context = task.runninghubMessage;
+  const store = useAppStore.getState();
+  return !!context && store.currentProjectId === task.projectId && context.projectId === task.projectId
+    && store.messages.some((message) => message.id === context.messageId && message.conversationId === context.conversationId);
+}
+
+/** 项目先加载画布、再加载当前会话；等原消息进入 Store 后才能恢复回填。 */
+function scheduleRunningHubMessageRecovery(task: PendingTask, savedOutputs?: import('../types/runninghub').RunningHubOutput[]) {
+  runninghubMessageWaiters.get(task.nodeId)?.();
+  runninghubMessageWaiters.delete(task.nodeId);
+  if (runningHubMessageIsCurrent(task)) { void resumeRunningHubMessageTask(task, savedOutputs); return; }
+  if (useAppStore.getState().currentProjectId !== task.projectId) return;
+  const unsubscribe = useAppStore.subscribe((state, previous) => {
+    if (state.currentProjectId === previous.currentProjectId && state.messages === previous.messages) return;
+    if (state.currentProjectId !== task.projectId || !getPendingTasksForProject(task.projectId).some((item) => item.nodeId === task.nodeId && item.taskId === task.taskId)) {
+      unsubscribe(); runninghubMessageWaiters.delete(task.nodeId); return;
+    }
+    if (runningHubMessageIsCurrent(task)) {
+      unsubscribe(); runninghubMessageWaiters.delete(task.nodeId); void resumeRunningHubMessageTask(task, savedOutputs);
+    }
+  });
+  runninghubMessageWaiters.set(task.nodeId, unsubscribe);
+}
+
+function applyRunningHubRecoveredMessage(task: PendingTask, outputs: import('../types/runninghub').RunningHubOutput[]) {
+  if (!runningHubMessageIsCurrent(task) || !outputs.length) return;
+  const context = task.runninghubMessage!;
+  const store = useAppStore.getState();
+  const previous = store.messages.find((message) => message.id === context.messageId)?.mediaResult;
+  const first = outputs[0];
+  store.updateMessage(context.messageId, {
+    mediaStatus: 'succeeded', mediaError: undefined,
+    mediaResult: { id: previous?.id ?? `runninghub-${task.taskId}`, kind: first.kind, deliveryMode: context.deliveryMode,
+      url: first.url, sourceUrl: first.sourceUrl ?? first.url, filePath: first.filePath, persistence: first.filePath ? 'saved' : 'skipped',
+      prompt: previous?.prompt ?? '', modelId: task.runninghubModelId ?? `runninghubwf/${task.runninghubWorkflowId ?? ''}`, provider: task.taskType === 'runninghub-model' ? 'runninghub' : 'runninghubwf', createdAt: Date.now(), runninghubOutputs: outputs },
+    ...(context.deliveryMode !== 'chat' ? { canvasStatus: 'created' as const, canvasNodeId: task.nodeId, canvasError: undefined } : {}),
+  });
+}
+
+async function resumeRunningHubMessageTask(task: PendingTask, savedOutputs?: import('../types/runninghub').RunningHubOutput[]): Promise<void> {
+  if (!runningHubMessageIsCurrent(task) || abortControllers.has(task.nodeId)) return;
+  const context = task.runninghubMessage!;
+  if (!task.taskId) {
+    useAppStore.getState().updateMessage(context.messageId, { mediaStatus: 'failed', mediaError: undefined, mediaNotice: 'RunningHub 提交状态未知，请到平台核对任务，避免重复生成' }); return;
+  }
+  const { saveRunningHubOutputs, RunningHubTaskFailed } = await import('./ai/providers/runninghubWorkflow');
+  const { runningHubConnection } = await import('./workflowExecutionService');
+  if (!runningHubMessageIsCurrent(task) || abortControllers.has(task.nodeId)) return;
+  const signal = registerNodePolling(task.nodeId);
+  const fresh = () => !signal.aborted && runningHubMessageIsCurrent(task) && getPendingTasksForProject(task.projectId).some((item) => item.nodeId === task.nodeId && item.taskId === task.taskId);
+  try {
+    const kind = ['ai-image', 'ai-animation', 'ai-panorama'].includes(task.nodeType) ? 'image' : task.nodeType === 'ai-video' ? 'video' : task.nodeType === 'ai-audio' ? 'audio' : undefined;
+    if (!kind) throw new Error('RunningHub 任务输出类型无效');
+    useAppStore.getState().updateMessage(context.messageId, { mediaStatus: 'generating', mediaError: undefined });
+    let saved = savedOutputs;
+    if (!saved) {
+      const connection = runningHubConnection(useAppStore.getState().config.providers, task.providerConfigId === 'runninghub-model' ? 'runninghub-model' : 'runninghub');
+      const outputs = await queryRunningHubPendingTask(task, connection, kind, signal);
+      if (!fresh()) return;
+      updatePendingTask(task.nodeId, { runninghubRecoveryState: 'save_pending' }, task.taskId);
+      saved = await saveRunningHubOutputs(outputs, task.projectId, 'RunningHub 对话产物', fresh);
+    }
+    if (!fresh()) return;
+    applyRunningHubRecoveredMessage(task, saved);
+    if (!task.runninghubSubmissionUncertain) removePendingTask(task.nodeId, task.taskId);
+  } catch (error) {
+    if (fresh()) useAppStore.getState().updateMessage(context.messageId, { mediaStatus: 'failed', mediaError: undefined, mediaNotice: error instanceof RunningHubTaskFailed ? error.message : `RunningHub 任务 ${task.taskId} 已保留，重新打开项目可继续查询` });
+    if (error instanceof RunningHubTaskFailed && !task.runninghubSubmissionUncertain) removePendingTask(task.nodeId, task.taskId);
+  } finally { cleanupNodePolling(task.nodeId, signal); }
+}
+
+async function resumeRunningHubWorkflow(task: PendingTask): Promise<void> {
+  const { saveRunningHubOutputs, RunningHubTaskFailed } = await import('./ai/providers/runninghubWorkflow');
+  const { runningHubConnection } = await import('./workflowExecutionService');
+  const { nodeId, projectId, taskId } = task;
+  if (!taskId || abortControllers.has(nodeId)) return;
+  const signal = registerNodePolling(nodeId);
+  const guard = registerCanvasDerivation(useAppStore.getState(), nodeId);
+  const isCurrent = () => !signal.aborted && !!guard && isCanvasDerivationFresh(guard, useAppStore.getState())
+    && getPendingTasksForProject(projectId).some((item) => item.nodeId === nodeId && item.taskId === taskId);
+  try {
+    if (!isCurrent()) return;
+    const store = useAppStore.getState();
+    const node = store.nodes.find((item) => item.id === nodeId)!;
+    const kind = ['ai-image', 'ai-animation', 'ai-panorama'].includes(task.nodeType) ? 'image' : task.nodeType === 'ai-video' ? 'video' : task.nodeType === 'ai-audio' ? 'audio' : undefined;
+    if (!kind || node.data.type !== task.nodeType || (task.runninghubWorkflowId && node.data.workflowId !== task.runninghubWorkflowId) || (task.runninghubModelId && node.data.model !== task.runninghubModelId)) throw new Error('节点工作流或输出类型已变化，请在平台核对原任务');
+    store.updateNodeDataTransient(nodeId, { status: 'loading', error: undefined, runninghubStage: '恢复查询' });
+    const connection = runningHubConnection(store.config.providers, task.providerConfigId === 'runninghub-model' ? 'runninghub-model' : 'runninghub');
+    const outputs = await queryRunningHubPendingTask(task, connection, kind, signal, (runninghubStage) => {
+      if (isCurrent()) useAppStore.getState().updateNodeDataTransient(nodeId, { runninghubStage });
+    });
+    if (!isCurrent()) return;
+    updatePendingTask(nodeId, { runninghubRecoveryState: 'save_pending' }, taskId);
+    const saved = await saveRunningHubOutputs(outputs, projectId, node.data.label, isCurrent);
+    if (!isCurrent()) return;
+    useAppStore.getState().updateNodeDataTransient(nodeId, { runninghubOutputs: saved, runninghubStage: '保存产物' });
+    const targetIds = kind === 'image' && task.taskType === 'runninghub-model' ? getBatchTaskNodeIds(task, store.nodes) : [nodeId];
+    for (const [index, targetId] of targetIds.entries()) {
+      if (!isCurrent()) return;
+      const output = saved[index];
+      if (!output) { useAppStore.getState().updateNodeDataTransient(targetId, { status: 'error', error: '此批次未返回对应产物，请核对平台任务' }); continue; }
+      await applyNodeResult(targetId, output.url, node.data.label, isCurrent, { mediaUrl: output.url, sourceUrl: output.sourceUrl ?? output.url, filePath: output.filePath });
+    }
+    if (signal.aborted || useAppStore.getState().currentProjectId !== projectId) return;
+    useAppStore.getState().updateNodeDataTransient(nodeId, { runninghubStage: '已完成' });
+    if (task.runninghubMessage && !runningHubMessageIsCurrent(task)) {
+      // 画布先恢复完成时，保留记录直到原对话加载；复用已保存产物而不再次下载。
+      scheduleRunningHubMessageRecovery(task, saved);
+      return;
+    }
+    applyRunningHubRecoveredMessage(task, saved);
+    if (!task.runninghubSubmissionUncertain) removePendingTask(nodeId, taskId);
+  } catch (error) {
+    const canReport = isCurrent();
+    if (error instanceof RunningHubTaskFailed && !task.runninghubSubmissionUncertain) removePendingTask(nodeId, taskId);
+    if (canReport) useAppStore.getState().updateNodeDataTransient(nodeId, {
+      status: 'error', error: error instanceof Error ? error.message : 'RunningHub 查询失败，任务已保留', runninghubStage: '查询已停止',
+    });
+  } finally {
+    if (guard) completeCanvasDerivation(guard);
+    cleanupNodePolling(nodeId, signal);
+  }
+}
+
+export async function resumeRunningHubNodeTask(nodeId: string): Promise<void> {
+  const projectId = useAppStore.getState().currentProjectId;
+  const task = projectId ? getPendingTasksForProject(projectId).find((item) => item.nodeId === nodeId && ['runninghub-workflow', 'runninghub-model'].includes(item.taskType)) : undefined;
+  if (!task) return;
+  if (!task.taskId) throw new Error('提交状态未知，请先在平台查找任务 ID');
+  await resumeRunningHubWorkflow(task);
+}
+
+function workflowApiMessageIsCurrent(task: PendingTask): boolean {
+  const context = task.workflowApiMessage;
+  const store = useAppStore.getState();
+  return !!context && store.currentProjectId === task.projectId && context.projectId === task.projectId
+    && store.messages.some((message) => message.id === context.messageId && message.conversationId === context.conversationId);
+}
+
+function scheduleWorkflowApiMessageRecovery(task: PendingTask): void {
+  workflowApiMessageWaiters.get(task.nodeId)?.();
+  workflowApiMessageWaiters.delete(task.nodeId);
+  if (workflowApiMessageIsCurrent(task)) { void resumeWorkflowApi(task); return; }
+  if (useAppStore.getState().currentProjectId !== task.projectId) return;
+  const unsubscribe = useAppStore.subscribe(() => {
+    if (useAppStore.getState().currentProjectId !== task.projectId || !getPendingTasksForProject(task.projectId)
+      .some((item) => item.nodeId === task.nodeId && item.workflowApi?.attemptId === task.workflowApi?.attemptId)) {
+      unsubscribe(); workflowApiMessageWaiters.delete(task.nodeId); return;
+    }
+    if (workflowApiMessageIsCurrent(task)) {
+      unsubscribe(); workflowApiMessageWaiters.delete(task.nodeId); void resumeWorkflowApi(task);
+    }
+  });
+  workflowApiMessageWaiters.set(task.nodeId, unsubscribe);
+}
+
+async function resumeWorkflowApi(task: PendingTask): Promise<void> {
+  if (abortControllers.has(task.nodeId) || useAppStore.getState().currentProjectId !== task.projectId) return;
+  if (task.workflowApiMessage && !workflowApiMessageIsCurrent(task)) { scheduleWorkflowApiMessageRecovery(task); return; }
+  const adapter: typeof import('./workflowApi/workflowApiAdapter') = await import('./workflowApi/workflowApiAdapter');
+  const manifestModule: typeof import('./workflowApi/autodlWorkflowManifest') = await import('./workflowApi/autodlWorkflowManifest');
+  const { saveCloudWorkflowOutputs } = await import('./workflowExecutionService');
+  if (abortControllers.has(task.nodeId) || useAppStore.getState().currentProjectId !== task.projectId) return;
+  const signal = registerNodePolling(task.nodeId);
+  const context = task.workflowApiMessage;
+  const messageOnly = !!context && context.deliveryMode === 'chat' && task.nodeId === `workflow-api-message-${context.messageId}`;
+  const guard = messageOnly ? null : registerCanvasDerivation(useAppStore.getState(), task.nodeId);
+  const isCurrent = () => !signal.aborted && (messageOnly || (!!guard && isCanvasDerivationFresh(guard, useAppStore.getState())))
+    && (!context || workflowApiMessageIsCurrent(task))
+    && getPendingTasksForProject(task.projectId).some((item) => item.nodeId === task.nodeId && item.taskId === task.taskId
+      && item.taskType === 'workflow-api' && item.workflowApi?.attemptId === task.workflowApi?.attemptId);
+  try {
+    if (!isCurrent()) return;
+    adapter.validateWorkflowApiTaskDescriptor(task.workflowApi);
+    const descriptor = task.workflowApi;
+    if (!task.submitted || !task.taskId) throw new Error('工作流提交状态未知，请到平台确认任务后再继续，勿重复生成');
+    const store = useAppStore.getState();
+    const node = store.nodes.find((item) => item.id === task.nodeId);
+    const workflow = store.workflows.find((item) => item.id === descriptor.workflowId);
+    const expectedType = descriptor.manifest ? `ai-${descriptor.manifest.outputKind}` : 'ai-video';
+    if ((!messageOnly && (!node || node.data.type !== expectedType || node.data.workflowId !== descriptor.workflowId)) || task.nodeType !== expectedType
+      || workflow?.adapterType !== 'workflow-api' || workflow.category !== expectedType) throw new Error('节点工作流或输出类型已变化，请在平台核对原任务');
+    manifestModule.validateWorkflowApiManifest(workflow.workflowApi);
+    if (workflow.workflowApi.workflowId !== descriptor.remoteWorkflowId || workflow.workflowApi.connectionId !== task.providerConfigId) throw new Error('工作流连接或远端定义已变化，请在平台核对原任务');
+    const connection = adapter.workflowApiConnection(task.providerConfigId ? store.config.providers[task.providerConfigId] : undefined, descriptor.manifest ?? workflow.workflowApi);
+    if (node) store.updateNodeDataTransient(task.nodeId, { status: 'loading', error: undefined, workflowApiStage: '恢复查询' });
+    if (context) store.updateMessage(context.messageId, { mediaStatus: 'generating', mediaError: undefined });
+    const outputs = await adapter.queryWorkflowApiTask(connection, task.taskId, descriptor, signal, (workflowApiStage) => {
+      if (node && isCurrent()) useAppStore.getState().updateNodeDataTransient(task.nodeId, { workflowApiStage });
+    });
+    if (!isCurrent()) return;
+    updatePendingTask(task.nodeId, { workflowApi: { ...descriptor, state: 'save_pending', ...(descriptor.adapter === 'declarative' ? { outputs } : {}) } }, task.taskId);
+    const saved = await saveCloudWorkflowOutputs(outputs, task.projectId, node?.data.label ?? workflow.name, isCurrent, '工作流 API');
+    if (!isCurrent()) return;
+    if (node) {
+      useAppStore.getState().updateNodeDataTransient(task.nodeId, { workflowApiOutputs: saved });
+      await applyNodeResult(task.nodeId, saved[0].url, node.data.label, isCurrent, {
+        mediaUrl: saved[0].url, sourceUrl: saved[0].sourceUrl ?? saved[0].url, filePath: saved[0].filePath,
+      });
+    }
+    if (!isCurrent()) return;
+    if (node) useAppStore.getState().updateNodeDataTransient(task.nodeId, { workflowApiStage: '已完成' });
+    if (context) {
+      const first = saved[0];
+      useAppStore.getState().updateMessage(context.messageId, {
+        mediaStatus: 'succeeded', mediaError: undefined,
+        mediaResult: { id: `workflow-api-${task.taskId}`, kind: descriptor.manifest?.outputKind ?? 'video', deliveryMode: context.deliveryMode,
+          url: first.url, sourceUrl: first.sourceUrl ?? first.url, filePath: first.filePath, persistence: first.filePath ? 'saved' : 'skipped',
+          prompt: '', modelId: `workflow-api/${workflow.id}`, provider: 'workflow-api', createdAt: Date.now(), workflowApiOutputs: saved },
+        ...(node ? { canvasStatus: 'created', canvasNodeId: node.id, canvasError: undefined } : {}),
+      });
+    }
+    removePendingTask(task.nodeId, task.taskId);
+  } catch (error) {
+    const canReport = isCurrent();
+    if (canReport && error instanceof adapter.WorkflowApiTaskFailed) removePendingTask(task.nodeId, task.taskId);
+    if (canReport && !messageOnly) useAppStore.getState().updateNodeDataTransient(task.nodeId, {
+      status: 'error', error: error instanceof Error ? error.message : '工作流查询失败，任务已保留', workflowApiStage: '查询已停止',
+    });
+    if (canReport && context) useAppStore.getState().updateMessage(context.messageId, {
+      mediaStatus: 'failed', mediaError: undefined,
+      mediaNotice: error instanceof Error ? error.message : '工作流查询失败，任务已保留',
+    });
+  } finally {
+    // 过期结果不能回填，但原任务的 loading 必须结束，才能显示继续查询入口。
+    const current = useAppStore.getState();
+    const node = current.nodes.find((item) => item.id === task.nodeId);
+    if (!messageOnly && !signal.aborted && current.currentProjectId === task.projectId
+      && node?.data.status === 'loading' && node.data.type === task.nodeType
+      && node.data.workflowId === task.workflowApi?.workflowId
+      && !isCurrent()
+      && getPendingTasksForProject(task.projectId).some((item) => item.nodeId === task.nodeId
+        && item.taskType === 'workflow-api' && item.taskId === task.taskId
+        && item.workflowApi?.attemptId === task.workflowApi?.attemptId)) {
+      current.updateNodeDataTransient(task.nodeId, {
+        status: 'error', error: '画布已变化，工作流任务已保留，请继续查询 / 保存', workflowApiStage: '查询已停止',
+      });
+    }
+    if (guard) completeCanvasDerivation(guard);
+    cleanupNodePolling(task.nodeId, signal);
+  }
+}
+
+export async function resumeWorkflowApiNodeTask(nodeId: string): Promise<void> {
+  const projectId = useAppStore.getState().currentProjectId;
+  const task = projectId ? getPendingTasksForProject(projectId).find((item) => item.nodeId === nodeId && item.taskType === 'workflow-api') : undefined;
+  if (task) await resumeWorkflowApi(task);
+}
+
+const RESUME_MAP: Record<PendingTask['taskType'], (task: PendingTask) => Promise<void>> = {
+  apimart: resumeApimart,
+  'apimart-flow-music': resumeApimartFlowMusic,
+  dreamina: resumeDreamina,
+  comfyui: resumeComfyUI,
+  general: resumeGeneral,
+  'custom-protocol': resumeCustomProtocol,
+  volcengine: resumeVolcengine,
+  runninghub: resumeRunningHub,
+  'runninghub-workflow': resumeRunningHubWorkflow,
+  'runninghub-model': resumeRunningHubWorkflow,
+  'workflow-api': resumeWorkflowApi,
+};
+
+function isCancellationErrorMessage(message?: string): boolean {
+  return message === '任务已被取消';
+}
+
+/**
+ * 批量图片只持久化源节点的远端任务记录；同组占位节点必须跟随源任务恢复，
+ * 不能在启动扫描时被当成没有任务的孤立 loading 节点。
+ */
+export function getPendingTaskCoveredNodeIds(
+  nodes: ReadonlyArray<{ id: string; data: BaseNodeData }>,
+  tasks: PendingTask[],
+): Set<string> {
+  const coveredNodeIds = new Set(tasks.map((task) => task.nodeId));
+  for (const task of tasks) {
+    if (
+      task.nodeType !== 'ai-image'
+      || (task.batchCount ?? 1) <= 1
+      || !task.submitted
+      || !task.taskId
+      || !RESUME_MAP[task.taskType]
+    ) continue;
+
+    const sourceNode = nodes.find((node) => node.id === task.nodeId);
+    if (
+      sourceNode?.data.status !== 'loading'
+      && !isCancellationErrorMessage(sourceNode?.data.error)
+    ) continue;
+
+    for (const nodeId of getBatchTaskNodeIds(task, nodes)) coveredNodeIds.add(nodeId);
+  }
+  return coveredNodeIds;
+}
+
+/**
+ * 恢复指定项目下所有待续任务。
+ * 仅对 status === 'loading' 的节点重新发起轮询。
+ * 调用时机：应用初始化（initFromDb）、切换项目（switchProject）。
+ */
+export async function resumePendingTasks(projectId: string): Promise<void> {
+  const store = useAppStore.getState();
+  const tasks = getPendingTasksForProject(projectId);
+
+  // 批量图片的远端任务只挂在源节点上，同组占位节点也属于该任务的恢复范围。
+  const coveredNodes = getPendingTaskCoveredNodeIds(store.nodes, tasks);
+
+  // 补充扫描：所有 status === 'loading' 但没有 pending task 记录的节点
+  // 说明任务在保存"loading"状态后、savePendingTask 之前窗口关闭了
+  const orphanLoadingNodes = store.nodes.filter(
+    (n) => (n.data as BaseNodeData).status === 'loading' && !coveredNodes.has(n.id),
+  );
+  if (orphanLoadingNodes.length > 0) {
+    console.warn(
+      `[pollManager] 发现 ${orphanLoadingNodes.length} 个孤立 loading 节点（未完成提交），标记为错误`,
+    );
+    for (const node of orphanLoadingNodes) {
+      store.updateNodeDataTransient(node.id, {
+        status: 'error',
+        error: '任务未完成提交，请重新点击生成',
+      });
+    }
+  }
+
+  if (tasks.length === 0) return;
+
+  console.log(`[pollManager] 发现 ${tasks.length} 个待续任务，开始恢复...`);
+
+  for (const task of tasks) {
+    const node = store.nodes.find((n) => n.id === task.nodeId);
+    const nodeData = node?.data as BaseNodeData | undefined;
+    if (task.taskType === 'workflow-api' && task.workflowApiMessage && task.nodeId === `workflow-api-message-${task.workflowApiMessage.messageId}`) {
+      scheduleWorkflowApiMessageRecovery(task); continue;
+    }
+    if (['runninghub-workflow', 'runninghub-model'].includes(task.taskType) && task.runninghubMessage && task.nodeId === `runninghub-message-${task.runninghubMessage.messageId}`) {
+      scheduleRunningHubMessageRecovery(task);
+      continue;
+    }
+    if (!node) {
+      // 节点不存在或状态不为 loading，清理过期记录
+      removePendingTask(task.nodeId);
+      continue;
+    }
+
+    if (task.taskType === 'workflow-api') {
+      if (!abortControllers.has(task.nodeId)) void resumeWorkflowApi(task);
+      continue;
+    }
+
+    if (['runninghub-workflow', 'runninghub-model'].includes(task.taskType)) {
+      if (abortControllers.has(task.nodeId)) continue;
+      if (!task.taskId || task.runninghubRecoveryState === 'cancel_pending') {
+        store.updateNodeDataTransient(task.nodeId, { status: 'error', error: task.taskId ? 'RunningHub 取消尚未确认，请继续查询或再次终止' : 'RunningHub 提交状态未知，请到平台确认任务后补充 ID' });
+      } else {
+        void resumeRunningHubWorkflow(task);
+      }
+      continue;
+    }
+
+    if (task.taskType === 'comfyui' && task.comfyRecoveryState === 'cancel_pending') {
+      store.updateNodeDataTransient(task.nodeId, { status: 'error', error: 'ComfyUI 取消尚未确认，请继续查询或再次终止' });
+      continue;
+    }
+
+    if (nodeData?.status !== 'loading') {
+      if (
+        task.submitted
+        && task.taskId
+        && nodeData?.status === 'error'
+        && (isCancellationErrorMessage(nodeData.error) || (task.taskType === 'comfyui' && task.comfyRecoveryState === 'disconnected'))
+      ) {
+        store.updateNodeDataTransient(task.nodeId, { status: 'loading', error: undefined });
+      } else {
+        // 节点已成功、失败或被用户改为其他状态，清理过期记录
+        removePendingTask(task.nodeId);
+        continue;
+      }
+    }
+
+    // 任务记录存在但未提交到远端（关闭窗口时还没来得及拿到 taskId）
+    if (!task.submitted || !task.taskId) {
+      console.warn(`[pollManager] 任务 ${task.nodeId} 未完成远端提交，需要重新生成`);
+      await handleResumeError(task, new Error('任务未完成提交，请重新点击生成'));
+      continue;
+    }
+
+    if (abortControllers.has(task.nodeId)) {
+      continue;
+    }
+
+    const resumeFn = RESUME_MAP[task.taskType];
+    if (!resumeFn) {
+      console.warn(`[pollManager] 未知任务类型: ${task.taskType}`);
+      await handleResumeError(task, new Error('任务恢复失败：未知任务类型'));
+      continue;
+    }
+
+    // 不 await：多个任务并行恢复
+    resumeFn(task).catch((err) => {
+      console.error(`[pollManager] 恢复任务失败 (${task.nodeId}):`, err);
+    });
+  }
+}

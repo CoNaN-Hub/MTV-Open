@@ -1,0 +1,144 @@
+/**
+ * PanoramaNodeToolbar 全景图节点浮动工具栏 + 编辑态支持
+ */
+import { memo, useCallback } from 'react';
+import { Icon } from '@iconify/react';
+import type { NodeType, BaseNodeData } from '../../../types';
+import AnimatedButton from '../../shared/AnimatedButton';
+import { useToolbarEdit } from '../../../hooks/useToolbarEdit';
+import ToolbarEditor from './toolbar/ToolbarEditor';
+import ToolbarMoreMenu from './toolbar/ToolbarMoreMenu';
+import { useNodePluginToolbar } from './toolbar/NodePluginToolbarButtons';
+import {
+  getHiddenDefaultToolbarButtons,
+  TOOLBAR_MORE_KEY,
+} from './toolbar/toolbarRegistry';
+import { stopToolbarContainerClick } from './toolbar/toolbarContainer';
+import { resolvePresetAction, resolvePresetDef, createPresetNode } from './toolbar/presetAction';
+import { executeGeneration } from '../../../services/generationService';
+import { useAppStore } from '../../../store/useAppStore';
+import type { Node } from '@xyflow/react';
+
+interface PanoramaNodeToolbarProps {
+  nodeId: string;
+  onUpload?: () => void;
+  onToggleMode?: () => void;
+  previewMode?: 'image' | '360';
+  onScreenshot?: () => void;
+  onFullscreen?: () => void;
+}
+
+function PanoramaNodeToolbar({ nodeId, onUpload, onToggleMode, previewMode, onScreenshot, onFullscreen }: PanoramaNodeToolbarProps) {
+  const nodeType = 'ai-panorama';
+  const edit = useToolbarEdit({ nodeType });
+  const registry = edit.registry;
+  const pluginToolbar = useNodePluginToolbar({ nodeId });
+  const userPresets = useAppStore((s) => s.userPresets);
+  const addNodeWithEdge = useAppStore((s) => s.addNodeWithEdge);
+
+  const handlePresetClick = useCallback(
+    (key: string) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // 实时从 store 读取，避免闭包过期导致对话框内容/ @引用丢失
+      const liveNode = useAppStore.getState().nodes.find((n) => n.id === nodeId) as Node<BaseNodeData> | undefined;
+      if (!liveNode) return;
+      const livePrompt = (liveNode.data?.prompt as string) ?? '';
+      const livePresets = useAppStore.getState().userPresets;
+      const resolved = resolvePresetAction(key, nodeType as NodeType, livePrompt, livePresets);
+      if (!resolved) return;
+      const { node: newNode, edge } = createPresetNode(liveNode, resolved);
+      addNodeWithEdge(newNode, edge);
+      executeGeneration(newNode.id, newNode.data.prompt, resolved.postProcess, newNode.data);
+    },
+    [nodeId, addNodeWithEdge],
+  );
+
+  const actionMap: Record<string, (e: React.MouseEvent) => void> = {
+    upload:     (e) => { e.stopPropagation(); onUpload?.(); },
+    toggleMode: (e) => { e.stopPropagation(); onToggleMode?.(); },
+    screenshot: (e) => { e.stopPropagation(); onScreenshot?.(); },
+    fullscreen: (e) => { e.stopPropagation(); onFullscreen?.(); },
+  };
+  const hiddenDefaultButtons = getHiddenDefaultToolbarButtons(registry, edit.activeButtonKeys);
+
+  const renderActionButton = (key: string) => {
+    const pluginButton = pluginToolbar.renderButton(key);
+    if (pluginButton) return pluginButton;
+    const def = registry.find((button) => button.key === key);
+    const handler = actionMap[key];
+    const isPreset = !def;
+
+    const presetDef = !def ? resolvePresetDef(key, nodeType as NodeType, userPresets) : null;
+    if (!def && !presetDef) return null;
+
+    const resolvedDef = def ?? { key, label: presetDef!.label, icon: presetDef!.icon, defaultZone: '' };
+    const clickHandler = handler ?? handlePresetClick(key);
+
+    if (key === 'toggleMode') {
+      return (
+        <AnimatedButton key={key} className="ftb-btn icon-only act-mode"
+          data-tooltip={previewMode === '360' ? '切换到图片视图' : '切换到360全景'}
+          aria-label="切换视图模式" onClick={clickHandler}>
+          {previewMode === '360'
+            ? <Icon icon="mdi:image-outline" width={14} height={14} />
+            : <Icon icon="mdi:rotate-3d" width={14} height={14} />}
+        </AnimatedButton>
+      );
+    }
+
+    return (
+      <AnimatedButton key={key} className={`ftb-btn icon-only${isPreset ? ' act-preset' : ''}`}
+        data-tooltip={resolvedDef.label} aria-label={resolvedDef.label} onClick={clickHandler}>
+        <Icon icon={resolvedDef.icon} width={14} height={14} />
+      </AnimatedButton>
+    );
+  };
+
+  if (edit.isEditing) {
+    return <ToolbarEditor edit={edit} nodeType={nodeType} />;
+  }
+
+  return (
+    <>
+      <div
+        className="node-floating-toolbar pano-toolbar nodrag"
+        /* 官方节点工具栏**行容器**这一层的 Tooltip Provider = **`delayDuration:300`**
+           （`live-assets-r100/vendor-pkg-canvas-DuoOicPr.js` @1055675
+            `s.jsx(ii,{delayDuration:300,children:s.jsxs("div",{ref:i==="canvas"?m:void 0,…` ⇒ `ii` = TooltipProvider）；
+           气泡间距 `sideOffset:8` 用容器 `data-tooltip-offset` 表达 */
+        data-tooltip-offset="8"
+        data-tooltip-delay="200" /* §106 更正：官方按钮 tooltip **生效值 = 200**（Root 显式值优先于行容器 Provider 300）。
+            依据 `live-assets-r100/vendor-packages-JNk8f0_N.js` @404156 + `vendor-libs-D64ouk08.js` @1382617。
+            ⚠️ 上方 106-107 行旧注释说的 300 是行容器那一层，**不是生效值**。 */
+        /* ★ 官方容器交互（`cPe`）：stopPropagation + preventDefault —— 点工具条本体不冒泡到画布 */
+        onClick={stopToolbarContainerClick}
+        {...edit.longPressHandlers}
+      >
+        {/* ★ 与其它节点类型**共用同一套官方几何**（styles/nodes.css）：容器 48 / padding 4 / gap 4 /
+            按钮 40×40 / 组 gap 2（.ftb-zone）/ 分隔线 1×18（.ftb-divider）/ top=var(--float-top) /
+            scale=var(--float-scale)。原来这里的 28×28 按钮、`top:-54px`、`gap:0`、`border-radius:4px` 已删。 */}
+        {edit.layout.zones.flatMap((zone, zi) => [
+          <div key={zone.id} className="ftb-zone nodrag">
+            {zone.buttonKeys.map((key) => (
+              key === TOOLBAR_MORE_KEY
+                ? (
+                  <ToolbarMoreMenu
+                    key={key}
+                    items={hiddenDefaultButtons}
+                    renderItem={renderActionButton}
+                  />
+                )
+                : renderActionButton(key)
+            ))}
+          </div>,
+          ...(zi < edit.layout.zones.length - 1
+            ? [<div key={`divider-${zone.id}`} className="ftb-divider" />]
+            : []),
+        ])}
+      </div>
+      {pluginToolbar.dialog}
+    </>
+  );
+}
+
+export default memo(PanoramaNodeToolbar);

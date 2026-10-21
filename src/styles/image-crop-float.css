@@ -1,0 +1,554 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   官方「图像浮动裁剪编辑器」（`image.floatingEditor`）—— 1:1 复刻
+   ──────────────────────────────────────────────────────────────────────────
+   官方源码出处（`TapNowExtract/web/resources/web/assets`）：
+     · 容器     `dpe`  @page-DPdEgTS0.js **1322849**
+                `{x:.1,y:.1,width:.8,height:.8}` · px = 归一化 × 节点尺寸 × zoom
+                wrapper = `w-full h-full relative overflow-visible outline-2 outline-primary/30`
+                浮条挂载 = `absolute -bottom-16 left-1/2 -translate-x-1/2 z-50 w-max`
+                           （`bottom:-64px` = 浮条**底边**在卡片下沿下方 64px ⇒ 可见间距 ≈22.7px）
+     · 选区层   `Ufe`  @**1283854**（暗化底图 brightness(.5) + 外阴影 9999px + 8 手柄 + 三分线）
+     · 手柄数学 `T5`   @**1282907**（minSize 40 · 角点锁比例 · 边手柄单轴 · 全程夹在容器内）
+     · 浮条     `zfe`  @**1291473**（取消 / 分隔线 / 宽高比 / 分隔线 / 确认裁剪）
+     · 浮动菜单 `j5`   @**1288396**（原图比例 / 1:1 / 4:3 / 3:4 / 16:9 / 9:16 / 21:9 / 自定义…）
+     · 按钮原语 `KKo`  @index-BiTZf8mJ.js **5920536**（cva 全表）
+     · 下拉内容 base     @index **6038794** · 下拉条目 `H9a` @index **6038860**
+     · 提示气泡 `u9e`/`K0` @index **2487065**
+   ──────────────────────────────────────────────────────────────────────────
+   ★★★ 坐标系 —— **与官方同架构**：官方把编辑器画在**未缩放的画布空间**里
+      （`b = node.measured.width * zoom`）⇒ 手柄 24/3/12px、描边 1px、浮条高 42px、
+        距卡片 64px 全是**屏幕像素**，且与画布 zoom 无关。
+      MTV 的编辑器挂在节点内部（随 React Flow 缩放）⇒ 这里加一层 `.icf-screen`：
+          width/height = calc(100% / var(--float-scale))   ← 放大到「节点的屏幕尺寸」
+          transform    = scale(var(--float-scale))          ← 再缩回，使 1 CSS px ≡ 1 屏幕 px
+      于是：
+        · 选区几何用**百分比**（= 归一化 × 节点尺寸，与单位无关）；
+        · 手柄 / 描边 / 浮条 / 字号全部写**普通整数 px**（= 屏幕像素，任意 zoom 恒定）；
+        · 不再出现 `calc(1px / zoom)` 这种小于 1 的边框 ⇒ **不会被 Chrome 按设备像素取整吃掉** ✓
+          （上一版正是因此在大 zoom 下丢描边 ✗ 用户实测发现）。
+        · 浮条也不再需要 `translateX(-50%) scale(k)` 的复合变换（顺序写错就会偏心）✓
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 根：铺满卡片（官方 wrapper：w-full h-full relative overflow-visible） ── */
+.icf-root {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* ── 屏幕像素层（等价官方未缩放画布层）：几何=百分比，尺寸/描边=屏幕 px ── */
+.icf-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(100% / var(--float-scale, 1));
+  height: calc(100% / var(--float-scale, 1));
+  transform: scale(var(--float-scale, 1));
+  transform-origin: top left;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+/* 选区层专用：官方 wrapper 的 `outline-2 outline-primary/30`（--primary #1fa2dc）。
+   ⚠️ ① 必须画在**屏幕层**里（否则 2px 会随 zoom 放大 ✗）；
+      ② 用**绘制型** box-shadow 而不是 `outline`：outline/border 宽度会被浏览器按设备像素取整
+         （<1 CSS px 直接消失 ✗），box-shadow 是绘制操作 ⇒ 任意 zoom 下精确 2 屏幕 px ✓ */
+.icf-stage {
+  box-shadow: 0 0 0 2px rgba(31, 162, 220, 0.3);
+}
+
+/* 浮条专用层：同一套反缩放（px 依旧是屏幕像素），但**不裁剪** —— 浮条在卡片下方 64px，
+   会被上面那层的 `overflow:hidden` 切掉 ✗（官方那边浮条是选区层的**兄弟节点**，同理） */
+.icf-screen--bar {
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* 暗化底图：官方 `absolute top-0 left-0 w-full h-full object-fill pointer-events-none` + `filter:brightness(0.5)` */
+.icf-dim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  filter: brightness(0.5);
+}
+
+/* 选区框：官方 `absolute group` + `boxShadow: 0 0 0 9999px rgba(0,0,0,.5)`
+   left/top/width/height 由 JS 以内联**百分比**给出（= 归一化选区） */
+.icf-box {
+  position: absolute;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+/* 框内**亮**图：外层 `absolute inset-0 overflow-hidden`；
+   内层官方是 `absolute max-w-none` + 内联 `width/height/left/top`（屏幕 px）。
+   这里用 CSS 变量把同样几个量表达成相对选框的百分比：
+     --icf-wf / --icf-hf = 选区占卡片的比例；--icf-xf / --icf-yf = 选区左上角比例
+     宽 = 卡片宽 = 选框宽 / wf     ⇒ calc(100% / var(--icf-wf))
+     左 = −选区左上角屏幕 px = −(xf·卡片宽) = −(xf/wf)·选框宽 ⇒ calc(var(--icf-xf) / var(--icf-wf) * -100%)
+   —— 纯 CSS，随 zoom / 拖拽实时更新，无需 JS 每帧写像素 ✓ */
+.icf-box-img-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.icf-box-img {
+  position: absolute;
+  max-width: none;
+  width: calc(100% / var(--icf-wf, 1));
+  height: calc(100% / var(--icf-hf, 1));
+  left: calc(var(--icf-xf, 0) / var(--icf-wf, 1) * -100%);
+  top: calc(var(--icf-yf, 0) / var(--icf-hf, 1) * -100%);
+}
+
+/* 选区描边：官方 `absolute inset-0 border border-white/50 pointer-events-none`
+   ⇒ 用**内阴影**画 1px 白线（同样避开 border 的设备像素取整 ✗） */
+.icf-box-border {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+}
+
+/* ── 三分线：`absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-200`
+      （拖拽中 `opacity-100` ⇒ 200ms 淡入；**静止/悬停不显示**，只有按下拖动才出现） ── */
+.icf-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.icf-grid.is-active {
+  opacity: 1;
+}
+.icf-grid-line-h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+.icf-grid-line-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.3);
+}
+.icf-grid-line-h.is-1 { top: 33.3333%; }   /* top-1/3 */
+.icf-grid-line-h.is-2 { top: 66.6667%; }   /* top-2/3 */
+.icf-grid-line-v.is-1 { left: 33.3333%; }  /* left-1/3 */
+.icf-grid-line-v.is-2 { left: 66.6667%; }  /* left-2/3 */
+
+/* ── 四角手柄：`absolute -top-[2px] -left-[2px] w-6 h-6 cursor-nw-resize z-10`（另三角同理）
+      每个角 = 两条 3px 白条（一条 `w-full h-[3px]`、一条 `w-[3px] h-full`） ── */
+.icf-corner {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  z-index: 10;
+}
+.icf-corner-bar-h {
+  position: absolute;
+  width: 100%;
+  height: 3px;
+  background: #ffffff;
+}
+.icf-corner-bar-v {
+  position: absolute;
+  width: 3px;
+  height: 100%;
+  background: #ffffff;
+}
+.icf-corner.is-tl { top: -2px; left: -2px; cursor: nw-resize; }
+.icf-corner.is-tr { top: -2px; right: -2px; cursor: ne-resize; }
+.icf-corner.is-bl { bottom: -2px; left: -2px; cursor: sw-resize; }
+.icf-corner.is-br { bottom: -2px; right: -2px; cursor: se-resize; }
+/* 两条白条的位置（逐字照官方四组 `top-0|bottom-0` × `left-0|right-0`） */
+.icf-corner.is-tl > .icf-corner-bar-h { top: 0; left: 0; }
+.icf-corner.is-tl > .icf-corner-bar-v { top: 0; left: 0; }
+.icf-corner.is-tr > .icf-corner-bar-h { top: 0; right: 0; }
+.icf-corner.is-tr > .icf-corner-bar-v { top: 0; right: 0; }
+.icf-corner.is-bl > .icf-corner-bar-h { bottom: 0; left: 0; }
+.icf-corner.is-bl > .icf-corner-bar-v { bottom: 0; left: 0; }
+.icf-corner.is-br > .icf-corner-bar-h { bottom: 0; right: 0; }
+.icf-corner.is-br > .icf-corner-bar-v { bottom: 0; right: 0; }
+
+/* ── 四条边手柄：`-top-[2px] left-6 right-6 h-[12px] -mt-[5px] cursor-n-resize z-10
+      flex items-center justify-center` + 内部 `w-8 h-[3px] bg-white rounded-full`
+      （左/右：`top-6 bottom-6 -left-[2px] w-[12px] -ml-[5px]` + `h-8 w-[3px] rounded-full`） ── */
+.icf-edge {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icf-edge-bar-h {
+  width: 32px;      /* w-8 */
+  height: 3px;
+  background: #ffffff;
+  border-radius: 999px;
+}
+.icf-edge-bar-v {
+  height: 32px;     /* h-8 */
+  width: 3px;
+  background: #ffffff;
+  border-radius: 999px;
+}
+.icf-edge.is-t,
+.icf-edge.is-b {
+  left: 24px;       /* left-6 */
+  right: 24px;      /* right-6 */
+  height: 12px;
+}
+.icf-edge.is-l,
+.icf-edge.is-r {
+  top: 24px;        /* top-6 */
+  bottom: 24px;     /* bottom-6 */
+  width: 12px;
+}
+.icf-edge.is-t { top: -2px; margin-top: -5px; cursor: n-resize; }
+.icf-edge.is-b { bottom: -2px; margin-bottom: -5px; cursor: s-resize; }
+.icf-edge.is-l { left: -2px; margin-left: -5px; cursor: w-resize; }
+.icf-edge.is-r { right: -2px; margin-right: -5px; cursor: e-resize; }
+
+/* ── 移动层：`absolute inset-0 cursor-move`（选区内部拖动 = 整体平移） ── */
+.icf-move {
+  position: absolute;
+  inset: 0;
+  cursor: move;
+}
+
+/* ── ① 裁剪态：让节点的描边回到**未选中**样式 ──
+   官方 `fpe` @1326210 在打开浮动编辑器时执行 `updateNode(nodeId,{ zIndex:1001, selected:false })`
+   ⇒ 节点失去 `.selected`，描边从 `2px rgb(122,122,122)` 变回 `1px rgba(255,255,255,.2)`，工具条也随之消失。
+   MTV 侧：工具条用 `!isCrop` 渲染门隐藏 ✓；描边这里用**DOM 属性**（不写 store，
+   因为取消选中会动到派生守卫的 revision，实测会让裁切产物被判过期 ✗）。
+   注意：官方同时把 zIndex 提到 1001（MTV 是 `zIndexMode="manual"`）—— 这里用 CSS 兜，若 React Flow
+   写了内联 zIndex 则内联优先，属可接受差异。 */
+.react-flow__node[data-crop-mode='true'] {
+  outline: 1px solid rgba(255, 255, 255, 0.2) !important;
+  outline-color: rgba(255, 255, 255, 0.2) !important;
+  z-index: 1001;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   浮动操作条（官方 `absolute -bottom-16 left-1/2 -translate-x-1/2 z-50 w-max`）
+   ★ 官方 `-bottom-16` = `bottom:-64px` ⇒ 浮条**底边**在卡片下沿下方 64px（远端锚定！）
+     可见间距 = 64 − 浮条高(≈41.33) ≈ **22.7px**。（同一份源码里上方工具栏是 `-top-16`，同一种锚定）
+   ★ 挂载位置：官方浮条与选区层同级、都挂在**屏幕空间面板**里（`dpe`：`b = nodeW × zoom`）
+     ⇒ 那 64px 是屏幕像素、且面板在画布容器内（高度受限时卡片下沿 = 容器底 −88，浮条底边 = 容器底 −24）。
+     MTV 的卡片在**缩放视口内**，浮条若留在流内会跟着视口被放大 ✗
+     ⇒ **portal 到 body + position:fixed**，位置由 JS 每帧按卡片 rect 计算：
+         left   = 卡片水平中心（配 translateX(-50%)）
+         bottom = 窗口高 − 卡片下沿 − **64px**（= 官方 `-bottom-16`）
+     这样 px 天然是屏幕像素（不需要反缩放）、永不被画布容器裁剪，且不需要任何让位补偿 ✓
+   ══════════════════════════════════════════════════════════════════════════ */
+.icf-bar-anchor {
+  position: fixed;
+  z-index: 60;
+  width: max-content;
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+/* 官方 bar class：
+   `flex items-center gap-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60
+    border p-1 rounded-full shadow-lg` */
+.icf-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;                          /* gap-2 */
+  padding: 4px;                      /* p-1 */
+  border: 1px solid rgba(255, 255, 255, 0.1);   /* border = --border #ffffff1a */
+  border-radius: 999px;              /* rounded-full */
+  background: rgba(15, 15, 15, 0.95);           /* bg-background/95（--background #0f0f0f） */
+  -webkit-backdrop-filter: blur(8px);           /* backdrop-blur */
+  backdrop-filter: blur(8px);
+  box-shadow:
+    0 2px 4px 0 rgba(0, 0, 0, 0.1),
+    0 4px 6px -1px rgba(0, 0, 0, 0.1);          /* shadow-lg（官方 --shadow-lg） */
+  white-space: nowrap;               /* w-max + 不换行 */
+  color: #ccc;                       /* text-popover-foreground */
+  font-family: Inter, sans-serif;
+}
+@supports ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
+  /* `supports-[backdrop-filter]:bg-background/60` */
+  .icf-bar {
+    background: rgba(15, 15, 15, 0.6);
+  }
+}
+
+/* ── 按钮原语（官方 `KKo` cva：base + variant + shape + size） ──
+   base：`z-0 group/button relative flex items-center justify-center cursor-pointer
+          focus-visible:outline-none text-xs transition-colors duration-300
+          disabled:opacity-50 disabled:cursor-not-allowed`
+   ⚠️ 官方把 `<button>` 的浏览器默认样式全交给 Tailwind preflight 清掉，这里手写补上 ── */
+.icf-btn {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;        /* text-xs */
+  line-height: 16px;      /* text-xs 自带行高 */
+  font-weight: 400;
+  text-align: center;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  /* transition-colors duration-300 ⇒ 颜色 + 背景 0.3s（没有 transform/shadow 过渡） */
+  transition: color 0.3s, background-color 0.3s;
+}
+.icf-btn:disabled {
+  opacity: 0.5;                        /* disabled:opacity-50 */
+  cursor: not-allowed;                 /* disabled:cursor-not-allowed */
+}
+.icf-btn:disabled:hover {
+  background: transparent;             /* disabled:hover:bg-transparent */
+}
+.icf-btn:focus-visible { outline: none; }
+
+/* shape：circle = `rounded-full aspect-square` · custom = `rounded-md px-3 py-1` */
+.icf-btn--circle {
+  border-radius: 999px;
+  aspect-ratio: 1 / 1;
+}
+.icf-btn--custom {
+  border-radius: 10px;                 /* rounded-md（官方 --radius .75rem ⇒ 10px） */
+  padding: 4px 12px;                   /* px-3 py-1 */
+}
+/* size：sm = `h-8` */
+.icf-btn--sm { height: 32px; }
+
+/* variant：clean = `text-popover-foreground hover:text-muted-foreground` */
+.icf-btn--clean { color: #ccc; }
+.icf-btn--clean:hover:not(:disabled) { color: #7a7a7a; }
+/* variant：default = `text-popover-foreground hover:bg-zinc-700 bg-tap-background-secondary` */
+.icf-btn--default {
+  color: #ccc;
+  background: #27272a;                 /* --tap-background-secondary = zinc-800 */
+}
+.icf-btn--default:hover:not(:disabled) { background: #3f3f46; }   /* hover:bg-zinc-700 */
+
+/* ── 取消钮（官方 `h-8 w-8 p-0 rounded-full text-muted-foreground
+      hover:text-destructive hover:bg-muted/60`；图标 Tabler `x` size 18） ── */
+.icf-cancel {
+  width: 32px;                         /* w-8 */
+  height: 32px;                        /* h-8 */
+  padding: 0;                          /* p-0 */
+  border-radius: 999px;                /* rounded-full */
+  color: #7a7a7a;                      /* text-muted-foreground */
+}
+.icf-cancel:hover:not(:disabled) {
+  color: #934c4c;                      /* hover:text-destructive（--destructive #934c4c） */
+  background: rgba(43, 43, 43, 0.6);   /* hover:bg-muted/60（--muted #2b2b2b） */
+}
+
+/* ── 分隔线：`w-px h-4 bg-border` ── */
+.icf-divider {
+  width: 1px;                          /* w-px */
+  height: 16px;                        /* h-4 */
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── 宽高比触发钮（clean + sm + `h-8 rounded-full text-muted-foreground
+      hover:text-foreground hover:bg-muted/60 gap-1`，图标 Tabler `aspect-ratio` size 18） ── */
+.icf-ratio-wrap {
+  position: relative;
+}
+.icf-ratio-trigger {
+  height: 32px;
+  border-radius: 999px;
+  padding: 4px 12px;                   /* shape custom 的 px-3 py-1 保留 */
+  gap: 4px;                            /* gap-1 */
+  color: #7a7a7a;                      /* text-muted-foreground */
+}
+.icf-ratio-trigger:hover:not(:disabled) {
+  color: #f5f5f5;                      /* hover:text-foreground */
+  background: rgba(43, 43, 43, 0.6);   /* hover:bg-muted/60 */
+}
+.icf-btn-icon {
+  flex-shrink: 0;
+  display: block;
+}
+
+/* ── 确认钮（default + sm + `rounded-full gap-1`，图标 Tabler `check` size 18 + 文案） ── */
+.icf-confirm {
+  height: 32px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  gap: 4px;                            /* gap-1 */
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   宽高比下拉（官方 `Ks align="center" side="top" className="mb-2 w-32"`）
+   内容基类：`bg-popover text-popover-foreground z-50 origin-(--radix-dropdown-menu-content-transform-origin)
+              overflow-x-hidden overflow-y-auto rounded-md border p-1 shadow-md min-w-[8rem]`
+   Radix 的 sideOffset=4 + 站点类 `mb-2`(8px) ⇒ 距触发钮 **12px**。
+   ══════════════════════════════════════════════════════════════════════════ */
+.icf-ratio-menu {
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: 12px;
+  z-index: 50;
+  width: 128px;                        /* w-32 */
+  min-width: 128px;                    /* min-w-[8rem] */
+  padding: 4px;                        /* p-1 */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;                 /* rounded-md */
+  background: rgb(38, 38, 38);         /* bg-popover #262626 */
+  color: #ccc;                         /* text-popover-foreground */
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: 320px;
+  box-shadow:
+    0 2px 4px 0 rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.1); /* shadow-md（官方 --shadow-md） */
+  font-family: Inter, sans-serif;
+  /* 官方 Radix `vns` 的动效（tw-animate-css）：
+       open  → fade-in-0 + zoom-in-95 + slide-in-from-bottom-2（side="top"）
+       close → fade-out-0 + zoom-out-95
+       `.animate-in{animation:enter var(--tw-duration,.15s) ease}` ⇒ **150ms ease**
+     缩放原点 = Radix 的 `--radix-dropdown-menu-content-transform-origin`（位于锚点侧 ⇒ 菜单底部中心） */
+  transform-origin: center bottom;
+  animation: icf-menu-enter 0.15s ease;
+}
+@keyframes icf-menu-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+@keyframes icf-menu-exit {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(0) scale(0.95);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .icf-ratio-menu { animation: none; }
+}
+/* 关闭态（官方 Radix `data-[state=closed]` 的 fade-out-0 + zoom-out-95） */
+.icf-ratio-menu.is-closing {
+  animation: icf-menu-exit 0.15s ease forwards;
+  pointer-events: none;
+}
+
+/* 菜单条目（官方 `H9a` 基类：`relative flex cursor-default items-center gap-2 rounded-sm
+   px-2 py-1.5 text-sm outline-hidden select-none`；无 font-medium ⇒ 400） */
+.icf-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;                            /* gap-2 */
+  width: 100%;
+  padding: 6px 8px;                    /* px-2 py-1.5 */
+  border: 0;
+  border-radius: 8px;                  /* rounded-sm = calc(.75rem − 4px) = 8px */
+  background: transparent;
+  color: #ccc;
+  font-family: inherit;
+  font-size: 14px;                     /* text-sm */
+  line-height: 20px;
+  font-weight: 400;                    /* 基类没有 font-medium */
+  text-align: left;
+  cursor: default;
+  user-select: none;
+  outline: none;
+  transition: background-color 0.1s, color 0.1s;
+}
+.icf-menu-item:hover,
+.icf-menu-item:focus-visible {
+  background: #404040;                 /* focus:bg-accent（--accent #404040） */
+  color: #fafafa;                      /* focus:text-accent-foreground */
+}
+
+/* 分隔线：`bg-border -mx-1 my-1 h-px` */
+.icf-menu-sep {
+  height: 1px;
+  margin: 4px -4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* 自定义比例行：`flex cursor-default items-center gap-1.5 px-2 py-1.5` */
+.icf-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;                            /* gap-1.5 */
+  padding: 6px 8px;                    /* px-2 py-1.5 */
+  cursor: default;
+}
+/* 输入框：`h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-center text-sm`
+   ⇒ 用**真 border**（官方就是 `border border-input` = 1px `--input #ffffff26`）。
+   ★★ 官方聚焦后那圈**亮白边 = Chromium 默认焦点环**（`outline: auto`），不是 CSS 写的：
+      官方 input 的 className 里**没有任何 focus / outline 类**（源码 @1290121~1290318 逐字确认）
+      ⇒ outline 保持浏览器默认 ⇒ 聚焦时 UA 画「纯白 2 设备像素圆角环」。
+      官方截图设备像素实测（`_official/user-focus-official.png` y=400）：
+      环 = `110 → 255 → 255 → 119`（纯白 2px + 抗锯齿），框内底色 15/17，菜单底 38 ✓
+   ⚠️ 我上一版在这里写了 `outline: none` ⇒ **把默认焦点环抹掉了** ✗（用户截图对比：官方有、MTV 没有）
+   ⚠️ 同时**不要**给 input 加 `:focus{border-color:…}`（照按钮 cva 加过一版：`rgba(115,115,115,.1)`
+      合成亮度 ≈25，比菜单底 38 还暗 ⇒ 连自己的描边都看不见 ✗）—— 官方 input 没有这个覆盖。 */
+.icf-custom-input {
+  height: 32px;                        /* h-8 */
+  min-width: 0;
+  flex: 1 1 auto;
+  width: 100%;
+  padding: 0 8px;                      /* px-2 */
+  border: 1px solid rgba(255, 255, 255, 0.15);   /* border-input（--input #ffffff26） */
+  border-radius: 10px;                 /* rounded-md */
+  background: #0f0f0f;                 /* bg-background */
+  color: #ccc;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;                  /* text-center */
+  /* outline：**保持浏览器默认**（官方没写 outline 类 ⇒ 聚焦时 UA 的白色焦点环）*/
+}
+/* ⚠️ MTV 的 `styles/base.css:1232` 有一条**全局**规则 `input:focus, textarea:focus { outline: none }`
+   —— 官方**没有**这条（官方 index/zoom-slider CSS 里 `input:focus{outline…}` 0 命中，已核对）
+   ⇒ 官方 input 聚焦时用的是 **Chromium 默认焦点环**（官方截图设备像素实测：纯白 `255` × 2px 圆角环）。
+   这里把本编辑器的输入框 `revert` 回 UA 默认值，恢复那圈白环（1:1），
+   又不动全局规则（避免影响 MTV 其它自造输入框的既有观感）。 */
+.icf-custom-input:focus,
+.icf-custom-input:focus-visible {
+  outline: revert;
+}
+/* ⚠️ 这里**故意没有** `:focus { border-color: … }` —— 官方 input 的 className 里没有 focus 样式，
+   聚焦后描边保持 `border-input`（15% 白）✓（照按钮 cva 加过一版 `rgba(115,115,115,.1)`，反而更暗 ✗）。 */
+.icf-custom-input::placeholder {
+  color: rgba(204, 204, 204, 0.5);     /* Tailwind v4 preflight：currentColor 50% */
+}
+/* 冒号：`shrink-0 text-sm font-light text-muted-foreground` */
+.icf-colon {
+  flex-shrink: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 300;                    /* font-light */
+  color: #7a7a7a;
+}

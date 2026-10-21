@@ -1,0 +1,829 @@
+/* ============================================
+   Model Selector
+   ============================================ */
+.model-selector {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.model-selector-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--theme-text-secondary);
+  font-size: 12px;
+  cursor: var(--cursor-pointer, pointer);
+  transition: color var(--transition-base), background var(--transition-base), border-color var(--transition-base);
+}
+.model-selector-trigger:hover {
+  color: var(--theme-text);
+  background: var(--white-alpha-03);
+}
+
+/* ── 底部编辑区里的模型选择器 —— **逐字按官方 DOM 实测** ✓✓ ──
+   官方 cls 原文（EXE DOM ✓）：
+     "inline-flex items-center justify-center whitespace-nowrap transition-colors
+      focus-visible:outline-none … hover:bg-accent hover:text-accent-foreground
+      **rounded-md gap-1.5 px-2 text-sm font-normal h-8** cursor-pointer **&_svg:size-4**"
+   → **h-8(32) · r10(rounded-md) · pad 0 8(px-2) · gap 6(gap-1.5) · fs 14(text-sm) · w 400(font-normal)**
+   → **所有 svg 16×16**（`[&_svg]:size-4` ✓ —— 含 caret ✓）
+   → **宽度是内容驱动** ✗（官方实测 "GPT Image2" → 120 宽 ✓）
+   ⚠️ MTV 原来写死 **width: 158px** ✗（用户："不要胡乱搞" ✓）→ 改成内容驱动 ✓
+   ⚠️ 我方实测 line-height **21px** ✗（官方 **20px** ✓ = text-sm 的默认 ✓）*/
+.prompt-footer .model-selector {
+  /* ★★★★★ **长模型名：能用满就用满，真放不下才省略号** ✓✓
+     用户 2026 反馈（截图）：「选择模型后的显示名字很长 就把 提示词按钮 挤压掉」
+     —— 要求「既保证模型名正常显示、又不让提示词按钮被遮挡或挤压」。
+     ⚠️ 上一版是 `flex: 0 0 auto` + 标签 `overflow: visible`（铁了心不截断、指望面板随内容变宽）。
+        面板宽有上限（卡片 680）⇒ 名字一长，左组内容就**溢出**到右组上面：
+        实测左组 `scrollWidth 530 > width 481`（溢 49px），「提示词」图标按钮被盖住看不见 ✗✗
+     ✓ 现在：`0 1 auto` + `min-width: 0` ⇒ 名字**先占满可用宽度**（放得下就完整显示 ✓），
+        实在放不下时由标签的省略号截断 ✓，左组**永不溢出** ⇒ 右组永不被压 ✓
+     （完整名字仍可从触发的原生 `title` 提示里看到 ✓ 见 `ModelSelector.tsx`）*/
+  flex: 0 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.prompt-footer .model-selector-trigger {
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+/* 右侧「比例尺寸」胶囊**不参与收缩** ✓（尺寸恒定 ✓ 与官方一致 ✓）*/
+.prompt-footer .ui-schema-renderer,
+.prompt-footer .ui-schema-quality-ratio-pill {
+  flex: 0 0 auto;
+}
+/* 名字**先占满可用宽度**（放得下就完整显示 ✓），放不下才由省略号收尾 ✓ ——
+   与上面 `.model-selector` 的 `flex: 0 1 auto; min-width: 0` 配套。
+   ⚠️ 上一版是 `overflow: visible; text-overflow: clip`（永不截断）⇒ 长名直接溢出压住右边的「提示词」✗ */
+.prompt-footer .model-selector-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prompt-footer .model-selector-icon {
+  width: 16px;
+  height: 16px;
+}
+/* 官方 `[&_svg]:size-4` → 按钮内**所有 svg 都是 16×16** ✓（含 caret 箭头 ✓）
+   ⚠️ MTV 的 caret 实测只有 **10×10** ✗ → 这里一并撑满 ✓ */
+.prompt-footer .model-selector-icon svg,
+.prompt-footer .model-selector-icon img,
+.prompt-footer .model-selector-trigger svg,
+.prompt-footer .model-selector-trigger img {
+  width: 16px;
+  height: 16px;
+}
+/* 模型 logo（用户提供的官方 SVG）：16×16 · 保持品牌原色 · 不变形 */
+.model-selector-logo {
+  /* 官方触发器 logo（zoom-slider @3364070 逐字）：<img src={icon} className="w-4 h-4"/>
+     —— 只有 16×16，**没有** border-radius、**没有** object-fit（默认 ill）✓ */
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.model-selector-trigger.has-model {
+  color: var(--theme-text-secondary);
+}
+.model-selector-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+.model-selector-label {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-selector .caret {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform var(--transition-smooth);
+}
+
+/* Workflow trigger state */
+.model-selector-trigger.has-workflow {
+  color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+  background: rgba(255, 255, 255, 0.08);
+}
+.model-selector-trigger.has-workflow .model-selector-icon {
+  color: var(--accent-primary);
+}
+.model-selector-trigger.has-workflow-editor .model-selector-label {
+  padding-right: 24px;
+}
+.model-selector .model-workflow-edit {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  color: var(--accent-primary);
+}
+
+/* Text Model Icon */
+.text-model-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.text-model-icon-badge {
+  background: var(--theme-border);
+  color: var(--theme-text-secondary);
+}
+.text-model-icon-mini {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--theme-border);
+  color: var(--theme-text-secondary);
+}
+/* Vendor badges carry their own brand hue; tint and glyph are both derived from
+   --badge-hue so the light theme can darken the glyph without losing the identity.
+   厂商徽标各带品牌色，底色与字形都由 --badge-hue 推导，浅色主题下可只压暗字形而保留辨识度。 */
+.text-model-icon-badge[data-badge],
+.text-model-icon-mini[data-badge] {
+  background: color-mix(in srgb, var(--badge-hue) 18%, transparent);
+  color: var(--badge-hue);
+}
+[data-theme='light'] .text-model-icon-badge[data-badge],
+[data-theme='light'] .text-model-icon-mini[data-badge] {
+  background: color-mix(in srgb, var(--badge-hue) 22%, transparent);
+  color: color-mix(in srgb, var(--badge-hue) 62%, var(--theme-text));
+}
+.text-model-icon-badge[data-badge="OA"] { --badge-hue: #818cf8; }
+.text-model-icon-badge[data-badge="M"]  { --badge-hue: #a855f7; }
+.text-model-icon-badge[data-badge="AM"] { --badge-hue: #4ade80; }
+.text-model-icon-mini[data-badge="OA"]  { --badge-hue: #818cf8; }
+.text-model-icon-mini[data-badge="M"]   { --badge-hue: #a855f7; }
+.text-model-icon-mini[data-badge="AM"]  { --badge-hue: #4ade80; }
+.text-model-icon-mini[data-badge="PP"]  { --badge-hue: #fbbf24; }
+.text-model-icon-mini[data-badge="MX"]  { --badge-hue: #34d399; }
+.text-model-icon-mini[data-badge="QW"]  { --badge-hue: #60a5fa; }
+.text-model-icon-mini[data-badge="DS"]  { --badge-hue: #a78bfa; }
+.text-model-icon-mini[data-badge="KM"]  { --badge-hue: #fb923c; }
+.text-model-icon-mini[data-badge="NB"]  { --badge-hue: #22c55e; }
+.text-model-icon-mini[data-badge="NP"]  { --badge-hue: #10b981; }
+.text-model-icon-mini[data-badge="ND"]  { --badge-hue: #059669; }
+.text-model-icon-mini[data-badge="SD"]  { --badge-hue: #818cf8; }
+.text-model-icon-mini[data-badge="DB"]  { --badge-hue: #60a5fa; }
+.text-model-icon-mini[data-badge="DL"]  { --badge-hue: #93c5fd; }
+.text-model-icon-mini[data-badge="V"]   { --badge-hue: #10b981; }
+.text-model-icon-mini[data-badge="GR"]  { --badge-hue: #f472b6; }
+.text-model-icon-mini[data-badge="JM"]  { --badge-hue: #fbbf24; }
+.text-model-icon-mini[data-badge="RH"]  { --badge-hue: #8b5cf6; }
+.text-model-icon-mini[data-badge="BP"]  { --badge-hue: #06b6d4; }
+.text-model-icon-mini[data-badge="B2"]  { --badge-hue: #0ea5e9; }
+.text-model-icon-mini[data-badge="RW"]  { --badge-hue: #a5b4fc; }
+
+/* Workflow icon in trigger */
+.model-selector-icon svg {
+  display: block;
+}
+
+/* Workflow icon badge */
+.text-model-icon-wf {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--accent-primary);
+}
+
+/* Workflow section empty state */
+.model-wf-empty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  color: var(--theme-text-muted);
+  font-size: 12px;
+}
+
+/* Workflow item dots */
+.wf-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  margin: 5px;
+}
+.wf-none-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--theme-text-muted);
+  margin: 5px;
+}
+
+/* Model Dropdown */
+/* ★★★★★ **官方源码 + 实测（双证 ✓）**（EXE `Sme` 组件 + 官方页面 dump ✓）
+   源码原文 ✓：<Xr className="**w-[280px] p-0 border-none rounded-2xl overflow-hidden**"
+                   side="top" align="**start**" sideOffset={**8**}>
+                <Fv className="**bg-[#292929] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
+                               p-2 w-full h-full rounded-none flex flex-col gap-1 max-h-[400px] overflow-y-auto**">
+   实测 ✓：弹窗 **280×400** · r=**16px** · pad=0 · 内层 pad=**8px** · gap=**4px** · maxH=**400px**
+          ★ 内层背景 **#292929** ✗（MTV 原来是毛玻璃渐变 ✗）
+   ⚠️ MTV 原来：宽 **380** ✗ · r **10** ✗ · 离触发器 **4** ✗ · maxH **360** ✗ · 毛玻璃底 ✗ */
+.model-dropdown {
+  /* ★★★★★ **portal 到 body 后改为 `fixed`** ✓✓（= 官方 Radix Portal 等价 ✓）
+     事故（用户："弹窗被遮挡了" ✓）：实测 → **`.prompt-panel { overflow: hidden }`** ✗✓ 把它裁掉 ✓
+       祖先链：`.prompt-panel`(ovf=hidden) ← `.ai-dialog-float`(z=200 + 有 transform) ✗
+       ⚠️ 光加 `fixed` 也逃不掉 ✗ —— 祖先有 transform ✗ → **必须真 portal** ✓
+     `left` / `top` 由 JS 按**触发器 rect** 给 ✓（官方 side=top / align=start / sideOffset=8 ✓）*/
+  position: fixed;
+  left: 0;
+  top: 0;
+  /* 官方 **w-[280px]** ✓（我原来写 380 ✗）*/
+  width: 280px;
+  max-width: calc(100vw - 16px);
+  /* 官方 **max-h-[400px]** ✓（我原来写 360 ✗）*/
+  max-height: 400px;
+  overflow-y: auto;
+  /* 官方内层 **bg-[#292929]** ✓ · 外层 border-none ✓（不用毛玻璃 ✗）*/
+  background: #292929;
+  backdrop-filter: none;
+  border: none;
+  /* 官方 **rounded-2xl = 16px** ✓（我原来写 10 ✗）*/
+  border-radius: 16px;
+  box-shadow: none;
+  z-index: 100;
+  /* 官方内层 **p-2 = 8px** ✓（我原来写 0 4px 4px ✗）*/
+  padding: 8px;
+  /* ★★★★★ **官方内层是 `flex flex-col gap-1`** ✓✓（vendor-packages-DRvCmDjR.js @1226275 逐字）：
+       `<Un className="p-2 w-full h-full rounded-none flex flex-col gap-1 max-h-[400px] overflow-y-auto">`
+     证据链（同一产物，逐字）：
+       · `--spacing: .25rem` ⇒ `gap-1` = `calc(.25rem * 1)` = **4px**（index-BroFpZiQ.css @114602 附近）
+       · `gap-1 { gap: calc(var(--spacing)*1); }`（同文件 `.gap-1` 规则）
+     ⚠️ MTV 原来这里**没有 flex / gap** ⇒ 模型行是普通块级紧贴 ⇒ 行与行 0 间距
+        （用户 2026-10 实测：「你看这个纵向间距 我这服了」）。 */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* 官方 `align-items` 未声明 = `stretch` ⇒ 行满宽 ✓（不要写 flex-start，否则行不再撑满）*/
+  transform-origin: bottom left;
+  /* ★ 官方动画是数据态驱动的 fade+zoom+slide ✓（MTV 用 popoverIn ✓ 视觉等价 ✓）*/
+  animation: popoverIn var(--dur-normal) var(--ease-spring);
+  /* 官方隐藏滚动条 ✓（[scrollbar-width:none] + [&::-webkit-scrollbar]:hidden ✓）*/
+  scrollbar-width: none;
+}
+.model-dropdown::-webkit-scrollbar {
+  display: none;
+}
+
+/* 聊天侧 / 助手侧那两套弹层**不是**上面这个官方参考（见 official-chat.css 的取证）：
+   · 助手 `AgentModelPicker` 外壳官方是 `relative flex flex-col p-1`（**无 gap**）；
+   · 助手 `DropdownMenu` 官方是 `p-[6px]` 的菜单（**无 gap**）；
+   ⇒ 这两套的间距保持 0；上面的 4px 只作用于画布节点那侧（官方 `Sme` 图片/视频下拉）。 */
+.model-dropdown.c-pop,
+.model-dropdown.agent-model-picker {
+  gap: 0;
+}
+
+/* 向上空间不足时 → 向下弹出（官方 side 由 Radix 自动翻 ✓）*/
+.model-dropdown.drop-down {
+  bottom: auto;
+  top: 100%;
+  margin-bottom: 0;
+  margin-top: 8px;
+  transform-origin: top left;
+}
+
+/* 右边界溢出时 → 右对齐 */
+.model-dropdown.drop-align-right {
+  left: auto;
+  right: 0;
+  transform-origin: bottom right;
+}
+.model-dropdown.drop-down.drop-align-right {
+  transform-origin: top right;
+}
+
+/* Group */
+.model-group {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.model-dropdown > .model-group:first-child {
+  /* 初始留白随首个分组滚走，吸顶时不会留下透出内容的缝隙。 */
+  margin-top: 4px;
+}
+.model-group:last-child {
+  border-bottom: none;
+}
+
+/* Workflow group separator */
+.model-group-wf {
+  border-top: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  margin-top: 2px;
+}
+
+/* Group header — clickable for collapse/expand */
+.model-group-header {
+  /* 吸顶范围由所属分组限定，下一厂商滚入时自然顶替。 */
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px;
+  background: var(--theme-surface);
+  border: none;
+  /* 底层保持完整遮挡，圆角悬浮效果由独立背景层绘制。 */
+  border-radius: 0;
+  color: var(--theme-text);
+  cursor: var(--cursor-pointer, pointer);
+  text-align: left;
+  font-family: inherit;
+}
+.model-group-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 6px;
+  background: transparent;
+  pointer-events: none;
+  transition: background 0.1s;
+}
+.model-group-header:hover::before {
+  background: var(--theme-hover);
+}
+.model-group-info {
+  flex: 1;
+  min-width: 0;
+}
+.model-group-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+.model-group-desc {
+  font-size: 11px;
+  color: var(--theme-text-muted);
+  margin-top: 1px;
+}
+
+/* Chevron for collapse/expand */
+.model-group-chevron {
+  flex-shrink: 0;
+  color: var(--theme-text-muted);
+  transition: transform 0.2s ease;
+}
+.model-group-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+/* Group items — collapsible */
+.model-group-items {
+  overflow: hidden;
+  max-height: 600px;
+  opacity: 1;
+  transition: max-height 0.25s ease, opacity 0.2s ease, padding 0.25s ease;
+  padding: 2px 0 4px 28px;
+  /* 用户裁决：模型行之间的 hover 底色**要有纵向间距**，不要连成一片 */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.model-group-items.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Model item */
+/* ★★★★★ **官方源码 + 实测（双证 ✓）**（EXE: 选项 div 的 className ✓）
+   源码原文 ✓：cn("flex items-center justify-between **p-2 rounded-[12px] transition-colors relative**",
+                  disabled ? "cursor-not-allowed opacity-50"
+                           : cn("cursor-pointer", selected ? "**bg-white/10**" : "**hover:bg-white/5**"))
+   实测 ✓：选项 **264×58** · pad=**8px** · r=**12px** · 选中 bg **rgba(255,255,255,.1)** ✓
+   ⚠️ MTV 原来：pad `4px 8px` ✗ · r **6** ✗ · hover 用 `--theme-hover` ✗ · 选中用**品牌色** ✗ */
+.model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  /* 官方 **p-2 = 8px** ✓ */
+  padding: 8px;
+  background: transparent;
+  border: none;
+  /* 官方 **rounded-[12px]** ✓ */
+  border-radius: 12px;
+  color: var(--theme-text-secondary);
+  cursor: var(--cursor-pointer, pointer);
+  text-align: left;
+  /* 官方只过渡颜色 ✓ */
+  transition: background-color 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+  position: relative;
+}
+/* 官方 **hover:bg-white/5** ✓（不是 theme-hover ✗）*/
+.model-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--theme-text);
+}
+.model-item:active {
+  transform: none;
+}
+/* 官方 **bg-white/10** ✓（不是品牌色 ✗）*/
+.model-item.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--theme-text);
+}
+/* 官方禁用：**opacity-50 + cursor-not-allowed** ✓ */
+.model-item:disabled,
+.model-item[aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.model-item-info {
+  flex: 1;
+  min-width: 0;
+}
+/* 官方名称：**text-[12px] font-medium text-white/90 whitespace-nowrap** ✓ */
+.model-item-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 官方标签文字：**text-[10px] text-[#AFAFAF] leading-none** ✓ */
+.model-item-desc {
+  font-size: 10px;
+  line-height: 1;
+  color: #afafaf;
+  margin-top: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ★★★★★ **官方选项内部布局（EXE `Sme` 源码原文 ✓）**：
+     `flex flex-col gap-1 **flex-1 min-w-0**` → **竖排 gap 4**，名称行在上、标签行在下 ✓
+   ⚠️ MTV 原来这里是 **两列 grid**（名称左 / 说明右 ✗）—— 那是 MTV 自己的排版 ✗
+      → 官方是**竖排两行** ✓，已按官方改 ✓ */
+.model-item-model .model-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+/* 用户裁决：选中对号是**绝对定位**在 right:8 的 32px 槽里，徽标一多就会被压住 ⇒
+   行上常驻 40px 右内边距把槽位让出来；名字允许截断，徽标不压缩。 */
+.model-item-model {
+  padding-right: 40px;
+}
+.model-item-name-row .model-item-name {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.model-item-name-row > .model-item-badge {
+  flex: 0 0 auto;
+}
+.model-item-model .model-item-desc {
+  margin-top: 0;
+}
+/* ★★★★★ 官方选中勾的**容器**（源码 ✓）：
+     `<div className="flex items-center justify-center shrink-0 **w-8 h-8 absolute right-2 top-1/2 -translate-y-1/2**">`
+   → 32×32 · 绝对定位 · 右 8 · 垂直居中 ⇒ **不占布局宽度** ✓
+   ⚠️ MTV 原来这里是 `flex: 0 0 14px`（**占 14px** ✗）→ 选项内容宽 250 ✗（官方 264 ✗）
+      实测证据：官方选项 **264 宽** = 弹窗 280 − pad 8×2 ✓（被占 14px 就不是 264 了 ✗）*/
+.model-item-status {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* Check mark for active item */
+/* ★★★★ 官方选中勾（源码 + 实测 ✓）：
+     源码: `<Check className="**w-3.5 h-3.5 text-white**" />`（**白色 ✓**），容器见上面的 `.model-item-status` ✓
+     实测: svg **16×16 · 白色** ✓（按实测走 ✓）
+   ⚠️ MTV 原来：`color: var(--accent-primary)` ✗（品牌色 ✗）· 且自己绝对定位（现在由容器负责 ✓）*/
+.model-item-check {
+  flex-shrink: 0;
+  color: rgb(255, 255, 255);
+  width: 16px;
+  height: 16px;
+}
+.model-item-check svg {
+  width: 16px;
+  height: 16px;
+  color: rgb(255, 255, 255);
+}
+/* 官方模型图标：`w-4 h-4 shrink-0 **rounded-sm** overflow-hidden object-cover` →
+   实测 **16×16 · r8** ✓（我按实测 8px 走 ✓）*/
+.model-item-logo,
+.model-item-icon,
+.model-item img {
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+/* 图标缺失时的字母回退（MTV 独有 ✓ 官方一定带图标 ✓）*/
+.model-item-logo--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #363636;
+  color: #afafaf;
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+/* ★★ 官方名称行：`flex items-center gap-1 w-full` → **gap 4** ✓ */
+.model-item-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+}
+/* 历史：官方徽章（NEW / -XX%）源码原文是
+     `px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[#00F0FF] to-[#00FF85] text-black`
+   但这套青绿渐变在 MTV 里被用户判定为「很丑、识别性也不高」，已换成 Framia 的两档配色（见下）。 */
+/* 用户裁决（2026-10）：徽标配色照 Framia 卡片取像素 ——
+   ① 类型/档位徽标（「图片」）= 米色底 `#f6ecde` + 暖棕字 `#8d6953`（= Framia 的 `Basic`）
+   ② 连接名徽标（「土豆」）= 紫底 `#7757ff` + 白字（= Framia 的 `立减 20%`）
+   色值来自 Framia 截图逐像素统计（`#f6ecde` / `#7757ff` 是两张图里的主导色）。 */
+.model-item-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f6ecde;
+  color: #8d6953;
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  line-height: 1.15;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* 连接名（图2 的「土豆」）：Framia「立减 20%」的紫底白字 */
+.model-item-badge[data-model-connection-badge] {
+  background: #7757ff;
+  color: #ffffff;
+}
+
+/* 上游没开放（MTV 增强）：红调，别和正常徽标混色 */
+.model-item-badge[data-model-unavailable-badge] {
+  background: rgba(248, 113, 113, 0.16);
+  color: #f87171;
+}
+
+/* 异步请求模型（名字里带 async）：用户指定色 —— 底 `#e7ecf1` / 字 `#567289` */
+.model-item-badge[data-model-async-badge] {
+  background: #e7ecf1;
+  color: #567289;
+}
+
+/* 浅色主题：米色压深一档，紫保持品牌色 */
+[data-theme='light'] .model-item-badge {
+  background: #ece0cd;
+  color: #7c5a45;
+}
+[data-theme='light'] .model-item-badge[data-model-connection-badge] {
+  background: #6a4bf0;
+  color: #ffffff;
+}
+[data-theme='light'] .model-item-badge[data-model-async-badge] {
+  background: #e7ecf1;
+  color: #567289;
+}
+
+/* Disabled group header (no API Key configured) */
+.model-group-header.disabled {
+  opacity: 0.38;
+  cursor: var(--cursor-not-allowed, not-allowed);
+  pointer-events: auto; /* retain hover for tooltip */
+}
+.model-group-header.disabled:hover::before {
+  background: transparent;
+}
+
+/* Disabled model item —— 官方源码：`disabled ? "cursor-not-allowed opacity-50"` ✓ */
+.model-item.disabled {
+  opacity: 0.5;
+  cursor: var(--cursor-not-allowed, not-allowed);
+  pointer-events: auto;
+}
+.model-item.disabled:hover {
+  background: transparent;
+  color: var(--theme-text-secondary);
+}
+/* 官方 className 是三元：disabled 时**不套用** bg-white/10，所以禁用+选中也**无底色** ✓ */
+.model-item.disabled.active {
+  background: transparent;
+}
+
+/* Lock icon for disabled groups */
+.model-lock-icon {
+  flex-shrink: 0;
+  color: var(--theme-text-muted);
+}
+
+/* ============================================
+   Chat Panel — Compact Model Selector
+   直接复用节点 ModelSelector 组件，通过父选择器缩小尺寸。
+   不影响节点对话框中的 ModelSelector 样式。
+   ============================================ */
+
+/* 外层容器：聊天输入栏直接复用 ModelSelector */
+.chat-panel-input-toolbar .model-selector {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+/* 触发按钮 —— **逐字按官方**（`use-chat-attachment-file-input-*.js@108333`）：
+   A("flex h-[26px] min-w-[26px] items-center overflow-hidden rounded-md",
+     n ? "max-w-[26px] shrink-0 justify-center px-[5px]"      // 图标态
+       : "max-w-[188px] shrink-0 px-2 sm:max-w-[228px]",       // 常态
+     "bg-transparent text-text-text-primary",
+     "transition-[max-width,padding,background-color] duration-150 ease-out motion-reduce:transition-none")
+   ⚠️ 之前 MTV 是 h-28 / padding 0 6 / radius 6 / 字号写死在按钮上 ⇒ 触发条比官方高 2px、宽 4px，
+   弹窗锚点与宽度因此对不上（用户实测「模型弹窗位置」）。
+   `max-width` 官方写在**按钮**上（不是标签上）⇒ 长名截断的总宽与官方一致（188 / sm:228）。 */
+.chat-panel-input-toolbar .model-selector-trigger {
+  gap: 2px;
+  height: 26px;
+  min-width: 26px;
+  max-width: 188px;
+  padding: 0 8px;
+  overflow: hidden;
+  border-radius: 10px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+@media (min-width: 640px) {
+  .chat-panel-input-toolbar .model-selector-trigger {
+    max-width: 228px;
+  }
+}
+
+/* caret 箭头：官方 `ga size={14}` + `ml-1 shrink-0` */
+.chat-panel-input-toolbar .model-selector-trigger .caret {
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+/* 图标缩小 */
+.chat-panel-input-toolbar .model-selector-icon {
+  width: 14px;
+  height: 14px;
+  font-size: 9px;
+}
+
+/* badge 图标缩到匹配 16px 高度 */
+.chat-panel-input-toolbar .text-model-icon-mini {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  font-size: 9px;
+  line-height: 14px;
+}
+
+/* 标签：官方 `min-w-0 truncate text-xs font-medium leading-5`
+   （`<span className="block truncate text-xs font-medium leading-5">`）。
+   ⚠️ `max-width` 归**按钮**（见上），标签只负责 `min-width:0` + 省略号。 */
+.chat-panel-input-toolbar .model-selector-label {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: 4px;
+}
+
+/* 对话菜单沿用横向列表宽度，仅限制高度。 */
+.chat-panel-input-toolbar .model-dropdown {
+  max-height: 280px;
+  transform-origin: bottom left;
+  animation: popoverIn var(--dur-normal) var(--ease-out-expo);
+}
+
+/* 分组标题缩小 */
+.chat-panel-input-toolbar .model-group-header {
+  padding: 6px 7px;
+  gap: 4px;
+}
+.chat-panel-input-toolbar .model-group-name {
+  font-size: 11px;
+}
+.chat-panel-input-toolbar .model-group-desc {
+  font-size: 11px;
+}
+
+/* 分组子项缩进减半 */
+.chat-panel-input-toolbar .model-group-items {
+  padding-left: 14px;
+}
+
+.model-group-items-models,
+.chat-panel-input-toolbar .model-group-items-models {
+  padding-left: 4px;
+}
+
+/* 模型项缩小 */
+.chat-panel-input-toolbar .model-item {
+  min-height: 32px;
+  padding: 6px 7px;
+  gap: 4px;
+}
+.chat-panel-input-toolbar .model-item-name {
+  font-size: 11px;
+}
+.chat-panel-input-toolbar .model-item-desc {
+  font-size: 11px;
+}
+
+/* ★★★★★ **官方标签行**（EXE `Sme` 源码原文 ✓）
+     行: `flex items-start gap-1 w-full flex-wrap` → **gap 4 · 可换行** ✓
+     chip: `**bg-[#363636] flex items-center gap-1 px-1.5 py-1 rounded-md shrink-0**`
+        → 底 **#363636** ✓ · gap 4 ✓ · pad **6px 4px** ✓ · r6 ✓
+     文字: `**text-[10px] text-[#AFAFAF] leading-none**` ✓
+   实测 ✓：chip 底 rgb(54,54,54) · 文字 10px · 图标 12px #AFAFAF ✓
+   ★ 现在承载的是「类型 / 连接 / 不可用 / 异步」几枚 MTV 徽标（`.model-item-badge`，配色按用户裁决
+     保留 Framia 取样的米色/紫色）——**位置**照官方放进这一行，**配色**不动。
+     这一行与名字行相隔 4px（父层 `.model-item-model .model-item-info` 的 `gap`），
+     所以每行的高度 = 8 + 名字行 + 4 + 标签行 + 8（官方同款两行结构）。*/
+.model-item-tags {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+.model-item-tag {
+  background: #363636;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  max-width: 100%;
+  min-width: 0;
+}
+.model-item-tag-text {
+  font-size: 10px;
+  line-height: 1;
+  color: #afafaf;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

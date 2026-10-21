@@ -1,0 +1,14 @@
+﻿/* 官方图标渲染器 —— 外层定尺寸，内层 svg 撑满（图标内部用 currentColor 上色） */
+.official-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.official-icon > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

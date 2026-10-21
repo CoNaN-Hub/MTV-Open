@@ -1,0 +1,59 @@
+/**
+ * workspace.css —— MTV「工作空间」页样式（官方 TapNow 工作空间 @12229505 / 官方首页 index-DdHBXEd8.js）
+ *
+ * 官方主题令牌（`index-CF4eb3PV.css` 逐字实测）：
+ *   --background:#0f0f0f  --foreground:#f5f5f5  --card:#1f1f1f  --card-foreground:#fafafa
+ *   --muted:#2b2b2b  --muted-foreground:#7a7a7a  --secondary-muted-foreground:#a3a3a3
+ *   --border:#ffffff1a  --input:#ffffff26  --primary:#1fa2dc  --primary-foreground:#fafafa
+ *
+ * 页面上绝大多数几何都用官方那串 Tailwind 类名逐字写（MTV 已装 Tailwind，支持任意值），
+ * 这里只补「官方 token → 具体色值」与滚动条这类 Tailwind 类名覆盖不到的部分。
+ */
+
+.ws-root {
+  background: #0f0f0f;
+  color: #f5f5f5;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 官方 `ScrollArea`（Radix + shadcn）的滚动条：track `w-2.5 … p-[1px]` ⇒ 滑条 **8px**、
+   thumb `rounded-full bg-border` = `--border` #ffffff1a（实测官方 9444）。
+   MTV 全局 `OverlayScrollbarLayer` 在画布那边是 4px + #3a3a50（自绘），工作空间要与官方一致 ⇒ 只在本作用域覆盖。 */
+.ws-root .overlay-scrollbar-thumb--vertical {
+  width: 10px;
+}
+.ws-root .overlay-scrollbar-thumb--vertical::before {
+  right: 1px;
+  width: 8px;
+  background: #ffffff1a;
+}
+.ws-root .overlay-scrollbar-thumb--vertical:hover::before,
+.ws-root .overlay-scrollbar-thumb--vertical:active::before {
+  width: 8px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.ws-root .overlay-scrollbar-thumb--horizontal {
+  height: 10px;
+}
+.ws-root .overlay-scrollbar-thumb--horizontal::before {
+  bottom: 1px;
+  height: 8px;
+  background: #ffffff1a;
+}
+/* 官方内容滚动容器：`flex-1 overflow-x-hidden` —— 隐藏原生滚动条，保留滚动 */
+.ws-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.ws-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 官方 `bg-muted/30` / `group-hover:bg-muted/50`（--muted:#2b2b2b） */
+.ws-new-project-inner {
+  background: rgba(43, 43, 43, 0.3);
+}
+.group:hover .ws-new-project-inner {
+  background: rgba(43, 43, 43, 0.5);
+}

@@ -1,0 +1,2522 @@
+/*
+ * official-controls.css —— 官方 TapNow 的**控件词汇表**（从源码逐字抠出，落成普通 CSS）
+ *
+ * 出处：`index-BsHyQ2qj.js` @1748503 起那一簇就是官方 shadcn 组件库（`Ie()` = 官方 cn()）。
+ *   · Button  `CVe=f9("inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md
+ *              text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1
+ *              focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50
+ *              [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0", {variants:{…}})`
+ *   · Input   `Wl` @6071144
+ *   · Label   `Hl` @6069226
+ *   · Switch  `Bye` @6101100（根）+ @6101525（滑块）
+ *   · Select  @6093436（trigger）/ @6095976（item indicator）/ popover content
+ *   · Table   `cT` @6101531（table/thead/th/td/row）
+ *   · Badge   @6132201（+ @6132352 极小号）
+ *   · Toggle  @6109531 / @6109799 / @6109890（分段/开关按钮）
+ *   · Slider  @6129942（track）/ @6130171（range）/ @6130342（thumb）
+ *   · Tabs    @6120887（item）/ @6121021（active）
+ *   · Dialog close @6116416
+ *
+ * ⚠️ 为什么不能直接用官方的 Tailwind 类名：
+ *   MTV 的 `tailwind.config.js` 把 shadcn 色声明成 `var(--x)`，Tailwind v3 **灌不进 `/NN` 透明度**
+ *   （`bg-primary/90`、`hover:bg-accent`、`data-[state=on]:bg-tap-primary-1` 这类会被静默丢掉）
+ *   ⇒ 按仓库惯例，这里把官方类名**逐条翻译成等价的普通 CSS**（值取官方 token 的实测值）。
+ *
+ * ⚠️ 防溢出/防遮挡约定（用户明确要求不出 BUG）：
+ *   · 所有 flex 文本子项带 `min-width: 0`；单行文本一律 `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`
+ *   · 卡片/列表行不设固定高度，靠 `min-height`；长内容 `overflow-wrap: anywhere`
+ *   · 不用绝对定位做布局（官方那几条绝对定位都有明确容器；这里只在有 `position: relative` 的父级内使用）
+ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   官方设计 token（作用域：设置面板对话框 + 官方版式的独立弹窗，不外溢到画布/节点）
+   值 = 官方 `:root` 实测（`_off-tokens.json` / `_off-tokens-rgb.json`）
+   ⚠️ `.o-dialog` 要一起挂：它 `createPortal` 到 `document.body`，**不在**设置对话框里面，
+      少挂这一条整套 `--o-*` 就是未定义，颜色/圆角/底色会全部退化（实测过：标题变纯白、圆角 0）。
+   ══════════════════════════════════════════════════════════════════════ */
+.settings-panel-dialog,
+.o-dialog,
+.o-menu,
+.o-scope {
+  /* shadcn 语义色板 */
+  --o-background: #0f0f0f;
+  --o-foreground: #f5f5f5;
+  --o-card: #1f1f1f;
+  --o-card-foreground: #fafafa;
+  --o-popover: #262626;
+  --o-popover-foreground: #cccccc;
+  --o-primary: #1fa2dc;
+  --o-primary-foreground: #fafafa;
+  --o-secondary: #222222;
+  --o-secondary-foreground: #f0f0f0;
+  --o-muted: #2b2b2b;
+  --o-muted-foreground: #7a7a7a;
+  --o-accent: #404040;
+  --o-accent-foreground: #fafafa;
+  --o-destructive: #934c4c;
+  --o-destructive-foreground: #ff6163;
+  --o-border: rgba(255, 255, 255, 0.1);      /* #ffffff1a */
+  --o-input: rgba(255, 255, 255, 0.15);      /* #ffffff26 */
+  --o-ring: rgba(115, 115, 115, 0.1);        /* #7373731a */
+  /* 官方 app 级 `--tap-*` */
+  --o-tap-primary-1: #33a8ff;
+  --o-tap-primary-3: #f6fafe;
+  --o-tap-text-1: #ffffff;
+  --o-tap-background-secondary: oklch(27.4% 0.006 286.033);
+  --o-tap-state-info: #2196f3;
+  --o-tap-state-success: #4caf50;
+  --o-tap-state-warning: #ff9800;
+  --o-tap-state-error: #f44336;
+  /* 官方文本三级（`--text-text-*`） */
+  --o-text-primary: #e6e6e6;
+  --o-text-secondary: #9c9c9c;
+  --o-text-tertiary: #737373;
+  /* 官方圆角刻度（实测算出来的那几个） */
+  --o-radius-sm: 6px;
+  --o-radius: 10px;
+  --o-radius-lg: 12px;
+  --o-radius-xl: 16px;
+  /* 官方 `--shadow-lg`：快捷键面板容器用 `shadow-lg`；MTV 没定义这个 token ⇒ 会算成透明（实测过） */
+  --shadow-lg: 0px 2px 4px 0px #0000001a, 0px 4px 6px -1px #0000001a;
+  /* 官方 `--shadow`（默认 `shadow` 类读它）：**官方真机 CDP 实测值**（`getComputedStyle(documentElement)`）：
+     `0px 2px 4px 0px #0000001a,0px 1px 2px -1px #0000001a`。
+     官方 Button 的 default variant 挂的是 `shadow`（不是 `shadow-sm`），所以这个 token 决定它的投影。
+     ⚠️ 加它之前全仓 **没有任何** `var(--shadow)` 引用（已 grep 确认）⇒ 不会改变既有元素。 */
+  --shadow: 0px 2px 4px 0px #0000001a, 0px 1px 2px -1px #0000001a;
+}
+
+.o-scope {
+  /* 官方 token 作用域的「独立承载者」：给不在设置对话框里的官方化面板挂这个类
+     （例：AI 助手 → 子智能体面板 `SubAgentPanel` 的内容区） */
+  color: var(--o-foreground);
+  font-family: inherit;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Button（官方 `zn`）
+   base: inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium
+         transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring
+         disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4
+         [&_svg]:shrink-0
+   variants: default / destructive / outline / secondary / ghost / link
+   sizes:    default h-9 px-4 py-2 · sm h-8 px-3 text-xs · lg h-10 px-8 · icon h-9 w-9 · icon-sm h-7 w-7
+   ══════════════════════════════════════════════════════════════════════ */
+.o-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: none;
+  max-width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--o-radius); /* 官方 Button base 是 `rounded-md`，实测 = 10px */
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s, border-color 0.15s;
+}
+.o-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--o-ring);
+}
+.o-btn:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+.o-btn > svg {
+  pointer-events: none;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.o-btn--default {
+  background: var(--o-primary);
+  color: var(--o-primary-foreground);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.o-btn--default:hover:not(:disabled) {
+  background: rgba(31, 162, 220, 0.9); /* 官方 hover:bg-primary/90 */
+}
+.o-btn--destructive {
+  background: var(--o-destructive);
+  color: var(--o-destructive-foreground);
+}
+.o-btn--destructive:hover:not(:disabled) {
+  background: rgba(147, 76, 76, 0.9);
+}
+.o-btn--outline {
+  border-color: var(--o-input);
+  /* ══ 2026 round 102：按官方改回 `bg-input/30`（此前写 `transparent`）════════════════
+     官方逐字（`D:\DEEPSEEK\live-assets-r100\index-DlJQu0XZ.css`）：
+       @166059 `.bg-input\/30{background-color:var(--input)}`
+               `@supports (color:color-mix(in lab,red,red)){.bg-input\/30{
+                  background-color:color-mix(in oklab,var(--input)30%,transparent)}}`
+       @466702 `.hover\:bg-input\/80:hover{…color-mix(in oklab,var(--input)80%,transparent)}`
+     ⇒ 官方 outline = **`border bg-input/30 hover:bg-input/80`**（`--input` = `#ffffff26`，
+       即半透明白）—— 退化写法就是官方 `@supports` 之外那条 `var(--input)`。
+     ⚠️ 历史备注：之所以一度写 `transparent`，是为了修「描边按钮在弹窗里渲染成黑斑」
+        （用户 2026：「这些按钮的颜色 也不对」「胶囊颜色与整个面板格格不入」）——
+        但那个黑斑来自 `background: var(--o-background)`(#0f0f0f)，**不是**官方的 `bg-input/30`。
+        两者无关；按官方取值即可，不会复现黑斑。 */
+  background: var(--o-input);
+  background: color-mix(in oklab, var(--o-input) 30%, transparent);
+  color: var(--o-foreground);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.o-btn--outline:hover:not(:disabled) {
+  /* 官方 hover = `bg-input/80`（同文件 @466702）；官方 outline 不换文字色 ⇒ 保持前景色 */
+  background: var(--o-input);
+  background: color-mix(in oklab, var(--o-input) 80%, transparent);
+  color: var(--o-foreground);
+}
+.o-btn--secondary {
+  background: var(--o-secondary);
+  color: var(--o-secondary-foreground);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.o-btn--secondary:hover:not(:disabled) {
+  background: rgba(34, 34, 34, 0.8);
+}
+.o-btn--ghost {
+  background: transparent;
+  color: inherit;
+}
+.o-btn--ghost:hover:not(:disabled) {
+  background: var(--o-accent);
+  color: var(--o-accent-foreground);
+}
+.o-btn--link {
+  background: transparent;
+  color: var(--o-primary);
+  text-decoration: none;
+  text-underline-offset: 4px;
+}
+.o-btn--link:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.o-btn--sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  line-height: 16px;
+}
+.o-btn--md {
+  height: 36px;
+  padding: 0 16px;
+}
+.o-btn--lg {
+  height: 40px;
+  padding: 0 32px;
+}
+.o-btn--icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+.o-btn--icon-sm {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Input / Textarea（官方 `Wl` / 官方 Textarea）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-input {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid var(--o-input);
+  border-radius: var(--o-radius); /* 官方 Input 是 `rounded-md` = 10px */
+  background: transparent;
+  padding: 0 12px;
+  color: var(--o-foreground);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+.o-input::placeholder {
+  color: var(--o-muted-foreground);
+}
+.o-input:focus-visible {
+  border-color: var(--o-ring);
+  box-shadow: 0 0 0 1px var(--o-ring);
+}
+.o-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.o-input--textarea {
+  height: auto;
+  min-height: 64px;
+  padding: 8px 12px;
+  resize: vertical;
+}
+.o-input-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+}
+.o-input-row > .o-input {
+  padding-left: 40px;
+}
+.o-input-row__icon {
+  position: absolute;
+  left: 12px;
+  display: flex;
+  color: var(--o-muted-foreground);
+  pointer-events: none;
+}
+.o-input-row__icon > svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Label（官方 `Hl`）：text-sm font-medium leading-none transition-colors duration-200
+   ══════════════════════════════════════════════════════════════════════ */
+.o-label {
+  display: block;
+  color: var(--o-text-primary); /* 官方 filled=false → text-tap-text-1 ≈ 富文本主色 */
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  transition: color 0.2s;
+}
+.o-label--muted {
+  color: var(--o-text-tertiary); /* 官方 filled=true → text-tap-text-3 */
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Switch（官方 `Bye`）
+   root : h-5 w-9 rounded-full shadow-xs transition-colors
+          checked → bg-primary ; unchecked → bg-zinc-800 + shadow-inner
+   thumb: h-4 w-4 rounded-full bg-white shadow-sm
+          unchecked translate-x-0 ; checked translate-x-4
+   ══════════════════════════════════════════════════════════════════════ */
+.o-switch {
+  position: relative;
+  display: inline-flex;
+  width: 36px;
+  height: 20px;
+  flex: none;
+  align-items: center;
+  border: 0;
+  border-radius: 9999px;
+  padding: 0;
+  background: #27272a; /* 官方 data-[state=unchecked]:bg-zinc-800 */
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.o-switch[aria-checked='true'] {
+  background: var(--o-primary);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.o-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.o-switch:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--o-background), 0 0 0 4px var(--o-ring);
+}
+.o-switch__thumb {
+  pointer-events: none;
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+  transform: translateX(0);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.o-switch[aria-checked='true'] .o-switch__thumb {
+  transform: translateX(16px);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Select 触发器（官方 trigger @6093436 的皮）
+   用法：挂到 MTV 共享 Select 的 `triggerClassName={OFFICIAL_SELECT_TRIGGER}`
+   （仓库硬规矩：只有 `src/components/shared/Select.tsx` 能有原生 `<select>`）
+   ══════════════════════════════════════════════════════════════════════ */
+/* ⚠️ 选择器写成 `.o-select-trigger.o-select-trigger`（同元素双类）是为了压过
+   `ui-kit.css` 里的 `.ui-select--custom .ui-select__trigger`（0,2,0）—— 否则官方皮会被
+   MTV 的 `--white-alpha-*` 底色 / `--ui-radius-md` 圆角 / 靛蓝 focus 环整个盖掉（实测：32px / 7px）。 */
+.o-select-trigger.o-select-trigger {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--o-input);
+  border-radius: var(--o-radius); /* 官方 SelectTrigger 是 `rounded-md` = 10px */
+  background: transparent;
+  padding: 0 28px 0 12px; /* 右侧给 MTV 那颗 absolute 定位的箭头留位（right:9px / 12px 宽） */
+  color: var(--o-foreground);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+.o-select-trigger.o-select-trigger:hover:not(:disabled) {
+  background: transparent;
+  border-color: var(--o-input);
+}
+.o-select-trigger.o-select-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.o-select-trigger.o-select-trigger:focus-visible {
+  border-color: var(--o-ring);
+  background: transparent;
+  box-shadow: 0 0 0 1px var(--o-ring);
+}
+.o-select-trigger.o-select-trigger:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Card / 列表行
+   官方面板里的卡片组：`overflow-hidden rounded-xl border border-border/80 bg-muted/30`
+   行：`flex items-start gap-3 px-4 py-3.5 border-border/70 border-b`（最后一行无分隔线）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-card {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08); /* 官方 border-border/80 */
+  border-radius: var(--o-radius-lg);
+  background: rgba(43, 43, 43, 0.3); /* 官方 bg-muted/30 */
+}
+.o-card--solid {
+  background: var(--o-card);
+}
+.o-card__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.o-card__row:last-child {
+  border-bottom: 0;
+}
+.o-card__row--center {
+  align-items: center;
+}
+.o-card__row--stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+.o-card__summary {
+  display: block;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+/* 自带内边距的卡片（整块就是一个区块时用，替代 `o-card__row` 的分隔线行） */
+.o-card--pad {
+  padding: 16px;
+}
+/* 识别结果里的等宽值（官方 `--font-mono` 的代码块） */
+.o-field__code {
+  display: block;
+  min-width: 0;
+  color: var(--o-text-secondary);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.o-card__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.o-card__title {
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.o-card__desc {
+  margin-top: 4px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Badge（官方 @6132201 / 极小号 @6132352）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  max-width: 100%;
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.o-badge--sm {
+  padding: 4px 6px;
+  border: 1px solid var(--o-border);
+  background: var(--o-secondary);
+  color: var(--o-secondary-foreground);
+  font-size: 10px;
+  line-height: 1;
+}
+.o-badge--secondary {
+  background: var(--o-secondary);
+  color: var(--o-secondary-foreground);
+}
+.o-badge--outline {
+  border: 1px solid var(--o-border);
+  color: var(--o-foreground);
+}
+/* 可点击的描边胶囊（「逐模型手动价」里点一下就把该模型加进手动价）。
+   ⚠️ **不要用 `.o-btn--outline`** —— 它的 `background: var(--o-background)` 是**对话框底色**，
+     放在 `.o-card`（`rgba(43,43,43,.3)`，比对话框亮一档）上就是一块黑斑，跟面板格格不入
+     （用户 2026：「你这个胶囊颜色 与整个面板 格格不入」）✗
+   描边 + 透明底则跟任何一档底色都融得进去 ✓ */
+.o-badge--action {
+  gap: 6px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.o-badge--action:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.o-badge--action > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+[data-theme='light'] .o-badge--action:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+.o-badge--primary {
+  background: rgba(31, 162, 220, 0.14);
+  color: var(--o-primary);
+}
+.o-badge--success {
+  /* 加一圈描边：只有淡绿底时在卡片上太弱，看不出「已就绪」
+     （用户 2026：「已连接 这个按钮 不够醒目」） */
+  border: 1px solid rgba(76, 175, 80, 0.45);
+  background: rgba(76, 175, 80, 0.18);
+  color: var(--o-tap-state-success);
+}
+.o-badge--warning {
+  background: rgba(255, 152, 0, 0.16);
+  color: var(--o-tap-state-warning);
+}
+.o-badge--danger {
+  background: rgba(244, 67, 54, 0.14);
+  color: var(--o-tap-state-error);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Toggle / 分段（官方 @6109531 / @6109799 / @6109890）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  max-width: 100%;
+  border: 0;
+  border-radius: var(--o-radius); /* 官方 Toggle 是 `rounded-md` = 10px */
+  background: var(--o-tap-background-secondary);
+  color: var(--o-tap-text-1);
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+}
+.o-toggle:hover:not(:disabled) {
+  background: rgba(43, 43, 43, 0.7);
+}
+.o-toggle[aria-pressed='true'] {
+  background: var(--o-tap-primary-1);
+  color: #fff;
+}
+.o-toggle:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Slider（官方 @6129942 / @6130171 / @6130342）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-slider {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+}
+.o-slider input[type='range'] {
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.18);
+  appearance: none;
+  outline: none;
+  cursor: pointer;
+}
+.o-slider input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease-in-out;
+}
+.o-slider input[type='range']:hover::-webkit-slider-thumb {
+  transform: scale(1.1);
+}
+.o-slider input[type='range']:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+.o-slider__value {
+  flex: none;
+  min-width: 40px;
+  color: var(--o-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Tabs（官方 @6120887 / @6121021）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-tab {
+  flex: none;
+  border: 0;
+  background: transparent;
+  padding: 0 0 12px;
+  color: var(--o-muted-foreground);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.o-tab:hover {
+  color: var(--o-text-secondary);
+}
+.o-tab[aria-selected='true'] {
+  color: var(--o-popover-foreground);
+  box-shadow: inset 0 -2px 0 0 var(--o-primary);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Table（官方 `cT` @6101531）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-table-wrap {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+}
+.o-table {
+  width: 100%;
+  caption-side: bottom;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.o-table th {
+  height: 48px;
+  padding: 0 12px;
+  color: var(--o-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.o-table td {
+  padding: 16px 12px;
+  color: var(--o-tap-text-1);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.o-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background-color 0.15s;
+}
+.o-table tbody tr:hover {
+  background: rgba(31, 162, 220, 0.08);
+}
+.o-table tbody tr[aria-selected='true'] {
+  background: var(--o-muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   提示条（官方面板里的说明块）：`rounded-xl border border-border/80 bg-muted/20 px-4 py-4`
+   ══════════════════════════════════════════════════════════════════════ */
+.o-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--o-radius-lg);
+  background: rgba(43, 43, 43, 0.2);
+  padding: 16px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.o-note > svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex: none;
+}
+/* 官方**没有**「黄色警告框」这种东西：官方面板里的说明块只有一种中性样式
+   （`rounded-xl border border-border/80 bg-muted/20`），要表达错误时只把**文字**换成
+   `text-destructive`（官方 `_8` FormMessage / `text-destructive text-sm`）。
+   所以这里把带色调的边框全部收回中性，tone 只影响文字/图标颜色。 */
+.o-note--info,
+.o-note--success,
+.o-note--warning {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(43, 43, 43, 0.2);
+}
+.o-note--danger {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(43, 43, 43, 0.2);
+  color: var(--o-destructive-foreground);
+}
+/* ══════════════════════════════════════════════════════════════════════
+   官方分段控件（radix RadioGroup）—— 用于官方的「批量生成结果」
+   官方原文：`role="radiogroup"` 容器 `flex w-fit shrink-0 gap-1 rounded-lg bg-muted/50 p-1`
+             选项 `label.flex h-9 min-w-24 cursor-pointer items-center justify-center gap-2 rounded-md
+                   px-3 text-sm font-medium transition-colors focus-within:ring-1 focus-within:ring-ring`
+             选中 `bg-background text-foreground shadow-sm`
+             未选中 `text-muted-foreground hover:bg-background/60 hover:text-foreground`
+   实测：容器 gap 4 / pad 4 / 圆角 12；选项 96×36 / 圆角 10（官方 `rounded-md` = 10px，不是 Tailwind 默认 6）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-segmented {
+  display: flex;
+  width: fit-content;
+  flex: none;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(43, 43, 43, 0.5); /* 官方 `bg-muted/50` */
+}
+.o-batch-option {
+  display: flex;
+  height: 36px;
+  min-width: 96px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-radius: var(--o-radius);
+  color: var(--o-muted-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.o-batch-option:hover {
+  background: rgba(15, 15, 15, 0.6); /* 官方 `hover:bg-background/60` */
+  color: var(--o-foreground);
+}
+.o-batch-option[data-checked] {
+  background: var(--o-background);
+  color: var(--o-foreground);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); /* 官方 `shadow-sm` */
+}
+.o-batch-option:focus-within {
+  box-shadow: 0 0 0 1px var(--o-ring);
+}
+.o-batch-option > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.o-batch-option > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   快捷键面板容器（官方 `$Ps` 的那个壳）
+   官方原文：`w-[640px] bg-card rounded-3xl px-10 py-6 grid grid-cols-2 gap-14 shadow-lg border relative`
+   ⚠️ MTV 偏离两条：
+     · 去掉固定 `w-[640px]`（官方是独立小弹窗；MTV 是设置面板的一个页签，要铺满右栏）
+     · `shadow-lg` 单独写死官方值 —— MTV 的 Tailwind preflight 里 `--tw-shadow` 被重置成透明，
+       实测 `shadow-lg` 算出来是 `rgba(0,0,0,0) 0 0 0 0`（等于没阴影）；这里直接落官方 `--shadow-lg`。
+   ══════════════════════════════════════════════════════════════════════ */
+.o-hotkeys-panel {
+  box-shadow: 0px 2px 4px 0px #0000001a, 0px 4px 6px -1px #0000001a;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   浅色主题覆盖（`[data-theme='light']`）
+   MTV **默认暗色**；官方那套设计语言本来就只有暗色。所以：
+     · 默认（暗色）= 上面这些官方原值，一字不改；
+     · `[data-theme='light']` 下把面板作用域的 token 换成 MTV 自己的浅色主题层
+       （`--theme-surface/--theme-card/--theme-text/...`，见 `base.css` @308），
+       并把那些**写死的 rgba 黑/白**逐条换成浅色等价物 —— 否则浅色模式下会是一块黑板。
+   本节写在 `official-controls.css`（在 `SettingsPanel` 里最后 import），
+   所以同优先级下能盖住 `settings-panel.css` 的那批硬编码值。
+   ══════════════════════════════════════════════════════════════════════ */
+[data-theme='light'] .settings-panel-dialog,
+[data-theme='light'] .o-dialog,
+[data-theme='light'] .o-menu,
+[data-theme='light'] .o-scope {
+  /* ★ 还要把 **MTV 自己的全局 shadcn token** 在面板作用域里换掉 ——
+     页面里那些 Tailwind 类（`text-popover-foreground` / `bg-card` / `border` / `text-muted-foreground` …）
+     取的是这些变量，而 MTV 的 `--popover-foreground:#ccc`、`--border:#ffffff1a` 是**暗色专用**：
+     实测浅色下键帽文字 `#ccc`、边框 `rgba(255,255,255,.1)` 在白底上几乎不可见。 */
+  --foreground: var(--theme-text);
+  --card: var(--theme-card);
+  --card-foreground: var(--theme-text);
+  --popover: var(--theme-surface);
+  --popover-foreground: var(--theme-text-secondary);
+  --secondary: var(--theme-hover);
+  --secondary-foreground: var(--theme-text);
+  --muted: var(--theme-hover);
+  --muted-foreground: var(--theme-text-muted);
+  --accent: var(--theme-hover);
+  --accent-foreground: var(--theme-text);
+  --border: var(--theme-border);
+  --input: rgba(51, 54, 77, 0.16);
+  --ring: rgba(51, 54, 77, 0.18);
+
+  --o-background: var(--theme-surface);
+  --o-foreground: var(--theme-text);
+  --o-card: var(--theme-card);
+  --o-card-foreground: var(--theme-text);
+  --o-popover: var(--theme-surface);
+  --o-popover-foreground: var(--theme-text-secondary);
+  --o-primary: #1fa2dc;
+  --o-primary-foreground: #fafafa;
+  --o-secondary: var(--theme-hover);
+  --o-secondary-foreground: var(--theme-text);
+  --o-muted: var(--theme-hover);
+  --o-muted-foreground: var(--theme-text-muted);
+  --o-accent: var(--theme-hover);
+  --o-accent-foreground: var(--theme-text);
+  --o-destructive: var(--danger);
+  --o-destructive-foreground: var(--danger-pale);
+  --o-border: var(--theme-border);
+  --o-input: rgba(51, 54, 77, 0.16);
+  --o-ring: rgba(51, 54, 77, 0.18);
+  --o-text-primary: var(--theme-text);
+  --o-text-secondary: var(--theme-text-secondary);
+  --o-text-tertiary: var(--theme-text-muted);
+  --o-tap-text-1: var(--theme-text);
+}
+
+/* —— 面板外壳 —— */
+[data-theme='light'] .settings-panel-dialog,
+[data-theme='light'] .o-dialog,
+[data-theme='light'] .o-menu {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+[data-theme='light'] .settings-panel-close {
+  color: var(--theme-text-secondary);
+}
+[data-theme='light'] .settings-panel-close:hover {
+  background: var(--theme-hover);
+}
+
+/* —— 左栏 —— */
+[data-theme='light'] .settings-panel-nav {
+  background: rgba(51, 54, 77, 0.04);
+}
+[data-theme='light'] .settings-panel-nav-heading {
+  color: var(--theme-text-muted);
+}
+[data-theme='light'] .settings-panel-nav-item {
+  color: var(--theme-text-secondary);
+}
+[data-theme='light'] .settings-panel-nav-item:hover {
+  background: rgba(51, 54, 77, 0.06);
+  color: var(--theme-text);
+}
+[data-theme='light'] .settings-panel-nav-item[aria-current='true'] {
+  background: rgba(51, 54, 77, 0.08);
+  color: var(--theme-text);
+}
+
+/* —— 面板头 / 设置项行 / 分段控件 —— */
+[data-theme='light'] .settings-pane-title,
+[data-theme='light'] .settings-row-title {
+  color: var(--theme-text);
+}
+[data-theme='light'] .settings-pane-desc,
+[data-theme='light'] .settings-row-desc {
+  color: var(--theme-text-muted);
+}
+[data-theme='light'] .settings-row,
+[data-theme='light'] .o-kbd-row {
+  border-bottom-color: var(--theme-border);
+}
+[data-theme='light'] .settings-segmented {
+  background: rgba(51, 54, 77, 0.06);
+}
+[data-theme='light'] .settings-segmented-option {
+  color: var(--theme-text-muted);
+}
+[data-theme='light'] .settings-segmented-option:hover {
+  background: var(--theme-hover);
+  color: var(--theme-text);
+}
+[data-theme='light'] .settings-segmented-option[aria-checked='true'] {
+  background: var(--theme-surface);
+  color: var(--theme-text);
+}
+
+/* —— 权限面板 —— */
+[data-theme='light'] .settings-perm-group,
+[data-theme='light'] .o-card,
+[data-theme='light'] .o-note {
+  border-color: var(--theme-border);
+  background: var(--theme-card);
+}
+[data-theme='light'] .settings-perm-option,
+[data-theme='light'] .o-card__row,
+[data-theme='light'] .settings-perm-item {
+  border-bottom-color: var(--theme-border);
+}
+[data-theme='light'] .settings-perm-option:hover {
+  background: var(--theme-hover);
+}
+[data-theme='light'] .settings-perm-option[aria-checked='true'] {
+  background: rgba(51, 54, 77, 0.05);
+}
+[data-theme='light'] .settings-perm-item-title,
+[data-theme='light'] .o-card__title {
+  color: var(--theme-text);
+}
+[data-theme='light'] .settings-perm-item-desc,
+[data-theme='light'] .o-card__desc,
+[data-theme='light'] .settings-perm-item > svg {
+  color: var(--theme-text-muted);
+}
+
+/* —— 控件：键帽 / 开关 / 输入 / 表格 —— */
+[data-theme='light'] .o-kbd {
+  border-color: var(--theme-border);
+  background: var(--theme-hover);
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-kbd-row__label {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-switch {
+  background: rgba(51, 54, 77, 0.22);
+}
+[data-theme='light'] .o-input,
+[data-theme='light'] .o-select-trigger.o-select-trigger {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-input::placeholder {
+  color: var(--theme-text-muted);
+}
+[data-theme='light'] .o-table th {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-table td {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-table tbody tr {
+  border-bottom-color: var(--theme-border);
+}
+[data-theme='light'] .o-hotkeys-panel {
+  background: var(--theme-card);
+  border-color: var(--theme-border);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   通用小工具（防溢出/防遮挡）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.o-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.o-inline {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.o-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.o-muted {
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+/* 键帽（官方没单独定义 kbd 组件；按官方 token 组合：
+   `rounded-[6px] border border-border bg-secondary text-tap-text-1 px-2 py-0.5 text-xs` + `--font-mono`） */
+.o-kbd {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  max-width: 100%;
+  border: 1px solid var(--o-border);
+  border-radius: 6px;
+  background: var(--o-secondary);
+  padding: 2px 8px;
+  color: var(--o-tap-text-1);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+/* 键位一览行：官方设置项那种「左标题 + 右控件 + 分隔线」的紧凑变体
+   （官方 `flex w-full items-center justify-between gap-4 border-b border-border/60 pb-3`） */
+.o-kbd-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.o-kbd-row__label {
+  min-width: 0;
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.o-kbd-row__keys {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 60%;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Dialog（官方 `Nu` 根 / `Vd` 内容 / `G8a` 遮罩 / `Ly` 头 / `oH` 脚 /
+           `rg` 标题 / `sH` 说明 / `X9e` 关闭键）
+   官方原文（`index-BsHyQ2qj.js` @ 6066xxx，逐字）：
+     Content : `fixed left-[50%] top-[50%] z-50 bg-popover text-popover-foreground
+                rounded-lg min-w-[300px] p-4 max-w-none translate-x-[-50%] translate-y-[-50%]`
+     Overlay : `fixed inset-0 z-50 bg-black/80`
+     Header  : `flex flex-col space-y-1.5 text-center sm:text-left`
+     Footer  : `flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2`
+     Title   : `text-lg font-semibold leading-none tracking-tight`
+     Desc    : `text-sm text-muted-foreground`
+     Close   : `absolute right-4 top-4 inline-flex h-6 w-6 shrink-0 aspect-square cursor-pointer
+                items-center justify-center rounded-md p-0 ring-offset-background transition-opacity
+                hover:bg-input/80 focus:ring-2 z-10`，图标 `size-4 shrink-0 text-[#CCCCCC]`
+   ⚠️ 官方字体度量：`letter-spacing` 实测恒为 `normal`（官方全局重置盖掉了 `tracking-tight`）。
+   ══════════════════════════════════════════════════════════════════════ */
+.o-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.8);
+}
+/* ⚠️ 定位不在这里：MTV 的 `ModalOverlay` 已经用 `fixed inset-0 flex 居中` 摆好了面板
+   （它还负责 Esc / 焦点陷阱 / 退场动画），所以这里只落官方 Content 的**外观**，
+   定位置换成 ModalOverlay 那一套，视觉结果与官方 `left-1/2 top-1/2 -translate-1/2` 一致。
+   官方的 `glass-panel`（MTV 的玻璃拟态）要在面板作用域里关掉，否则底色/模糊会盖住官方 popover。 */
+.o-dialog {
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+  max-width: none;
+  /* padding 由头/身/脚各自管（官方大弹窗 `p-0` + header `px-6 pt-5 pb-4 pr-10` 的做法） */
+  padding: 0;
+  border: 1px solid var(--o-border);
+  /* 官方 Dialog Content 是 `rounded-lg`（**12px**，不是 Tailwind 默认的 8px）——
+     `--o-radius-lg` 就是这条实测值。官方那个 16px 的圆角只出现在「设置大弹窗」和
+     指令面板（各自 `rounded-2xl`），它们不走 `.o-dialog`（见 `.settings-panel-dialog`）。 */
+  border-radius: var(--o-radius-lg);
+  background: var(--o-popover);
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  color: var(--o-popover-foreground);
+  box-shadow: 0px 2px 4px 0px #0000001a, 0px 4px 6px -1px #0000001a;
+}
+/* 大编辑弹窗（官方基础 Content 的尺寸放不下表单 ⇒ 只加尺寸，其余类名/值照官方） */
+.o-dialog--lg {
+  width: min(100vw - 3rem, 900px);
+  max-height: min(100vh - 3rem, 860px);
+}
+/* 中等弹窗（引导 / 确认类） */
+.o-dialog--md {
+  width: min(100vw - 3rem, 560px);
+  max-height: min(100vh - 3rem, 760px);
+}
+/* 遮罩上的居中舞台（官方用 `fixed left-1/2 top-1/2` 自己居中；这里用 flex 等价） */
+.o-dialog-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.o-dialog__close {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 10;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  /* 官方关闭键（`common-dialog-close-btn`）是 `rounded-md`，实测 24×24 的圆角 = **10px** */
+  border-radius: var(--o-radius);
+  background: transparent;
+  padding: 0;
+  color: #cccccc;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.o-dialog__close:hover {
+  background: rgba(255, 255, 255, 0.12); /* 官方 hover:bg-input/80 */
+}
+.o-dialog__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--o-ring);
+}
+.o-dialog__close > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.o-dialog__header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+  padding: 20px 48px 16px 24px; /* 官方 `px-6 pt-5 pb-4 pr-10` */
+  text-align: left;
+}
+.o-dialog__title {
+  color: var(--o-foreground);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 28px;
+  letter-spacing: normal;
+  overflow-wrap: anywhere;
+}
+.o-dialog__desc {
+  color: var(--o-muted-foreground);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.o-dialog__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 0 24px 24px;
+}
+.o-dialog__footer {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: stretch;
+  gap: 8px;
+  flex: none;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06); /* 官方 `border-border/60` */
+}
+@media (min-width: 640px) {
+  .o-dialog__footer {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Form（官方 FormItem `k8` = `grid` / FormLabel `zA` → `Hl` /
+         FormControl `b8` → Input / FormMessage `_8` = `text-destructive text-sm`）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-form {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.o-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.o-field__label {
+  display: block;
+  color: var(--o-tap-text-1);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.2;
+  transition: color 0.2s;
+}
+.o-field__desc {
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.o-field__error {
+  color: var(--o-destructive-foreground);
+  font-size: 14px;
+  line-height: 20px;
+}
+.o-fields {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 640px) {
+  .o-fields {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   区块（Dialog 里的分组标题：官方 FormSection 那种
+   `h4 text-sm font-medium text-foreground` + `p text-sm text-muted-foreground` 的组合）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.o-section__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-width: 0;
+}
+.o-section__head > div {
+  min-width: 0;
+}
+.o-section__title {
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.o-section__desc {
+  margin-top: 2px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   可选列表（Dialog 里的「选一个」网格行：
+   官方列表项 `flex w-full items-center gap-3 rounded-lg border border-border/80 px-3 py-2.5 text-left`）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-picker {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 640px) {
+  .o-picker {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+.o-picker__item {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08); /* 官方 border-border/80 */
+  border-radius: var(--o-radius-lg);
+  background: transparent;
+  padding: 10px 12px;
+  color: var(--o-foreground);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.o-picker__item:hover {
+  background: var(--o-accent);
+}
+.o-picker__item[aria-pressed='true'] {
+  border-color: var(--o-primary);
+  background: rgba(31, 162, 220, 0.12);
+}
+.o-picker__item > svg {
+  flex: none;
+  color: var(--o-muted-foreground);
+}
+.o-picker__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+}
+.o-picker__copy > strong {
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.o-picker__copy > small {
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+.o-picker__badge {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--o-border);
+  border-radius: var(--o-radius);
+  background: var(--o-muted);
+  color: var(--o-foreground);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   浅色主题覆盖
+   ══════════════════════════════════════════════════════════════════════ */
+[data-theme='light'] .o-dialog {
+  background: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+[data-theme='light'] .o-dialog__footer {
+  border-top-color: var(--theme-border);
+}
+[data-theme='light'] .o-dialog__title {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-dialog__desc,
+[data-theme='light'] .o-field__desc,
+[data-theme='light'] .o-section__desc,
+[data-theme='light'] .o-picker__copy > small {
+  color: var(--theme-text-muted);
+}
+[data-theme='light'] .o-field__label,
+[data-theme='light'] .o-section__title,
+[data-theme='light'] .o-picker__copy > strong {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-picker__item {
+  border-color: var(--theme-border);
+}
+[data-theme='light'] .o-picker__item:hover {
+  background: var(--theme-hover);
+}
+[data-theme='light'] .o-picker__badge {
+  border-color: var(--theme-border);
+  background: var(--theme-hover);
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-dialog__close {
+  color: var(--theme-text-secondary);
+}
+[data-theme='light'] .o-dialog__close:hover {
+  background: var(--theme-hover);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   「带右侧操作的面板头」/「卡片次要行」/「空状态」——
+   API Key（连接列表）这类**官方面板里没有对应页**的 MTV 页签，用的仍是官方词汇：
+     · 面板头 + 右侧动作：官方 `<header class="space-y-1.5">` 外面套 `flex items-start justify-between gap-4`
+     · 次要信息行：官方 `text-xs text-muted-foreground`（12px / #7a7a7a）
+     · 空状态：官方 `flex flex-col items-center justify-center gap-3 py-* text-center`
+     · 页脚动作行：官方 `border-border/60` 的 `border-t` + 右对齐
+   ══════════════════════════════════════════════════════════════════════ */
+.o-pane-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.o-inline--wrap {
+  flex-wrap: wrap;
+}
+.o-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06); /* 官方 `border-border/60` */
+}
+
+/* 卡片里的次要信息行（数量 / 域名） */
+.o-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 4px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+/* 卡片里的纵向信息块（RunningHub 的两条连接状态） */
+.o-card__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.o-card__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+/* 连接状态（官方 `text-xs` + 状态色） */
+.o-state {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+.o-state--on {
+  color: var(--o-tap-state-success);
+}
+.o-state__row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+/* 幽灵图标按钮：官方 `ghost` + `text-muted-foreground hover:text-foreground` */
+.o-icon-btn {
+  color: var(--o-text-secondary);
+}
+.o-icon-btn:hover:not(:disabled) {
+  color: var(--o-foreground);
+}
+.o-icon-btn--danger {
+  color: var(--o-tap-state-error);
+}
+.o-icon-btn--danger:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.12);
+  color: var(--o-tap-state-error);
+}
+
+/* 空状态 */
+.o-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 0;
+  text-align: center;
+}
+.o-empty__icon {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--o-muted);
+  color: var(--o-muted-foreground);
+}
+.o-empty__title {
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.o-empty__desc {
+  max-width: 360px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   复选框 / 勾选列表 / 分类胶囊
+   官方 Checkbox（`LN`）：根 `peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow-sm
+     data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground`，
+   指示器 `flex items-center justify-center text-current` + `h-4 w-4` 的勾。
+   官方没有「模型勾选列表」这个组件 ⇒ 用官方 token 组合（分隔线 / hover / 圆角都取官方值）。
+   ══════════════════════════════════════════════════════════════════════ */
+/* ⚠️ 必须 `appearance: none`：不写的话浏览器按**原生复选框**绘制，
+   上面这些背景/圆角/边框全被忽略，勾选框会显示成 Chrome 自带的那种浅蓝（实测过：
+   `appearance:auto` + `border-radius:0px`，用户一眼就看出「蓝不对」）。
+   勾用官方 lucide `check` 的路径画上去（`stroke-width:3` 是官方 Check 图标的粗细）。 */
+.o-check {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--o-primary);
+  border-radius: var(--o-radius-sm);
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  padding: 0;
+  color: transparent;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.o-check:checked {
+  background-color: var(--o-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23fafafa' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  color: var(--o-primary-foreground);
+}
+.o-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--o-ring);
+}
+.o-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.o-check > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.o-list {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--o-radius-lg);
+}
+.o-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(43, 43, 43, 0.3);
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+}
+.o-list__head > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+.o-list__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background-color 0.15s;
+}
+.o-list__row:last-child {
+  border-bottom: 0;
+}
+.o-list__row:hover {
+  background: rgba(43, 43, 43, 0.35);
+}
+.o-list__row--editing {
+  flex-wrap: wrap;
+  background: rgba(43, 43, 43, 0.35);
+}
+.o-list__empty {
+  padding: 24px 12px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  text-align: center;
+}
+.o-list__label {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.o-list__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.o-list__copy > strong {
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.o-list__copy > small {
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+/* 「平台价目表未收录」行内标注（`ProviderModelSection` 的模型行）。
+   ⚠️ **只标注、不隐藏**：权威清单是带 Key 的 `/v1/models`，价目表只是佐证；
+   实测这类模型可能直接回 503（该分组没配线路）⇒ 用中性灰底小签，不用红色（不阻断勾选）。 */
+.o-list__warn {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--o-radius-sm, 6px);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--o-muted-foreground);
+  font-size: 11px;
+  line-height: 16px;
+  vertical-align: 1px;
+}
+/* 分类标签（点击展开分类编辑）
+   官方没有「胶囊」这种形状：官方的 chip / 按钮一律 `rounded-md` ⇒ 这里用 `--o-radius-sm`（6px）。
+   hover / 展开态取官方的中性强调色 `bg-accent text-accent-foreground`，**不是蓝色**。 */
+.o-kind {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--o-border);
+  border-radius: var(--o-radius); /* 官方 chip / 按钮一律 `rounded-md` = 10px */
+  background: var(--o-secondary);
+  padding: 3px 8px;
+  color: var(--o-secondary-foreground);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.o-kind > svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.o-kind:hover {
+  background: var(--o-accent);
+  color: var(--o-accent-foreground);
+}
+.o-kind[aria-expanded='true'] {
+  background: var(--o-accent);
+  color: var(--o-accent-foreground);
+  border-color: var(--o-secondary-foreground);
+}
+/* 展开出来的行内编辑区 */
+.o-inline-edit {
+  display: grid;
+  width: 100%;
+  gap: 10px;
+  padding-top: 4px;
+}
+/* 官方 token 的 Tailwind 替换类（MTV 原来那批 `canvas-*` / 靛蓝 `indigo` 色族字面色，值不是官方色） */
+.o-fg-t { color: var(--o-foreground); }
+.o-muted-t { color: var(--o-muted-foreground); }
+.o-line { border-color: var(--o-border); }
+.o-inset { background: rgba(43, 43, 43, 0.2); }
+.o-surface { background: var(--o-card); }
+.o-primary-t { color: var(--o-primary); }
+.o-primary-bg { background: var(--o-primary); }
+.o-muted-bg { background: var(--o-muted-foreground); }
+/* 选中的 chip = 官方 `bg-accent text-accent-foreground`（不是蓝色） */
+.o-chip-on { background: var(--o-accent); }
+.o-chip-on-fg { color: var(--o-accent-foreground); }
+.o-primary-line { border-color: var(--o-primary); }
+.o-focus-line:focus { border-color: var(--o-primary); box-shadow: 0 0 0 1px var(--o-ring); }
+.o-focus-within-line:focus-within { border-color: var(--o-primary); }
+.o-hover-line:hover { border-color: var(--o-border); }
+.o-hover-fg:hover { color: var(--o-foreground); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ⚠️ **2026 round 96：本段整段删除** —— 原为「设置面板里 MTV 自绘页面的**字面色归一化**」：
+     `.settings-panel-dialog .text-canvas-text { color: var(--o-foreground) }` 一族，
+     作用是把 MTV 自造的偏紫 `canvas-*`（#1a1a26 那种偏紫底）在面板作用域里
+     （`.settings-panel-dialog .xxx` 0,2,0 压过 Tailwind 的 0,1,0）逐条改写成官方 token。
+     用户裁决全局移除 `canvas-*` 后，使用点已全部改成**官方类名**，
+     而这些官方类在面板作用域里本来就取得到官方值（`:root` + 上方 @799 的浅色作用域变量重定义）
+     ⇒ 本段每条规则都失去作用对象，成为死规则，删除。
+   改前 / 改后的**等价关系**（同值）：
+     text-canvas-text / hover:text-canvas-text   → --o-foreground #f5f5f5 = 官方 `--foreground` ⇒ `text-foreground`
+     text-canvas-text-secondary / -muted         → --o-muted-foreground #7a7a7a = 官方 `--muted-foreground`
+                                                  ⇒ 使用点落 `text-text-text-secondary` / `text-text-text-tertiary`
+                                                    （官方三级文本令牌；与 #7a7a7a 相差 ±1 档，见本轮报告「已知 delta」）
+     border-canvas-border / divide-canvas-border → --o-border #ffffff1a = 官方 `--border` ⇒ `border-border` / `divide-border`
+     bg-canvas-card                              → --o-card #1f1f1f = 官方 `--card` ⇒ `bg-card`
+     bg-canvas-surface / bg-canvas-bg            → --o-background #0f0f0f = 官方 `--background`
+                                                  ⇒ 使用点落 `bg-secondary` / `bg-background`
+                                                    （浅色下由 base.css 的 `[data-theme='light'] .bg-*` 覆盖兜住）
+     bg-canvas-hover / hover:bg-canvas-hover     → --o-accent #404040 = 官方 `--accent` ⇒ `bg-accent` / `hover:bg-accent`
+     bg-canvas-text-muted（MTV 笔误类，背景用文字色）→ --o-muted-foreground ⇒ `bg-muted-foreground`
+   ══════════════════════════════════════════════════════════════════════ */
+/* 设置面板里的靛蓝（`indigo` 色族）重映射段已删除（2026 round 95，loop 95）——
+   原来是把 MTV 靛蓝 `#6366f1` 字面色逐条改写成官方令牌（见本文件上方那段说明）。
+   使用点已全部改成官方类，整段成为死规则。
+   同段里**非靛蓝**的那批 `canvas-*` 归一化规则也已随 2026 round 96 一并删除（见上方说明）。 */
+/* 面板里那些 MTV 的靛蓝 focus 环 / 阴影 token 也一并收回官方
+   ⚠️ 这里**不能**带 `.settings-row`：它本来就已经是官方值（`border-border/60` = rgba(255,255,255,.06)，
+   实测官方「画布设置」的 `section` 是 `oklab(…/ 0.0611765)`），被 `--o-border`（#ffffff1a = 10%）盖掉
+   反而是**偏离官方**。列表里的这几个是 MTV 自绘卡片，才需要归一化。 */
+.settings-panel-dialog .ui-card,
+.settings-panel-dialog .wf-item {
+  border-color: var(--o-border);
+}
+/* 2026 round 96：下面这批 `[data-theme='light'] .settings-panel-dialog .*canvas-*` 浅色覆盖
+   已随 `canvas-*` 一族移除而删除（规则失去作用对象）。
+   换成的官方类在浅色下的取值由上方 @799 那段「浅色作用域变量重定义」兜住：
+     text-foreground ⇐ `--foreground: var(--theme-text)` · border-border ⇐ `--border: var(--theme-border)`
+     bg-card ⇐ `--card: var(--theme-card)` · bg-accent ⇐ `--accent: var(--theme-hover)`
+     bg-background ⇐ base.css 的 `[data-theme='light'] .bg-background`(#F4F6FB，原为 `var(--theme-surface)`)
+   ⚠️ 已知 delta：二级/三级文本改为官方三级令牌后，浅色下是 #9c9c9c / #737373，
+      原先这里钉的是 `var(--theme-text-muted)`(#767D92) —— 详见本轮报告「已知 delta / 待裁决」。 */
+/* `[data-theme='light'] .settings-panel-dialog` 那条靛蓝浅强调文字（`indigo` 色族 400）浅色主题覆盖
+   也已随靛蓝重映射段一并删除（2026 round 95，loop 95；使用点改为官方 `text-accent-primary`）。 */
+
+/* ══════════════════════════════════════════════════════════════════════
+   面板里 MTV 自绘按钮的官方化
+   `.settings-save-btn` 曾是 MTV 那套「靛蓝描边 + 12% 靛蓝底」按钮（#6366f1），
+   在「文件与应用 / MCP 控制 / 存储健康 / 插件」里到处都是 ⇒ 一屏里又冒出第三种蓝。
+   这里把主/次两态都落成官方 Button：`bg-primary` / `outline`。
+   ══════════════════════════════════════════════════════════════════════ */
+.settings-panel-dialog .settings-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--o-radius-sm);
+  background: var(--o-primary);
+  padding: 0 12px;
+  color: var(--o-primary-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  transition: background-color 0.15s;
+}
+.settings-panel-dialog .settings-save-btn:hover:not(:disabled) {
+  border-color: transparent;
+  background: rgba(31, 162, 220, 0.9); /* 官方 hover:bg-primary/90 */
+  color: var(--o-primary-foreground);
+}
+.settings-panel-dialog .settings-save-btn:disabled {
+  opacity: 0.5;
+}
+.settings-panel-dialog .settings-save-btn.settings-btn-ghost,
+.settings-panel-dialog .settings-btn-ghost {
+  border-color: var(--o-input);
+  background: transparent;
+  color: var(--o-foreground);
+}
+.settings-panel-dialog .settings-save-btn.settings-btn-ghost:hover:not(:disabled),
+.settings-panel-dialog .settings-btn-ghost:hover:not(:disabled) {
+  border-color: var(--o-input);
+  background: var(--o-accent);
+  color: var(--o-accent-foreground);
+}
+/* 上传区图标等零散的靛蓝 */
+.settings-panel-dialog .ui-dropzone__icon {
+  color: var(--o-primary);
+}
+.settings-panel-dialog .storage-health-selection {
+  border-color: var(--o-primary);
+  background: rgba(31, 162, 220, 0.15);
+  color: var(--o-primary);
+}
+/* 固定宽度输入 / 下拉（`.o-input` / `.o-select-trigger` 都写了 `width:100%`，
+   0,2,0 的双类选择器才能压过它们 —— 否则 `w-28` 这类 Tailwind 宽度类会被忽略、行内直接溢出） */
+.o-w28.o-w28 {
+  width: 112px;
+  min-width: 112px;
+  flex: none;
+}
+/* 已配置态图标键（调用协议 / 视频能力） */
+.o-icon-btn--on {
+  color: var(--o-primary);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   分类筛选 chip（官方「节点搜索」筛选行实测，9444 抓的 DOM）：
+     `flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium transition-colors`
+     选中 `bg-accent text-accent-foreground`；未选中 `text-muted-foreground hover:…`
+     图标：14×14，官方原 SVG（`data/official-category-icons.json`）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-filterbar {
+  display: flex;
+  flex: none;
+  min-width: 0;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+/* 需要换行的场合（很窄的容器里）显式加这个修饰类 */
+.o-filterbar--wrap {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+.o-filterchip {
+  display: inline-flex;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: var(--o-radius-sm);
+  background: transparent;
+  padding: 0 10px;
+  color: var(--o-muted-foreground);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.o-filterchip:hover {
+  color: var(--o-foreground);
+}
+.o-filterchip[data-checked] {
+  background: var(--o-accent);
+  color: var(--o-accent-foreground);
+}
+.o-filterchip > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.o-filterchip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   官方下拉菜单（共享 `Select` 的弹层皮）
+   官方 `Bf` SelectContent：`z-50 min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md
+     border bg-popover text-popover-foreground shadow-md` + viewport `p-1`
+   官方 `Pd` SelectItem：`relative flex w-full cursor-default select-none items-center rounded-sm
+     py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground`
+   用法：`<Select menuClassName="o-menu" … />`（弹层 Portal 到 body，所以 `.o-menu` 也要挂 token）
+   ══════════════════════════════════════════════════════════════════════ */
+.o-menu.o-menu {
+  min-width: 8rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid var(--o-border);
+  border-radius: var(--o-radius); /* 官方 SelectContent 是 `rounded-md` = 10px */
+  background: var(--o-popover);
+  padding: 4px;
+  color: var(--o-popover-foreground);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+/* 弹层里的滚动条：官方是原生细条，MTV 的全局悬浮滑条会飘到视口左侧（用户点名要去掉） */
+.o-menu[data-overlay-scrollbar='off']::-webkit-scrollbar,
+.o-dialog__body[data-overlay-scrollbar='off']::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.o-menu[data-overlay-scrollbar='off'],
+.o-dialog__body[data-overlay-scrollbar='off'] {
+  scrollbar-width: none;
+}
+.o-menu.o-menu .ui-menu__item {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--o-radius-sm);
+  background: transparent;
+  padding: 6px 8px;
+  color: var(--o-popover-foreground);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: default;
+}
+.o-menu.o-menu .ui-menu__item:hover,
+.o-menu.o-menu .ui-menu__item:focus-visible {
+  background: var(--o-accent);
+  color: var(--o-accent-foreground);
+  outline: none;
+}
+.o-menu.o-menu .ui-menu__item.is-active {
+  background: var(--o-accent);
+  color: var(--o-accent-foreground);
+}
+.o-menu.o-menu .ui-menu__item.is-disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+.o-menu.o-menu .ui-menu__label {
+  display: block;
+  padding: 6px 8px 2px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+/* —— 浅色覆盖 —— */
+[data-theme='light'] .o-footer {
+  border-top-color: var(--theme-border);
+}
+[data-theme='light'] .o-empty__title {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-empty__desc,
+[data-theme='light'] .o-empty__icon,
+[data-theme='light'] .o-card__meta,
+[data-theme='light'] .o-state {
+  color: var(--theme-text-muted);
+}
+[data-theme='light'] .o-icon-btn {
+  color: var(--theme-text-secondary);
+}
+[data-theme='light'] .o-icon-btn:hover:not(:disabled) {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-check {
+  border-color: var(--primary);
+}
+[data-theme='light'] .o-check:checked {
+  background: var(--primary);
+  color: #ffffff;
+}
+[data-theme='light'] .o-list,
+[data-theme='light'] .o-kind {
+  border-color: var(--theme-border);
+}
+[data-theme='light'] .o-list__head {
+  background: rgba(51, 54, 77, 0.05);
+  border-bottom-color: var(--theme-border);
+}
+[data-theme='light'] .o-list__row {
+  border-bottom-color: var(--theme-border);
+}
+[data-theme='light'] .o-list__row:hover,
+[data-theme='light'] .o-list__row--editing {
+  background: var(--theme-hover);
+}
+[data-theme='light'] .o-list__copy > strong {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-list__copy > small,
+[data-theme='light'] .o-list__empty,
+[data-theme='light'] .o-list__head {
+  color: var(--theme-text-muted);
+}
+[data-theme='light'] .o-card__summary {
+  color: var(--theme-text);
+  border-bottom-color: var(--theme-border);
+}
+[data-theme='light'] .o-kind {
+  background: var(--theme-hover);
+  color: var(--theme-text);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MTV 自绘编辑器在官方弹窗里的**取值归一化**
+   `provider-protocol-*`（调用协议编辑器）官方没有对应组件 —— 结构照 MTV，
+   但**颜色 / 圆角 / 边框 / 字号 / 焦点环全部换成官方 token**（用户要求：暗色=官方值）。
+   选择器多一层 `.o-dialog`，优先级必然盖过 `settings.css` 里那批 `--theme-*` / `--white-alpha-*` 值。
+   ══════════════════════════════════════════════════════════════════════ */
+.o-dialog .provider-protocol-editor {
+  margin-top: 0;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08); /* 官方 border-border/80 */
+  border-radius: var(--o-radius-lg);
+  background: rgba(43, 43, 43, 0.3);           /* 官方 bg-muted/30 */
+}
+.o-dialog .provider-protocol-testrun,
+.o-dialog .provider-protocol-form-section {
+  border-top-color: rgba(255, 255, 255, 0.06); /* 官方 border-border/60 */
+}
+.o-dialog .provider-protocol-editor-head strong,
+.o-dialog .provider-protocol-section-title,
+.o-dialog .provider-protocol-json-guide-title strong {
+  color: var(--o-foreground);
+}
+.o-dialog .provider-protocol-editor-head span,
+.o-dialog .provider-protocol-field > span,
+.o-dialog .provider-protocol-full-json > label,
+.o-dialog .provider-protocol-json-guide-title,
+.o-dialog .provider-protocol-json-help dt,
+.o-dialog .provider-protocol-json-help dd,
+.o-dialog .provider-protocol-json-help p {
+  color: var(--o-muted-foreground);
+}
+.o-dialog .provider-protocol-section-title svg,
+.o-dialog .provider-protocol-json-guide-title svg {
+  color: var(--o-primary);
+}
+.o-dialog .provider-protocol-json-field > small {
+  color: var(--o-destructive-foreground);
+}
+.o-dialog .provider-protocol-field input,
+.o-dialog .provider-protocol-field select,
+.o-dialog .provider-protocol-field textarea {
+  border: 1px solid var(--o-input);
+  border-radius: var(--o-radius-sm);
+  background: transparent;
+  color: var(--o-foreground);
+  font-size: 14px;
+}
+.o-dialog .provider-protocol-field input,
+.o-dialog .provider-protocol-field select {
+  height: 36px; /* 官方 Input `h-9` */
+  padding: 0 12px;
+}
+.o-dialog .provider-protocol-field textarea {
+  padding: 8px 12px;
+}
+.o-dialog .provider-protocol-editor.is-small .provider-protocol-field input,
+.o-dialog .provider-protocol-editor.is-small .provider-protocol-field select {
+  height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+.o-dialog .provider-protocol-editor.is-small .provider-protocol-field textarea {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.o-dialog .provider-protocol-field input::placeholder,
+.o-dialog .provider-protocol-field textarea::placeholder {
+  color: var(--o-muted-foreground);
+}
+.o-dialog .provider-protocol-field input:focus,
+.o-dialog .provider-protocol-field select:focus,
+.o-dialog .provider-protocol-field textarea:focus {
+  border-color: var(--o-ring);
+  background: transparent;
+  box-shadow: 0 0 0 1px var(--o-ring);
+}
+.o-dialog .provider-protocol-field textarea[aria-invalid='true'] {
+  border-color: var(--o-destructive);
+}
+.o-dialog .provider-protocol-view-tabs {
+  height: 36px;
+  border-color: var(--o-input);
+  border-radius: var(--o-radius-sm);
+  background: transparent;
+}
+.o-dialog .provider-protocol-view-tabs button {
+  height: 28px;
+  border-radius: var(--o-radius-sm);
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+}
+.o-dialog .provider-protocol-view-tabs button.is-active {
+  background: var(--o-secondary);
+  color: var(--o-secondary-foreground);
+}
+.o-dialog .provider-protocol-editor.is-small .provider-protocol-view-tabs {
+  height: 36px;
+}
+.o-dialog .provider-protocol-editor.is-small .provider-protocol-view-tabs button {
+  height: 28px;
+  padding: 0 10px;
+}
+.o-dialog .provider-protocol-json-variables,
+.o-dialog .provider-protocol-json-help,
+.o-dialog .provider-protocol-response-preview {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--o-radius-lg);
+  background: rgba(43, 43, 43, 0.2); /* 官方 bg-muted/20 */
+}
+.o-dialog .provider-protocol-json-variable-list code,
+.o-dialog .provider-protocol-json-help code {
+  border-radius: var(--o-radius-sm);
+  background: var(--o-muted);
+  color: var(--o-text-secondary);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.o-dialog .provider-protocol-response-result {
+  border-color: rgba(255, 255, 255, 0.08);
+  border-radius: var(--o-radius-lg);
+  background: rgba(43, 43, 43, 0.3);
+}
+.o-dialog .provider-protocol-response-result strong,
+.o-dialog .provider-protocol-response-result code {
+  color: var(--o-text-primary);
+}
+.o-dialog .provider-protocol-response-result > code.is-matched {
+  color: var(--o-tap-state-success);
+}
+.o-dialog .provider-protocol-toggle input,
+.o-dialog .provider-protocol-response-preview input[type='checkbox'] {
+  accent-color: var(--o-primary);
+}
+.o-dialog .provider-protocol-error {
+  color: var(--o-destructive-foreground);
+}
+.o-dialog .provider-protocol-field,
+.o-dialog .provider-protocol-field textarea {
+  min-width: 0;
+}
+.o-dialog .provider-protocol-field input,
+.o-dialog .provider-protocol-field select,
+.o-dialog .provider-protocol-field textarea {
+  overflow-wrap: anywhere;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   官方没有对应页面的那几个 MTV 页签（存储健康 / 文件与应用 / MCP 控制 /
+   插件 / 子代理 / 3D 导演台资源）继续只用**官方词汇**拼版式。
+   下面这批是它们需要、而之前那批里还没有的零件 —— 尺寸/色值/圆角一律取官方 token：
+     · 底 #0f0f0f(`--o-background`) · 面 #1f1f1f(`--o-card`) · 边 `--o-border`(rgba(255,255,255,.1))
+     · 主色 #1fa2dc(`--o-primary`) · 状态 info#2196f3 / success#4caf50 / warning#ff9800 / error#f44336
+     · 圆角：rounded-md=10px(`--o-radius`) / lg=12px(`--o-radius-lg`) / sm=6px(`--o-radius-sm`)
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── 只读值框（路径 / 版本号这类「长且要能整段读到」的值）──
+   官方 Input 是 `h-9`（36px）固定高 —— 长路径会被裁掉，算 BUG。
+   所以这里保留官方 Input 的边框/圆角/内边距，改成**可换行**的块。
+   `o-mono` 让路径用官方的 `--font-mono`。 */
+.o-path {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--o-input);
+  border-radius: var(--o-radius); /* 官方 Input 同款 `rounded-md` = 10px */
+  background: rgba(43, 43, 43, 0.2); /* 官方 bg-muted/20 */
+  padding: 7px 12px;
+  color: var(--o-foreground);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  user-select: text;
+}
+.o-path--empty {
+  color: var(--o-muted-foreground);
+  font-style: italic;
+}
+.o-mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.o-path.o-mono,
+.o-mono .o-mono,
+.o-path .o-mono {
+  font-size: 12px;
+}
+
+/* ── 代码 / 配置片段（官方面板里的 `<pre>` 取值块）── */
+.o-code {
+  display: block;
+  max-height: 200px;
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid var(--o-input);
+  border-radius: var(--o-radius);
+  background: rgba(43, 43, 43, 0.2);
+  padding: 8px 12px;
+  color: var(--o-text-secondary);
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* ── 指标块（存储健康的总占用 / 可释放那种「小标题 + 大数字」）──
+   官方在「用量看板」里用的是 `text-2xl font-semibold` 的数字 + `text-xs text-muted-foreground` 的标签。 */
+.o-metrics {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 480px) {
+  .o-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.o-metric__label {
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+}
+.o-metric__value {
+  margin-top: 2px;
+  color: var(--o-foreground);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+  overflow-wrap: anywhere;
+}
+.o-metric__value[data-tone='success'] {
+  color: var(--o-tap-state-success);
+}
+.o-metric__value[data-tone='warning'] {
+  color: var(--o-tap-state-warning);
+}
+.o-metric__hint {
+  margin-top: 2px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+/* ── 细进度条（浏览器存储配额）──
+   官方用量条：底 `bg-muted`（#2b2b2b），条用主色。 */
+.o-progress {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--o-muted);
+}
+.o-progress__bar {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--o-primary);
+  transition: width 0.3s ease-out;
+}
+.o-progress__bar[data-tone='warning'] {
+  background: var(--o-tap-state-warning);
+}
+.o-progress__bar[data-tone='danger'] {
+  background: var(--o-tap-state-error);
+}
+
+/* ── 图例色块 / 状态点 ── */
+.o-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 2px;
+}
+.o-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 9999px;
+}
+
+/* ── 卡片左侧的图标底座（官方卡片行里的 `size-9 rounded-lg bg-muted` 那种）── */
+.o-icon-tile {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--o-radius-lg); /* 官方卡片里的图标座是 `rounded-lg` = 12px */
+  background: var(--o-muted);
+  color: var(--o-foreground);
+}
+.o-icon-tile--primary {
+  background: rgba(31, 162, 220, 0.14);
+  color: var(--o-primary);
+}
+.o-icon-tile--danger {
+  background: rgba(244, 67, 54, 0.14);
+  color: var(--o-tap-state-error);
+}
+.o-icon-tile--warning {
+  background: rgba(255, 152, 0, 0.14);
+  color: var(--o-tap-state-warning);
+}
+.o-icon-tile > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+/* 危险色的幽灵文字按钮（官方没有「红字幽灵按钮」，但破坏性动作必须让红字压过
+   `o-btn--ghost:hover` 的 `color: var(--o-accent-foreground)` ⇒ 这里连 :hover 一起写，
+   且本节在文件更后面，同优先级下后写的生效）。 */
+.o-danger-t,
+.o-danger-t:hover {
+  color: var(--o-tap-state-error);
+}
+
+/* ── 拖放安装区 ──
+   官方没有 dropzone 组件 ⇒ 用官方 token 组合：虚线 `--o-input` 边、`rounded-xl`（12px）、
+   `bg-muted/20` 底、hover / dragover 换主色边。内容三行（标题 14/500 · 圆形图标座 · 说明 12）。 */
+.o-dropzone {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 132px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--o-input);
+  border-radius: var(--o-radius-lg);
+  background: rgba(43, 43, 43, 0.2);
+  padding: 24px 16px;
+  color: var(--o-muted-foreground);
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.o-dropzone:hover:not(:disabled),
+.o-dropzone[data-dragover] {
+  border-color: var(--o-primary);
+  background: rgba(43, 43, 43, 0.35);
+}
+.o-dropzone:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.o-dropzone:focus-visible {
+  outline: none;
+  border-color: var(--o-ring);
+  box-shadow: 0 0 0 1px var(--o-ring);
+}
+.o-dropzone__title {
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.o-dropzone__icon {
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: var(--o-muted);
+  color: var(--o-muted-foreground);
+}
+.o-dropzone__hint {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--o-muted-foreground);
+  overflow-wrap: anywhere;
+}
+[data-theme='light'] .o-dropzone {
+  background: rgba(51, 54, 77, 0.04);
+}
+[data-theme='light'] .o-dropzone:hover:not(:disabled),
+[data-theme='light'] .o-dropzone[data-dragover] {
+  background: rgba(51, 54, 77, 0.07);
+}
+[data-theme='light'] .o-dropzone__icon {
+  background: var(--theme-hover);
+  color: var(--theme-text-muted);
+}
+
+/* ── 官方「权限」页的版式（逐字对照官方 `index-BsHyQ2qj.js` 的 `Lal` / `Ral` / `DQ` / `Pal`）──
+   官方这一页**不是**通用的设置面板版式：它自己是一个**居中定宽列**
+     `div.mx-auto.flex.w-full.max-w-2xl.flex-col.gap-8`   （max-w-2xl = 672px，段间距 32px）
+     + 页头 `h2.font-semibold.text-foreground.text-xl`（20/600）+ `p.mt-1.text-sm`（14，间距 4px）
+   每个分组 `DQ`：`section.space-y-3` > `div.flex.items-start.justify-between.gap-3`
+     > `div.min-w-0.space-y-1` > `h3.font-medium.text-foreground.text-sm.tracking-tight`
+                              + `p.text-muted-foreground.text-xs.leading-5`（**12px**，不是 14px） */
+.o-perm-page {
+  display: flex;
+  width: 100%;
+  max-width: 672px; /* 官方 `max-w-2xl` */
+  margin: 0 auto;
+  flex-direction: column;
+  gap: 32px; /* 官方 `gap-8` */
+}
+.o-perm-head-title {
+  color: var(--o-foreground);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+  overflow-wrap: anywhere;
+}
+.o-perm-head-desc {
+  margin-top: 4px; /* 官方 `mt-1` */
+  color: var(--o-muted-foreground);
+  font-size: 14px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.o-perm-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* 官方 `space-y-3` */
+  min-width: 0;
+}
+.o-perm-section__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.o-perm-section__label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px; /* 官方 `space-y-1` */
+}
+.o-perm-section__title {
+  color: var(--o-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.025em; /* 官方 `tracking-tight` */
+}
+.o-perm-section__desc {
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+[data-theme='light'] .o-perm-head-title,
+[data-theme='light'] .o-perm-section__title {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-perm-head-desc,
+[data-theme='light'] .o-perm-section__desc {
+  color: var(--theme-text-muted);
+}
+
+/* ── 外链（官方 `text-primary underline-offset-4 hover:underline`）── */
+.o-link {
+  color: var(--o-primary);
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.o-link:hover {
+  text-decoration: underline;
+}
+
+/* ── 可展开的 details（官方没有对应组件 ⇒ 用官方 chip 形态的 `summary`）── */
+.o-details > summary {
+  list-style: none;
+}
+.o-details > summary::-webkit-details-marker {
+  display: none;
+}
+.o-details__body {
+  margin-top: 6px;
+  color: var(--o-muted-foreground);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+}
+
+/* —— 浅色覆盖（这一批同样不能把暗色写死的值留在白底上）—— */
+[data-theme='light'] .o-path,
+[data-theme='light'] .o-code {
+  background: rgba(51, 54, 77, 0.04);
+}
+[data-theme='light'] .o-icon-tile {
+  background: var(--theme-hover);
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-metric__value {
+  color: var(--theme-text);
+}
+[data-theme='light'] .o-metric__label,
+[data-theme='light'] .o-metric__hint,
+[data-theme='light'] .o-details__body,
+[data-theme='light'] .o-code {
+  color: var(--theme-text-muted);
+}
+[data-theme='light'] .o-progress {
+  background: rgba(51, 54, 77, 0.08);
+}

@@ -1,0 +1,213 @@
+/* ============================================
+   AI Canvas — Styles Entry Point
+   All partials imported here; main.tsx imports this file.
+   ============================================ */
+
+@import './styles/base.css';
+@import './styles/canvas-nav.css';
+@import './styles/official-icon.css';
+@import './styles/canvas-control-pill.css';
+@import './styles/ui-kit.css';
+@import './styles/cursors.css';
+@import './styles/reactflow.css';
+@import './styles/nodes.css';
+@import './styles/nodes-text.css';
+@import './styles/media-viewer.css';
+/* 图像卡工具栏 + 抠图编辑器 + 自定义宫格（`.multigrid-*` / `.matting-*` / `.customgrid-*` /
+   `.image-editor-zoom-*` —— 这些选择器**全仓只此一处定义**，见 `tests/styles` 与
+   `D:\DEEPSEEK` 的选择器比对）。⚠️ 本行曾被「插入 nodes-mockup」的补丁整行顶掉，
+   导致这几个编辑器整片掉样式（不报错）—— 现按原位置补回，**不要**再删。 */
+@import './styles/nodes-image.css';
+
+
+@import './styles/nodes-mockup.css';
+@import './styles/nodes-audio.css';
+@import './styles/nodes-animation.css';
+@import './styles/panorama-core.css';
+@import './styles/panorama-viewer.css';
+@import './styles/nodes-panorama.css';
+@import './styles/nodes-storyboard.css';
+@import './styles/nodes-shotlist.css';
+@import './styles/nodes-director.css';
+@import './styles/nodes-group.css';
+/* 画布「对比」节点 + Bencho Image compare 组件（MIT · bencho.dev/licence） */
+@import './styles/image-compare.css';
+/* 官方 PILE（堆叠）全套 CSS —— `zoom-slider-B3yfHu80.css` 里 44 处 pile 命中逐字 */
+@import './styles/nodes-pile.css';
+@import './styles/prompt.css';
+@import './styles/mention-picker.css';
+@import './styles/preset-manager.css';
+@import './styles/model-selector.css';
+@import './styles/sidebar.css';
+@import './styles/panels.css';
+/* 画布统计弹窗 —— 必须排在 panels.css 之后（要压过 .glass-panel 的面板底 / 描边 / 阴影） */
+@import './styles/canvas-stats.css';
+/* 品牌火焰 logo（官方 artigine `LogoShader`）：画布内顶部按钮 + 工作空间两枚品牌标 */
+@import './styles/brand-flame-button.css';
+/* 官方 TapNow **AI 助手侧栏**的版式词汇表（`.c-*`，值全部 9444 实测）—— 排在 panels.css 之后，
+   同优先级下能盖住 panels.css 里那批 MTV 自绘的 `.chat-panel-*` 值 */
+@import './styles/official-chat.css';
+/* 官方 tippy 弹层的全部样式（live 实测：官方**没有**引 tippy 核心 CSS，只有两条规则）——
+   `@` 建议弹层用官方 tippy.js 定位，这里补齐 live 真实加载到的那两条。 */
+@import './styles/official-tippy.css';
+@import './styles/quality-ratio.css';
+@import './styles/canvas-context.css';
+@import './styles/canvas-radial-menu.css';
+@import './styles/tooltip.css';
+@import './styles/crop.css';
+@import './styles/image-crop-float.css';
+@import './styles/image-redraw-float.css';
+/* 无损改图的宿主约束（复用 .irf-* 词汇表，只补宿主最小宽度与文字兜底）—— 必须排在 redraw 之后 */
+@import './styles/image-lossless-float.css';
+@import './styles/image-outpaint-float.css';
+@import './styles/image-tools-float.css';
+@import './styles/composer.css';
+@import './styles/backgrounds.css';
+@import './styles/toolbar-editor.css';
+@import './styles/separators.css';
+@import './styles/character-library.css';
+@import './styles/canvas-drawing.css';
+@import './styles/video-editor.css';
+@import './styles/range-controls.css';
+@import './styles/minimap-stats.css';
+/* 官方「节点生成中」动效 —— 从官方 <style> 模板逐字抽取（勿改写 ✓ 见文件头注释） */
+@import './styles/node-loading.css';
+/* 官方「通用对话框」(`ea`) 的入场/出场 —— tailwindcss-animate 在 MTV 里不存在 ⇒ 手写等价实现 */
+@import './styles/official-modal.css';
+/* 官方「节点搜索」(`Vxe`)：目标节点高亮 `.node-search-focus-highlight`（`zoom-slider-B3yfHu80.css` 逐字） */
+@import './styles/node-search.css';
+
+/* ⚠️ 这三份原来是在 `SettingsPanel.tsx` 里 import 的，而 `SettingsPanel` 是
+   `React.lazy(() => import(...))` ⇒ **只有打开过一次设置面板，这些 CSS 才会注入**。
+   但助手里的「子智能体」面板（`SubAgentPanel` → `SubAgentSettings`）用的是**同一套** `.o-*` 控件
+   与 `--o-*` token：不打开设置就完全没样式 —— 实测（CDP）在没开过设置的状态下：
+     · `getComputedStyle(el).getPropertyValue('--o-primary')` → **空串**
+     · 样式表里找不到 `.o-scope` / `.o-btn--default` 规则
+     · 于是「新建」键底色透明、`.o-input` 没有边框内边距（用户在助手里看到的就是这个）、
+       `Select` 的 `o-menu` 弹层也没被改造
+   ⇒ 改到全局入口按**同样的相对顺序**（settings → settings-panel → official-controls）引入，
+     既保持原本「official-controls 最后加载、能盖住 settings-panel 同优先级值」的层叠关系，
+     又让它随主 CSS 一起在启动时就可用。
+   这三份里的选择器都是组件级的（`.settings-*` / `.o-*` / `.dreamina-*` …），提前加载只是让规则
+   更早可用，不会命中原本不存在的元素。 */
+@import './styles/settings.css';
+@import './styles/settings-panel.css';
+@import './styles/official-controls.css';
+/* 摄影机控制（官方 Lens Combo）—— 官方原子类的落点 */
+@import './styles/camera-control.css';
+/* 官方「国家 / 地区 · 城市 · 语言」下拉外壳（`PSl`/`TSl`/语言 select） */
+@import './styles/official-combobox.css';
+/* 设置 → 模型映射（多平台接入 / 官方名称展示）*/
+@import './styles/model-mapping.css';
+@import './styles/workspace.css';
+/* 官方「当前视窗没有节点」胶囊（`fwt` @3561288）—— 只有一条 v4 `shadow-lg` 取值链适配，见文件头 */
+@import './styles/canvas-viewport-empty-hint.css';
+/* 启动画面（开屏）已按用户要求删除：`OrbitSplash.tsx` 与 `styles/orbit-splash.css` 一并移除。 */
+
+/* Global overlay scrollbars are managed by OverlayScrollbarLayer. */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar,
+[data-overlay-scrollbar][data-overlay-scrollbar]::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+[data-overlay-scrollbar][data-overlay-scrollbar] {
+  scrollbar-width: none;
+}
+
+.overlay-scrollbar-layer {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.overlay-scrollbar-layer--root {
+  position: fixed;
+}
+
+.overlay-scrollbar-thumb {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(
+    var(--overlay-scrollbar-x, -100px),
+    var(--overlay-scrollbar-y, -100px),
+    0
+  );
+  transition: opacity 160ms ease;
+  cursor: grab;
+  touch-action: none;
+}
+
+.overlay-scrollbar-thumb::before {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--scrollbar-thumb);
+  content: '';
+  transition: width 120ms ease, height 120ms ease, background 120ms ease;
+}
+
+.overlay-scrollbar-thumb.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.overlay-scrollbar-thumb:hover::before {
+  background: var(--scrollbar-thumb-hover);
+}
+
+.overlay-scrollbar-thumb:active {
+  cursor: grabbing;
+}
+
+.overlay-scrollbar-thumb:active::before {
+  background: var(--scrollbar-thumb-active);
+}
+
+.overlay-scrollbar-thumb--vertical {
+  width: 8px;
+  height: var(--overlay-scrollbar-size, 36px);
+}
+
+.overlay-scrollbar-thumb--vertical::before {
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+}
+
+.overlay-scrollbar-thumb--vertical:hover::before,
+.overlay-scrollbar-thumb--vertical:active::before {
+  width: 6px;
+}
+
+.overlay-scrollbar-thumb--horizontal {
+  width: var(--overlay-scrollbar-size, 36px);
+  height: 8px;
+}
+
+.overlay-scrollbar-thumb--horizontal::before {
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 4px;
+}
+
+.overlay-scrollbar-thumb--horizontal:hover::before,
+.overlay-scrollbar-thumb--horizontal:active::before {
+  height: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay-scrollbar-thumb,
+  .overlay-scrollbar-thumb::before {
+    transition: none;
+  }
+}

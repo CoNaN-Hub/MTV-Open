@@ -1,0 +1,181 @@
+/* ============================================================
+   OfficialCombobox —— 官方「国家 / 地区 · 城市 · 语言」下拉的外壳
+   出处：index-BiTZf8mJ.js 的 `PSl` @12018716 / `TSl` @12017267 / 语言 @12037509
+   官方全是 tailwind 原子类，这里落成**同名尺寸**的语义类（值逐条对齐）。
+   ============================================================ */
+
+.o-combobox {
+  position: relative;
+  width: 100%;
+}
+
+/* ── 触发器 ──
+   官方：`flex h-9 w-full items-center justify-between gap-2 whitespace-nowrap px-3 py-2
+          transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50
+          [&[data-state=open]>svg]:rotate-180`
+        + 空值时 `text-secondary-accent`（#646464）
+        + triggerClassName(`L6`) —— 皮肤由调用方给（MTV 是 `.o-combobox--field`） */
+.o-combobox__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  height: 36px; /* h-9 */
+  padding: 8px 12px; /* px-3 py-2 */
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+.o-combobox__trigger:hover { background: rgba(255, 255, 255, 0.1); }
+.o-combobox__trigger:disabled { cursor: not-allowed; opacity: 0.5; }
+.o-combobox__trigger.is-empty { color: #646464; } /* text-secondary-accent（官方 `--secondary-accent`）*/
+.o-combobox__value {
+  min-width: 0; /* min-w-0 */
+  flex: 1 1 0%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.o-combobox__chevron {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform 0.2s;
+}
+.o-combobox__trigger[data-state='open'] .o-combobox__chevron { transform: rotate(180deg); } /* [&[data-state=open]>svg]:rotate-180 */
+
+/* ── 面板 ──
+   官方 `PopoverContent`：`w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-md
+        border-solid border border-white/5 bg-popover p-0 text-popover-foreground shadow-md`
+   ⚠️ `rounded-md` = calc(var(--radius) - 2px) = 12 - 2 = **10px**（官方 `--radius:.75rem`）*/
+.o-combobox__panel {
+  position: fixed;
+  z-index: 320;
+  overflow: hidden;
+  padding: 0; /* p-0 */
+  border: 1px solid rgba(255, 255, 255, 0.05); /* border-white/5 */
+  border-radius: 10px; /* rounded-md */
+  background: var(--popover, #262626);
+  color: var(--popover-foreground, #ccc);
+  box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1));
+}
+
+/* ── 搜索行（官方 `CommandInput` 外框）──
+   `flex items-center border-b border-border px-3` + 图标 `mr-2 h-4 w-4 shrink-0 opacity-50`
+   + input `flex h-9 w-full rounded-md bg-transparent py-3 text-sm outline-none
+            placeholder:text-muted-foreground` */
+.o-combobox__search {
+  display: flex;
+  align-items: center;
+  padding: 0 12px; /* px-3 */
+  border-bottom: 1px solid var(--border, #ffffff1a);
+}
+.o-combobox__search-icon {
+  margin-right: 8px; /* mr-2 */
+  flex-shrink: 0;
+  opacity: 0.5;
+  color: var(--muted-foreground, #7a7a7a);
+}
+.o-combobox__input {
+  display: flex;
+  width: 100%;
+  height: 36px; /* h-9 */
+  padding: 12px 0; /* py-3 */
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px; /* text-sm */
+  outline: none;
+}
+.o-combobox__input::placeholder { color: var(--muted-foreground, #7a7a7a); } /* placeholder:text-muted-foreground */
+
+/* ── 列表 ──
+   官方 `Command` = `rounded-md bg-popover p-1` ；`CommandList` = `max-h-[260px] gap-0 px-0 py-1`
+   ⚠️ 滑条一律不显示（用户 2026 点名「不要出现滑条」）：原生条去掉，MTV 的全局悬浮滑条
+      由 JSX 上的 `data-overlay-scrollbar="off"` 关掉 ⇒ 列表照样能滚，但看不见条。 */
+.o-combobox__list {
+  max-height: 260px;
+  padding: 4px; /* p-1（Command 那层）*/
+  background: var(--popover, #262626);
+  border-radius: 10px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none; /* Firefox / 新 Chromium */
+}
+.o-combobox__list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ── 行（官方 `CommandItem` + cmdk 基线）──
+   cmdk 基线：`relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none`
+   官方追加：`text-popover-foreground data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground`
+   ⇒ 高亮底 = `--accent`(#404040)、圆角 = `rounded-sm` = 12 - 4 = **8px** */
+.o-combobox__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 8px; /* px-2 py-1.5 */
+  border: 0;
+  border-radius: 8px; /* rounded-sm */
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 14px; /* text-sm */
+  text-align: left;
+  cursor: default;
+  user-select: none;
+  outline: none;
+}
+.o-combobox__item.is-active {
+  background: var(--accent, #404040); /* data-[selected=true]:bg-accent */
+  color: var(--accent-foreground, #fafafa);
+}
+.o-combobox__item-label {
+  min-width: 0; /* min-w-0 */
+  flex: 1 1 0%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 勾：`ml-auto h-4 w-4` + 选中 `opacity-100` / 否则 `opacity-0` */
+.o-combobox__check {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0;
+}
+.o-combobox__check.is-on { opacity: 1; }
+
+/* 空态：`py-6 text-center text-sm text-muted-foreground` */
+.o-combobox__empty {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--muted-foreground, #7a7a7a);
+}
+
+/* ── 字段皮肤（对官方 `triggerClassName={L6}`）──
+   官方共享字段皮肤：`rounded-lg border border-white/10 bg-white/5 shadow-none
+   text-sm font-normal leading-5 text-card-foreground placeholder:text-xs` */
+.o-combobox--field .o-combobox__trigger {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px; /* rounded-lg = var(--radius) */
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: none;
+  color: var(--card-foreground, #fafafa);
+  font-size: 14px; /* text-sm */
+  font-weight: 400;
+  line-height: 20px; /* leading-5 */
+}
+/* 官方 `Of className={clsx(L6, 'w-full hover:bg-white/10')}` —— 语言那处显式再挂一次 hover 底 */
+.o-combobox--field .o-combobox__trigger:hover { background: rgba(255, 255, 255, 0.1); }
+.o-combobox--field .o-combobox__trigger.is-empty { color: #646464; }

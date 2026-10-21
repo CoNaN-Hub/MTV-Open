@@ -1,0 +1,94 @@
+/* ============================================
+   Audio Node — waveform, playback progress
+   ============================================ */
+
+/* ── Audio Waveform ── */
+/* 卡面内的媒体区用**卡面本色** `--theme-node-bg`（原来是面板 token `--theme-surface` 偏蓝 ✗）*/
+.audio-waveform-wrapper {
+  position: relative;
+  width: 100%;
+  cursor: var(--cursor-pointer, pointer);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--theme-node-bg);
+}
+
+.audio-waveform-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 暗色主题使用深色蒙版与亮橙图标；浅色主题在下方使用独立的柔和配色。 */
+.audio-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(251, 146, 60, 0.9);
+  transition: background 0.2s, color 0.2s;
+}
+
+.audio-waveform-wrapper:hover .audio-play-overlay {
+  background: var(--black-alpha-50);
+  color: #fb923c;
+}
+
+/* 浅色主题保持波形明亮，圆形衬底将播放图标与波形分开。 */
+[data-theme='light'] .audio-waveform-wrapper {
+  background: color-mix(in srgb, var(--node-audio) 10%, var(--theme-surface));
+}
+
+[data-theme='light'] .audio-play-overlay {
+  background: transparent;
+  color: var(--node-audio-light);
+}
+
+[data-theme='light'] .audio-play-overlay svg {
+  box-sizing: content-box;
+  padding: 8px;
+  border-radius: 50%;
+  background: var(--theme-surface);
+  box-shadow: 0 0 0 1px var(--node-audio-bg);
+}
+
+[data-theme='light'] .audio-waveform-wrapper:hover .audio-play-overlay {
+  background: var(--node-audio-bg);
+  color: var(--node-audio-light);
+}
+
+/* ── Time label (bottom-left during playback) ── */
+.audio-progress-bar-container {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.audio-time-label {
+  font-size: 9px;
+  color: var(--node-audio-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.audio-progress-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--node-audio-light);
+  animation: audio-dot-blink 0.8s ease-in-out infinite;
+}
+
+@keyframes audio-dot-blink {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}

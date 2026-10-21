@@ -1,0 +1,2560 @@
+/*
+ * official-chat.css —— 官方 TapNow **AI 助手侧栏**的版式词汇表（`.c-*`）
+ *
+ * 出处：`E:\TapNow-0.4.66\resources\web\assets\index-BsHyQ2qj.js` + 9444 实测
+ *       （2560×1370，助手面板 480×1370）
+ *
+ * 官方实测（逐条对应下面每一条）：
+ *   · 面板 token：`--chat-background:#141414`（面板底）· `--chat-bubble-header:#1a1a1a`（输入卡/建议卡底）
+ *     · `--text-text-primary:#e6e6e6` · `--text-text-secondary:#9c9c9c` · `--border:#ffffff1a`
+ *   · 面板 `DIV.h-full.bg-chat-background.flex.flex-col.overflow-hidden.relative`
+ *     480×1370 · bg #141414 · `border-radius:16px 0 0 16px`（只圆左边两角）
+ *   · 头部 `flex items-stretch justify-between gap-2 pt-4 pb-1 pr-4`
+ *     实测：480×60 · padding `16px 16px 4px 0` · gap 8px · **没有边框、没有玻璃底**
+ *     品牌侧 `flex flex-1 min-w-0 items-stretch gap-2 pl-2.5`（pl 10px）
+ *     标题按钮 `flex min-w-0 items-center gap-1 rounded-md px-1.5 py-0.5`
+ *       实测 24px 高 · 圆角 10px · `14px/500` · `rgba(245,245,245,.9)` · gap 4px
+ *     动作区 `flex h-10 shrink-0 items-center gap-3`（gap 12px）
+ *     图标按钮 `h-8 w-8 rounded-md` 实测 32×32 · 圆角 **10px** · 色 `rgba(247,247,247,.8)`
+ *   · 身体 `flex min-h-0 flex-1 select-none flex-col overflow-hidden` + `px-4`（左右 16px，**上下 0**）
+ *   · 空状态 `my-auto flex w-full flex-col py-4`
+ *     品牌行 `mb-3 flex items-center gap-1.5`（gap 6px）· 品牌标 24×24 圆形
+ *     问候 `H2.m-0.text-2xl.font-light.text-text-text-secondary` → 实测 **24px/300/32px/#9c9c9c**
+ *     主句 `P.mb-5.whitespace-pre-wrap.break-words.text-[28px].font-normal.leading-8.text-text-text-primary`
+ *       → 实测 **28px/400/32px/#e6e6e6** · mb-5 = 20px
+ *     建议卡 `flex min-w-0 gap-3 flex-row`（gap 12px）+ 卡：
+ *       `group/card relative flex min-w-0 cursor-pointer flex-col items-start gap-2 overflow-hidden`
+ *       实测 bg #1a1a1a · 圆角 **16px** · 边框 **0.5px rgba(255,255,255,.05)** · padding `16px 36px 16px 12px` · gap 8px
+ *       标签 `text-[13px] font-semibold leading-5` `rgba(255,255,255,.4)` → hover `.65`
+ *       标题 `text-sm font-medium leading-5` `rgba(255,255,255,.9)` → hover `#fff`
+ *       说明 `line-clamp-2 text-xs leading-4` `rgba(255,255,255,.45)`
+ *   · 输入卡 `relative rounded-2xl border-[0.5px] border-border bg-chat-bubble-header
+ *     shadow-[0_5px_10px_0_rgba(0,0,0,0.06)] backdrop-blur-[50px] transition-all duration-300`
+ *     实测 464×121（外层 `m-2 mt-0`）· 圆角 **16px** · 边框 **0.5px rgba(255,255,255,.1)**
+ *     · bg **#1a1a1a** · `box-shadow: 0 5px 10px 0 rgba(0,0,0,.06)` · `backdrop-filter: blur(50px)`
+ *     编辑区 `@container relative px-4 py-4`（16px）· 内层 `min-h-12`（48px）
+ *       编辑器 `tiptap ProseMirror px-3 pb-2` 实测 **14px/400/20px** · `min-height:48px`
+ *       占位符 `pointer-events-none absolute inset-x-0 top-0 z-20 grid text-sm leading-5` `white/40`
+ *     工具条 `flex h-10 min-w-0 items-center justify-between px-2 pb-2`
+ *       实测 40px 高 · padding `0 8px 8px`
+ *       附件圆钮 `relative flex size-[26px] rounded-full bg-white/10`
+ *       模式圆钮 `flex h-[26px] min-w-[26px] rounded-full px-[5px]` `14px/500` `white/90`
+ *       截图分裂钮 `flex h-7 items-center rounded-lg`（`h-7 w-7 rounded-l-lg` + `h-7 w-4 rounded-r-lg`，圆角 12px）
+ *       发送钮 `relative size-8 rounded-full bg-white` + 图标黑 32×32
+ *
+ * ⚠️ MTV 偏离（记账）：
+ *   1. 官方助手是**并排**在画布右侧的 flex 子项；MTV 是 `fixed` 自定位浮层 ⇒ 视觉结果一致（贴右/满高/只圆左角），
+ *      定位方式保留 MTV 的 `position: fixed`（见 `panels.css` 的 `.chat-panel`）。
+ *   2. 官方头部/输入区**没有玻璃拟态**。MTV 原来给两者都挂了 `--glass-panel-bg` + `backdrop-filter`
+ *      + 12px 渐变遮罩 ⇒ 本轮去掉，回到官方那种「面板底上直接排布」。
+ *   3. 官方只有暗色。MTV 有浅色主题 ⇒ `.c-*` 的浅色覆写单独写在本文件末尾（不是官方值，已标注）。
+ *   4. 官方用 tiptap；MTV 用自己的 `ChatComposerEditor`（contenteditable）⇒ 只对齐**外框与字号**，
+ *      编辑器内部（@ 引用、/ Skill、附件胶囊）保留 MTV 实现。
+ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   作用域 token（官方 `:root` 里那几个 chat 专用变量）
+   ★ round 103：`--c-*` 是**官方值的本地副本层**（报告 §9 实测：八个值 100% 与官方逐字相同，
+   官方名就写在右边注释里）⇒ 副本不再抄值，改为**直接引用官方令牌**。
+   官方逐字（`D:\DEEPSEEK\_official-css\index-BroFpZiQ.css`）：
+     `--chat-background:#141414`(@739987) · `--chat-bubble-header:#1a1a1a`(@740075) ·
+     `--chat-bubble-surface:#2e2e2e`(@740043) · `--chat-foreground:#d4d4d8`(@740015) ·
+     `--text-text-primary:#e6e6e6`(@740153) · `--text-text-secondary:#9c9c9c`(@740183) ·
+     `--muted-foreground:#7a7a7a`(@740124) · `--border:#ffffff1a`(@740531) —— 逐条**值相同，视觉零变化**。
+   ⚠️ 报告 §9.4 建议「删掉 `--c-*` 副本层、全文直接引用官方」，**本轮没这么做**：本文件末尾
+   @22xx 那五条浅色覆写是 `--c-*` 上的（用户口径 A 档：浅色字面值保留），删掉变量名会把浅色主题一起干掉
+   ⇒ 保留名字、只换值。浅色块（本文件 @2244-2248）**逐字未动**。
+   ══════════════════════════════════════════════════════════════════════ */
+.c-scope {
+  --c-chat-bg: var(--chat-background);
+  --c-bubble: var(--chat-bubble-header);       /* 输入卡 / 空状态建议卡 */
+  --c-bubble-surface: var(--chat-bubble-surface); /* 内容卡 / 用户气泡 */
+  --c-chat-fg: var(--chat-foreground);         /* 助手/用户正文色 */
+  --c-text-1: var(--text-text-primary);
+  --c-text-2: var(--text-text-secondary);
+  --c-muted: var(--muted-foreground);
+  --c-border: var(--border);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   消息行（官方 `MessageItem`，`page-DVqoHdTT.js` @851377 起）
+   官方结构：`<Row from={role}>` > `<Body data-message-body className="gap-3">` >
+     内容 + 助手动作行 `mt-2 -ml-1.5 flex` + `<span data-message-time>`
+   官方动作钮（逐字）：`rounded-sm h-6 w-6 [&_svg]:size-3.5 hover:bg-transparent
+     hover:[&_svg]:text-chat-foreground text-muted-foreground`（**hover 不变底，只把图标提亮**）
+   官方时间戳（逐字）：`inline-flex h-6 items-center whitespace-nowrap font-normal text-xs
+     leading-none text-muted-foreground/80`
+   ⚠️ 官方助手正文**没有气泡底**（就是面板底上的正文），只有内容卡/胶囊用 `--chat-bubble-surface`；
+      MTV 原来给助手正文套了 `rounded-2xl border` + MTV `canvas-*` 卡片底 + `backdrop-blur-sm` 的气泡 ⇒ 去掉。
+   ══════════════════════════════════════════════════════════════════════ */
+.c-msg {
+  /* 官方 `Message`（MAIN@2489700）：`group flex w-full max-w-[95%] flex-col gap-2`
+     + user 加 `is-user ml-auto justify-end`。 */
+  display: flex;
+  width: 100%;
+  max-width: 95%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px; /* 官方 `gap-2` */
+}
+.c-msg--user {
+  margin-left: auto;
+  align-items: flex-end;
+}
+.c-msg--assistant {
+  align-items: flex-start;
+}
+.c-msg__time {
+  display: inline-flex;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  color: rgba(122, 122, 122, 0.8); /* 官方 `text-muted-foreground/80` */
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.c-msg:hover .c-msg__time,
+.c-msg:focus-within .c-msg__time {
+  opacity: 1;
+}
+.c-msg__content {
+  /* 官方 `MessageContent`（MAIN@2489730）：`w-fit max-w-full min-w-0 flex flex-col gap-2
+     overflow-hidden text-[13px]`；正文本身 14px/1.75/tracking .01em。 */
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--c-chat-fg, #d4d4d8);
+  font-size: 13px;
+  /* 官方正文块 `leading-[1.65]`：user / assistant **同一个值**（原来只有 user 侧写了，
+     assistant 落到别处的 20px ⇒ 实测两侧行高不一致）。 */
+  line-height: 1.65;
+}
+/* 用户气泡：官方 `group-[.is-user]:rounded-lg group-[.is-user]:bg-surface-secondary
+   group-[.is-user]:px-4 group-[.is-user]:py-3`（#1f1f1f / 12px 圆角 / 16px 16px 内边距） */
+.c-msg__bubble {
+  /* 官方 user 气泡（`MessageContent` 的 `group-[.is-user]:*` 一组）：
+     `rounded-lg` = **8px**（不是 12px）、`px-4 py-3` = **16px / 12px**（不是四边 16px）、
+     `bg-surface-secondary` = #1f1f1f、`text-secondary-foreground` = #f0f0f0。 */
+  border-radius: 8px;
+  background: var(--surface-secondary, #1f1f1f);
+  padding: 12px 16px;
+  color: var(--secondary-foreground, #f0f0f0);
+}
+/* 助手正文：官方无气泡，就是面板底上的正文（`text-chat-foreground`） */
+.c-msg__plain {
+  padding: 0;
+}
+
+/* 官方 `XA`(Body) 的 `V("gap-3", (…有附加内容…) && "!w-full")`：
+   无附加内容 = `gap: 8px`（`gap-2`，已在上面的 `.c-msg__content` 里）；有附加内容 = **`gap: 12px` + 撑满整宽**。 */
+.c-msg__content--rich {
+  gap: 12px;
+  width: 100%;
+}
+/* 官方消息正文块（`g5` 里每个文本项）逐字：`text-[13px] leading-[1.65] text-foreground/80 [&_*]:text-inherit`
+   —— user / assistant 走**同一个**渲染器，所以字号行高不分角色。
+   user 气泡的**底色层**另给 `group-[.is-user]:text-secondary-foreground`（#f0f0f0）。
+   ⚠️ 原来这里的 `14px / 1.75 / tracking .01em` 不是官方消息路径的值（已在源码里核对，属误植）。 */
+.c-msg--user .c-msg__content {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--secondary-foreground, #f0f0f0);
+}
+/* assistant：`group-[.is-assistant]:text-chat-foreground`（#d4d4d8），已在 `.c-msg__content` 里设过。 */
+
+/* 官方消息时间戳的颜色 = `text-muted-foreground/80`
+   （`wde`：`text-muted-foreground/80`）。⚠️ 实测 Tailwind **对 `var()` 色值不生成透明度修饰符**
+   ⇒ `text-muted-foreground/80` 计算后落到继承色 `#f5f5f5`（亮白，与官方不符）。
+   官方 CSS 是 `@supports` 里的 `color-mix(in oklab, var(--muted-foreground) 80%, transparent)`，这里照抄。 */
+.c-msg-time {
+  color: color-mix(in oklab, var(--muted-foreground) 80%, transparent);
+}
+
+/* 官方工具卡「进行中」状态图标的 shimmer（`page-BeI7xydN.js`@637138 注入的
+   `tap-agent-tool-call-status-icon-style`，逐字）：
+     @keyframes toolCallStatusIconShimmer {
+       0%, 100% { opacity: 0.58; filter: drop-shadow(0 0 0 transparent); }
+       45%      { opacity: 1;    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--muted-foreground) 46%, transparent)); }
+     }
+     .tool-call-status-icon-active { animation: toolCallStatusIconShimmer 2.1s ease-in-out infinite; } */
+@keyframes toolCallStatusIconShimmer {
+  0%, 100% { opacity: 0.58; filter: drop-shadow(0 0 0 transparent); }
+  45% {
+    opacity: 1;
+    filter: drop-shadow(0 0 7px color-mix(in srgb, var(--muted-foreground) 46%, transparent));
+  }
+}
+.tool-call-status-icon-active {
+  animation: toolCallStatusIconShimmer 2.1s ease-in-out infinite;
+}
+.c-msg__actions {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  gap: 4px; /* 官方 `gap-1` */
+}
+.c-msg__actions--user {
+  justify-content: flex-end;
+}
+@media (min-width: 640px) {
+  .c-msg__actions {
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .c-msg:hover .c-msg__actions,
+  .c-msg:focus-within .c-msg__actions {
+    opacity: 1;
+  }
+}
+.c-msg__action {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 0;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+/* 官方是 `hover:bg-transparent` —— 悬停**不加底**，只把图标提亮 */
+.c-msg__action:hover:not(:disabled) {
+  background: transparent;
+  color: var(--c-chat-fg);
+}
+.c-msg__action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.c-msg__action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.c-msg__action > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+/* 系统提示（官方没有这一种消息；用官方 muted 词汇） */
+.c-msg__system {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 10px;
+  color: var(--c-text-2);
+  font-size: 11px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+/* 状态文字（官方状态色：success #4caf50 / warning #ff9800 / error #f44336 / info #2196f3）
+   ★ 排版按**官方最近似的「消息内小状态行」** `Tie`(`CompactLifecycleLine` @2423475) 对齐 —— 官方逐字：
+     `flex w-full min-w-[280px] items-center gap-3 py-1.5 text-xs leading-4 text-foreground/70`
+     其中**图标与文字**之间官方用的是内层 `inline-flex items-center gap-0.5`（2px），图标 `size-3.5`(14px)。
+   ⇒ 本类：`text-xs`(12px) / `leading-4`(16px) / `gap:2px` / `align-items:center`；
+      图标尺寸由调用方写 `width={14}`（= `size-3.5`）。
+   ⚠️ 官方**没有**这一族行（「正在创建画布节点 / 已添加到画布 / 媒体未保存」都是 MTV 自己的状态），
+      所以这里对齐的是**官方排版刻度**，不是某个官方组件；颜色用的是官方 `--tap-state-*` 的值。 */
+
+.c-msg__state {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+.c-msg__state--error { color: #f44336; }
+.c-msg__state--warning { color: #ff9800; }
+.c-msg__state--info { color: #2196f3; }
+.c-msg__state--success { color: #4caf50; }
+/* 媒体结果容器（官方用 `--border` 与内容卡底色） */
+.c-msg__media {
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-bubble);
+}
+/* ⚠️ `.c-msg__media-caption` 已删除（2026 用户实测：「这个 怎么变成这样了」）：
+   官方产物里 `media-caption` / `c-msg__media` **0 命中** ⇒ 媒体结果下方那段 prompt 长文案
+   是 MTV 自造的，已从 `MessageBubble` 里去掉了（图片/视频/音频三种都不再重复渲染 prompt）。 */
+/* 流式光标 */
+.c-msg__caret {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  margin-left: 4px;
+  border-radius: 9999px;
+  background: var(--c-chat-fg);
+  vertical-align: text-bottom;
+  animation: c-msg-caret 1s steps(2, start) infinite;
+}
+@keyframes c-msg-caret {
+  50% { opacity: 0.25; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .c-msg__caret { animation: none; }
+}
+
+/* ── 面板 ── */
+.c-panel {
+  background: var(--c-chat-bg);
+  color: #f5f5f5;
+}
+
+/* ── 头部（官方 `pt-4 pb-1 pr-4`，无边框无玻璃） ── */
+.c-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 16px 4px 0;
+  background: transparent;
+  border: 0;
+}
+.c-header__brand {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+  gap: 8px;
+  padding-left: 10px; /* 官方 `pl-2.5` */
+}
+/* 官方头部**没有**品牌位/头像（左组 = sidePanel 开关 + 标题下拉）⇒ MTV 原先那条
+   24×24 头像盒规则已随头像一起删除。 */
+/* 官方标题按钮：`h-10 min-w-0 flex-1 items-center` 外层 + `rounded-md px-1.5 py-0.5` 内层 */
+.c-title {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  border-radius: 10px;
+  padding: 2px 6px;
+  color: rgba(245, 245, 245, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  text-align: left;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-title:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f5f5;
+}
+.c-header__actions {
+  display: flex;
+  height: 40px;
+  flex: none;
+  align-items: center;
+  gap: 12px; /* 官方 `gap-3` */
+}
+/* 官方头部图标按钮：`h-8 w-8 rounded-md`，实测 32×32 / 圆角 10px / rgba(247,247,247,.8) */
+.c-icon-btn {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 0;
+  color: rgba(245, 245, 245, 0.8);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f5f5f5;
+}
+.c-icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--o-ring, rgba(255, 255, 255, 0.18));
+}
+.c-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+/* 官方头部图标实测量值（CDP 9222，面板 360×1344 空态）：
+   sidePanel 按钮 32×32 内 **svg 18×18** · usage 32×32 内 **svg 19×19** · 标题 chevron **14×14**。
+   ⇒ 本文件的 `16px` 是旧实测值，已按源码级 ground truth + 真机复测订正为 18px。 */
+.c-icon-btn > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.c-icon-btn--danger:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.14);
+  color: #f44336;
+}
+
+/* ── 模式切换（MTV 放在头部；官方把「手动确认」放在输入框工具条里，这里只借官方控件词汇） ──
+   几何取官方 26px 圆胶囊；选中态取官方 `bg-primary/20 text-primary`（主色 14% 底 + 主色字）。 */
+.c-mode-group {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px;
+}
+.c-mode {
+  display: inline-flex;
+  height: 22px;
+  min-width: 34px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  padding: 0 8px;
+  color: rgba(245, 245, 245, 0.6);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-mode:hover:not(:disabled) {
+  color: #ffffff;
+}
+.c-mode[aria-pressed='true'] {
+  background: rgba(31, 162, 220, 0.2);
+  color: #1fa2dc;
+}
+.c-mode:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.c-mode:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+[data-theme='light'] .c-mode-group {
+  background: rgba(51, 54, 77, 0.08);
+}
+[data-theme='light'] .c-mode {
+  color: var(--theme-text-muted, #6b6b6b);
+}
+[data-theme='light'] .c-mode[aria-pressed='true'] {
+  background: rgba(31, 162, 220, 0.16);
+  color: #1577a3;
+}
+
+/* ── 窄宽度行为：**与官方一致，不做两行重排** ──
+   官方真机实测（CDP 9222，面板 360×1344）：头部始终 `[2200,0,360,60]`、`position: static`、
+   单行不换行（`@container` 两行网格是 MTV 自创的，起因是 MTV 头部多出 4 颗非官方按钮）。
+   那 4 颗（智能体中心/任务中心/项目记忆/子智能体）已按「不是官方的移除」删除 ⇒ 该回退一并删除。 */
+@container chat-panel (max-width: 420px) {
+  .c-title > span:last-child {
+    display: none;
+  }
+}
+/* ── 身体（官方 `px-4`，上下 0） ── */
+.c-body {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  /* ⚠️ 官方这一层**没有任何内边距**：消息的 `p-5 pb-0 pr-14` 在滚动容器内部（`hce` ③），
+     输入卡的 `m-2 mt-0`（左右 8px）在卡片根上。原来这里的 `padding: 0 16px` 是 MTV 自加的，
+     实测把输入卡左右边距从官方的 8px 顶成 ~24.7/20.7px（面板 418 时）。 */
+}
+
+/* ── 空状态 ── */
+.c-empty {
+  display: flex;
+  width: 100%;
+  margin: auto 0;
+  flex-direction: column;
+  padding: 16px 0;
+}
+.c-empty__brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.c-empty__greet {
+  margin: 0 0 20px;
+  color: var(--c-text-2);
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 32px;
+  overflow-wrap: anywhere;
+}
+.c-empty__lead {
+  margin: 0 0 20px;
+  color: var(--c-text-1);
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 32px;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.c-empty__suggest {
+  display: flex;
+  min-width: 0;
+  flex-direction: row;
+  flex-wrap: wrap; /* 官方一行两张；MTV 三张示例 ⇒ 第三张换行，卡宽仍是官方的 200px 起 */
+  gap: 12px;
+  padding-bottom: 20px; /* 官方 `pb-5` */
+}
+/* MTV 保留的能力说明（官方空状态没有这一段） */
+.c-empty__note {
+  margin: 0 0 20px;
+  color: rgba(122, 122, 122, 0.95);
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+/* MTV 保留的三个入口（官方没有；几何用官方的 `rounded-lg` + 14/500） */
+.c-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.c-empty__action {
+  display: inline-flex;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: transparent;
+  padding: 0 14px;
+  color: var(--c-text-1);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.c-empty__action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+.c-empty__action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--o-ring, rgba(255, 255, 255, 0.18));
+}
+.c-empty__action > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.c-empty__action--primary {
+  border-color: transparent;
+  background: var(--o-primary, #1fa2dc);
+  color: #fafafa;
+}
+.c-empty__action--primary:hover {
+  background: rgba(31, 162, 220, 0.9);
+  color: #fafafa;
+}
+/* 官方建议卡：`rounded-2xl border-[0.5px] border-border bg-chat-bubble-header px-3 pt-4 pb-4 pr-9` 的实测值 */
+.c-suggest {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1 1 200px;
+  cursor: pointer;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  overflow: hidden;
+  border: 0.5px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  background: var(--c-bubble);
+  padding: 16px 36px 16px 12px;
+  color: #f5f5f5;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.c-suggest:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.c-suggest:focus-visible {
+  outline: none;
+  border-color: var(--o-primary, #1fa2dc);
+}
+.c-suggest__label {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+.c-suggest__label > svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: rgba(255, 255, 255, 0.6);
+}
+.c-suggest__label > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  transition: color 0.2s;
+}
+.c-suggest:hover .c-suggest__label > span {
+  color: rgba(255, 255, 255, 0.65);
+}
+.c-suggest__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+.c-suggest__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  transition: color 0.2s;
+}
+.c-suggest:hover .c-suggest__title {
+  color: #ffffff;
+}
+.c-suggest__desc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+  overflow-wrap: break-word;
+}
+.c-empty__refresh {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+.c-empty__refresh > button {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.c-empty__refresh > button:hover {
+  color: #ffffff;
+}
+
+/* ── 输入区（官方 `m-2 mt-0` 的圆角大卡） ── */
+.c-composer {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  margin: 0 8px 8px;
+  background: transparent;
+}
+.c-composer__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 0.5px solid var(--c-border);
+  border-radius: 16px;
+  background: var(--c-bubble);
+  box-shadow: 0 5px 10px 0 rgba(0, 0, 0, 0.06);
+  -webkit-backdrop-filter: blur(50px);
+  backdrop-filter: blur(50px);
+  transition: border-color 0.3s;
+  /* 进入助手时的光影（官方 `Xle`）用 `-z-10` 压在卡片背景之上、正文之下。
+     官方是把正文包进 `relative z-10` 做到的；这里用 `isolation` 建栈等价实现，
+     免得改动 1000 行组件的 DOM 结构。 */
+  isolation: isolate;
+}
+/* 官方输入卡**没有任何 focus/hover 变色**（ground truth §1.4：只有 `starterSendHighlighted`
+   那一档蓝阴影变体会换样式）⇒ MTV 原先的 `:focus-within` 边框改色属于自创，已移除。 */
+/* 官方 `@container relative px-4 py-4` + 内层 `min-h-12` */
+.c-composer__editor {
+  padding: 16px;
+  min-width: 0;
+}
+.c-composer__editor > * {
+  min-height: 48px;
+}
+/* 官方工具条 `flex h-10 min-w-0 items-center justify-between px-2 pb-2` */
+.c-composer__toolbar {
+  display: flex;
+  height: 40px;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 8px 8px;
+}
+/* 官方 26px 圆钮 / 圆胶囊 */
+.c-chip {
+  display: inline-flex;
+  height: 26px;
+  min-width: 26px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  padding: 0 5px;
+  color: rgba(247, 247, 247, 0.9);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-chip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+.c-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+.c-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.c-chip > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.c-chip--fill {
+  background: rgba(255, 255, 255, 0.1);
+}
+.c-chip--fill:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+/* 官方选中态：`text-foreground` + 主色 12% 底（MTV 的 @ / Skill 开关） */
+.c-chip[aria-pressed='true'],
+.c-chip[data-on] {
+  background: rgba(31, 162, 220, 0.14);
+  color: #1fa2dc;
+}
+/* 官方 28px 方钮（`h-7 w-7 rounded-lg`；分裂钮外圆角 12px） */
+.c-sq {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  padding: 0;
+  color: var(--c-text-1);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-sq:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+.c-sq:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.c-sq:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.c-sq > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+/* 官方发送钮：`size-8 rounded-full bg-white` + 黑图标 */
+.c-send {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: #ffffff;
+  padding: 0;
+  color: #000000;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s, transform 0.15s;
+}
+.c-send:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.8); /* 官方 `hover:bg-white/80` */
+}
+/* 官方发送钮的禁用态是 `disabled:opacity-50`（白底降透明度），没有换底色、也没有按压缩放 */
+.c-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.c-send:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+.c-send > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+/* 官方麦克风那种 32px 圆钮（工具条右侧的次级动作） */
+.c-round {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  padding: 0;
+  color: rgba(245, 245, 245, 0.8);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-round:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+.c-round:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+.c-round:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.c-round > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+/* 工具条里的次要提示文字（MTV 的 `↵ Enter`；官方没有这一项） */
+.c-toolbar-hint {
+  color: rgba(122, 122, 122, 0.6);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  user-select: none;
+}
+/* 已授权本地文件的胶囊（MTV 专有；几何/配色取官方 chip） */
+.c-grant {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--c-border);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px 4px 4px 10px;
+  color: var(--c-text-1);
+  font-size: 11px;
+  line-height: 1;
+}
+.c-grant__revoke {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  padding: 0;
+  color: var(--c-text-2);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-grant__revoke:hover {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+}
+
+/* 官方工具条里的竖分隔线：`w-px h-3.5 bg-border` 级别 */
+.c-toolbar-divider {
+  width: 1px;
+  height: 14px;
+  flex: none;
+  background: var(--c-border);
+}
+/* 底部免责说明已按官方删除（官方 `N0`/`CanvasInputV2` 里**没有**这一行：
+   只有 `relative m-2 mt-0` 根 + `data-canvas-input-bubble` 卡片 + `relative z-10` 内层 +
+   `@container relative px-4 py-4` 编辑器 + rail，卡片下面没有 disclaimer）。
+   原来那句中文「重要操作执行前会请求确认」是 MTV 自造 ⇒ 连同这条死 CSS 一起移除。 */
+
+/* ── 消息列表滚动条：官方是原生细条（MTV 原来是靛蓝紫的 6px 滑条） ── */
+.c-messages {
+  scroll-behavior: smooth;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.c-messages::-webkit-scrollbar {
+  width: 6px;
+}
+.c-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+.c-messages::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.c-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ── 模型选择器触发器（MTV 的共享控件，节点面板里也用它）──
+   官方在输入框工具条里是那颗 `Auto` 小胶囊：实测 26px 高 · `rounded-md`(10px)
+   · `text-sm`(14) · `max-w-[188px]` · 色 `rgba(247,247,247,.9)` · hover `bg-white/10`。
+   ⚠️ 只在 `.c-scope`（助手面板）里覆盖，不动节点底部面板那套已对齐的皮。 */
+.c-scope .model-selector {
+  min-width: 0;
+  max-width: 188px; /* 官方 `max-w-[188px]` */
+}
+.c-scope .model-selector-trigger {
+  display: inline-flex;
+  height: 26px;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 0 8px;
+  color: rgba(247, 247, 247, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-scope .model-selector-trigger:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+.c-scope .model-selector-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.c-scope .model-selector-trigger > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.c-scope .model-selector-icon {
+  color: inherit;
+}
+.c-scope .model-selector-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme='light'] .c-scope .model-selector-trigger {
+  color: var(--theme-text, #1a1a1a);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   官方的「卡片 / 表单卡 / 选项行 / 胶囊按钮」—— 审批卡与工具卡用这套
+   官方出处（`page-DVqoHdTT.js` 逐字）：
+     · FormSubmissionSummaryCard：
+         `w-full min-w-0 max-w-[360px] space-y-2 rounded-xl bg-white/[0.04] px-3.5 py-3`
+         头部 `flex items-center gap-1.5`：图标 `size={16} stroke={1.5} text-muted-foreground`
+         + 标题 `min-w-0 break-words text-xs font-medium leading-4 text-chat-foreground`
+         + 状态 `ml-auto shrink-0 text-[11px] text-muted-foreground`
+     · FormCard 主按钮（**胶囊**，官方唯一的「表单确认」形态）：
+         `inline-flex h-9 items-center justify-center rounded-full px-6 text-sm font-medium transition-all`
+         可用 `bg-[var(--form-btn-bg,rgba(255,255,255,0.10))] text-[var(--form-btn-fg,#d4d4d8)]
+              shadow-[inset_0_0_0_1px_var(--form-btn-ring,transparent)]
+              hover:bg-[var(--form-btn-bg-hover,rgba(255,255,255,0.16))]`
+         禁用 `bg-white/[0.03] text-muted-foreground/40 cursor-not-allowed`
+     · 次级按钮（跳过/取消）：`shrink-0 px-2 text-xs text-muted-foreground hover:text-chat-foreground`
+     · OptionRow（可选项行）：`flex min-h-[34px] w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2
+         transition-colors`，选中/高亮 `bg-white/[0.07]`、hover `bg-white/[0.04]`
+         行号 `size-[15px] rounded-[3px] text-[10px]`：选中 `bg-white/[0.13] text-chat-foreground`
+           否则 `bg-white/[0.07] text-muted-foreground`
+         标题 `text-[13px] font-medium leading-none text-chat-foreground`
+         说明 `min-w-0 flex-1 truncate text-xs leading-none text-muted-foreground`
+         勾选框 `size-[18px]`：单选 `rounded-full` / 多选 `rounded-[5px]`，选中 `bg-chat-foreground`
+           + 勾 `size 13 text-[#202020]`
+     · 官方状态色：confirmed `#7CD5A7` · failed `#A55050` · auto `#90C4E5` · skipped/cancelled `white/40`
+   ⚠️ 官方**没有琥珀色警告卡**（MTV 审批卡原来是 `border-amber-400/60 bg-amber-400/5` +
+      `bg-amber-500` 确认键）⇒ 本轮换成官方中性卡 + 官方胶囊键。
+   ══════════════════════════════════════════════════════════════════════ */
+.c-card {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  max-width: 360px;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px 14px;
+}
+.c-card--wide {
+  max-width: 100%;
+}
+.c-card__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.c-card__head > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--c-muted);
+}
+.c-card__title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--c-chat-fg);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.c-card__status {
+  margin-left: auto;
+  flex: none;
+  color: var(--c-muted);
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.c-card__body {
+  min-width: 0;
+  color: var(--c-chat-fg);
+  font-size: 13px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.c-card__divider {
+  border-top: 1px solid var(--c-border);
+  padding-top: 8px;
+}
+.c-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+/* 官方表单主按钮：胶囊 h-9 px-6 14/500 */
+.c-btn-pill {
+  display: inline-flex;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0 24px;
+  color: #d4d4d8;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-btn-pill:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+.c-btn-pill:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+.c-btn-pill:disabled {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(122, 122, 122, 0.4);
+  cursor: not-allowed;
+}
+.c-btn-pill > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+/* 官方次级按钮：`px-2 text-xs text-muted-foreground hover:text-chat-foreground` */
+.c-btn-text {
+  flex: none;
+  border: 0;
+  background: transparent;
+  padding: 0 8px;
+  color: var(--c-muted);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.c-btn-text:hover:not(:disabled) {
+  color: var(--c-chat-fg);
+}
+.c-btn-text:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.c-btn-text:focus-visible {
+  outline: none;
+  color: var(--c-chat-fg);
+}
+/* 官方 OptionRow：可选项（模型胶囊 / 审批选项） */
+.c-opt {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  padding: 8px 10px;
+  color: var(--c-muted);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-opt:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+}
+.c-opt[aria-pressed='true'],
+.c-opt[aria-selected='true'] {
+  background: rgba(255, 255, 255, 0.07);
+}
+.c-opt:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.c-opt:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.c-opt__index {
+  display: flex;
+  width: 15px;
+  height: 15px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--c-muted);
+  font-size: 10px;
+  line-height: 1;
+}
+.c-opt[aria-selected='true'] .c-opt__index,
+.c-opt[aria-pressed='true'] .c-opt__index {
+  background: rgba(255, 255, 255, 0.13);
+  color: var(--c-chat-fg);
+}
+.c-opt__label {
+  flex: none;
+  color: var(--c-chat-fg);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+}
+.c-opt__desc {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-muted);
+  font-size: 12px;
+  line-height: 1;
+}
+.c-opt__mark {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  border-radius: 9999px;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.c-opt__mark--multi {
+  border-radius: 5px;
+}
+.c-opt__mark[data-on] {
+  background: var(--c-chat-fg);
+  color: #202020;
+}
+.c-opt__mark--multi:not([data-on]) {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.c-opt__mark > svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+/* 官方 checkbox：必须 appearance:none，否则浏览器按原生控件画成浅蓝（与设置面板同坑） */
+.c-check {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  padding: 0;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.c-check:checked {
+  border-color: var(--c-chat-fg);
+  background-color: var(--c-chat-fg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23202020' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+.c-check:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.c-check:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+/* ══════════════════════════════════════════════════════════════════════
+   官方「任务进度卡 / 步骤行」（`TaskHistoryCard` `Hle` + `TaskProgressList` `H_`
+   + `TaskProgressRow` `Ble`，`page-DVqoHdTT.js` @840175 起，逐字）
+     · 卡：`my-1.5 overflow-hidden rounded-lg border border-border/50 bg-chat-bubble-surface`
+       展开体：`border-t border-border/40`
+     · 折叠头：`flex w-full items-center justify-between gap-3 px-3.5 py-2.5
+         text-[13px] leading-5 font-medium text-chat-foreground transition-colors
+         hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2
+         focus-visible:ring-primary/60 focus-visible:ring-inset`
+       摘要 `min-w-0 truncate`；chevron `size={14} stroke={1.5} text-chat-foreground/70`，
+         展开时 `rotate-180`
+     · 列表：`ul flex flex-col gap-3`（comfortable 时 `gap-2.5`），卡内再给 `px-3.5 py-3`
+     · 行：`li flex gap-2` +（有说明时 `items-start` 否则 `items-center`）
+       +（comfortable `text-[13px] leading-[18px]` 否则 `text-xs leading-4`）
+       图标槽 `flex shrink-0 items-center justify-center size-3.5`（comfortable `size-4`，
+         有说明时 `mt-0.5`），图标 `size 13 stroke 1.5`（comfortable 14）
+       正文 `min-w-0 flex-1`：
+         标题 `block break-words text-xs leading-4 font-medium`（完成时再 `text-chat-foreground`）
+         说明 `mt-1 block line-clamp-2 break-words text-xs leading-5 text-secondary-muted-foreground`
+         进行中 `mt-1 block break-words text-xs leading-5 text-chat-foreground`
+   状态图标（官方 chat 状态色）：完成 `#7CD5A7` · 失败 `#A55050` · 进行中 `#90C4E5`
+     · 待办/跳过 `white/40`
+   ⚠️ 官方**没有** MTV 那种「带底色的小圆片图标 + 行 hover 底色」：图标就是裸的 14px 线性图标，
+      行本身没有 hover 底。
+   ══════════════════════════════════════════════════════════════════════ */
+.c-taskcard {
+  margin: 6px 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  background: var(--c-bubble-surface);
+}
+.c-taskcard__trigger {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 10px 14px;
+  color: var(--c-chat-fg);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.c-taskcard__trigger:hover {
+  background: rgba(255, 255, 255, 0.08); /* 官方 `hover:bg-accent/40` */
+}
+.c-taskcard__trigger:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(31, 162, 220, 0.6); /* 官方 `ring-primary/60` inset */
+}
+.c-taskcard__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.c-taskcard__chevron {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: rgba(212, 212, 216, 0.7); /* 官方 `text-chat-foreground/70` */
+  transition: transform 0.2s;
+}
+.c-taskcard__trigger[aria-expanded='true'] .c-taskcard__chevron {
+  transform: rotate(180deg);
+}
+.c-taskcard__body {
+  border-top: 1px solid rgba(255, 255, 255, 0.05); /* 官方 `border-border/40` */
+}
+.c-taskcard__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+}
+/* 进度条头部（MTV 的计数/耗时）：官方没有，用官方 muted 词汇排在折叠头下面 */
+.c-taskcard__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 0 14px 10px;
+  color: var(--c-muted);
+  font-size: 12px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.c-steplist {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px; /* 官方 `gap-3` */
+}
+.c-step {
+  display: flex;
+  min-width: 0;
+  gap: 8px; /* 官方 `gap-2` */
+  align-items: center;
+}
+.c-step--stack {
+  align-items: flex-start;
+}
+.c-step__icon {
+  display: flex;
+  width: 14px;
+  height: 14px;
+  flex: none;
+  align-items: center;
+  justify-content: center; /* 官方 `size-3.5` */
+}
+.c-step--stack .c-step__icon {
+  margin-top: 2px; /* 官方 `mt-0.5` */
+}
+.c-step__icon > svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.c-step__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.c-step__title {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  overflow-wrap: anywhere;
+  color: var(--c-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.c-step__title[data-done] {
+  color: var(--c-chat-fg); /* 官方：完成且展示细节时 `text-chat-foreground` */
+}
+.c-step__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* MTV 比官方多出来的两个信息（状态标签 / 耗时）—— 用官方 muted 字号，不抢标题 */
+.c-step__tag {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.c-step__detail--fail {
+  color: #a55050;
+}
+.c-step__detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+  color: var(--c-muted);
+  font-size: 12px;
+  line-height: 20px;
+}
+.c-step__detail--active {
+  color: var(--c-chat-fg);
+}
+.c-step__timing {
+  margin-left: auto;
+  flex: none;
+  padding-left: 8px;
+  color: var(--c-muted);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+/* 官方状态图标色 */
+.c-step__icon--ok { color: #7cd5a7; }
+.c-step__icon--fail { color: #a55050; }
+.c-step__icon--running { color: #90c4e5; }
+.c-step__icon--idle { color: rgba(255, 255, 255, 0.4); }
+[data-theme='light'] .c-taskcard {
+  border-color: var(--theme-border, rgba(51, 54, 77, 0.16));
+}
+[data-theme='light'] .c-taskcard__trigger:hover {
+  background: var(--theme-hover, rgba(51, 54, 77, 0.06));
+}
+[data-theme='light'] .c-step__title,
+[data-theme='light'] .c-step__detail,
+[data-theme='light'] .c-step__timing {
+  color: var(--theme-text-muted, #6b6b6b);
+}
+[data-theme='light'] .c-step__title[data-done] {
+  color: var(--theme-text, #1a1a1a);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   官方「会话列表」（`QN`，`page-DVqoHdTT.js` @720453 起，逐字）
+   官方是一个 `Popover`：Content `w-72 p-1.5 rounded-xl`，内部：
+     · 新对话行 `flex items-center gap-2 px-2.5 py-2 mb-0.5 cursor-pointer rounded-lg
+         hover:bg-white/[0.06] focus:bg-white/[0.06]`
+         图标 `size={16} strokeWidth={1.5} text-foreground/70`
+         + 文字 `text-[13px] font-medium text-foreground/90`
+     · 只读标题行 `flex items-center gap-2 px-2.5 py-2 mb-0.5 rounded-lg`
+         `min-w-0 flex-1 text-[13px] font-normal truncate text-foreground/80`
+         + `shrink-0 inline-flex h-6 items-center gap-1 text-[11px] text-muted-foreground/50`（图标 12）
+     · 滚动区 `max-h-[400px] overflow-y-auto overscroll-contain`（官方把原生条也隐藏）
+     · 列表 `space-y-1`
+     · 会话项 `group/item flex items-center gap-2 px-2.5 py-2 rounded-lg`
+         选中 / hover / focus 一律 `bg-white/[0.06]`
+         标题 `min-w-0 flex-1 text-[13px] font-normal truncate text-foreground/80
+              group-hover/item:text-foreground/95`
+         时间 `shrink-0 inline-flex h-6 items-center text-[11px] text-muted-foreground/50 tabular-nums`
+              （hover 时 `hidden`）
+         操作区 `shrink-0 items-center`（hover 才 `flex`）
+           重命名 `size-6 inline-flex items-center justify-center rounded-md
+                  text-muted-foreground/50 hover:text-chat-foreground hover:bg-white/[0.12]`
+           删除   `size-6 ... text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10`
+         重命名输入框 `min-w-0 h-6 flex-1 bg-transparent p-0 text-[13px] font-normal
+                  text-foreground/95 outline-none border-none`
+     · 分组标题 `flex w-full items-center gap-1.5 px-2.5 py-2 text-[11px] font-medium
+         text-muted-foreground/60 uppercase tracking-wider rounded-md hover:bg-white/[0.04]`
+   ⚠️ 官方会话项**没有前置图标块**（MTV 原来有个 `w-7 h-7 rounded-lg` + MTV `canvas-*` 底色的图标片），
+      也**没有品牌色选中态**（官方选中/hover 同一个 `bg-white/[0.06]`）⇒ 这两处换掉。
+   ⚠️ MTV 保留自己多出来的功能（置顶 / 归档 / 任务状态徽章 / 最后消息摘要 / 三点菜单）。
+   ══════════════════════════════════════════════════════════════════════ */
+.c-conv {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+.c-conv__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.c-conv__title {
+  min-width: 0;
+  color: rgba(245, 245, 245, 0.9);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.c-conv__search {
+  position: relative;
+  flex: none;
+  padding: 8px 12px;
+}
+.c-conv__search > svg {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  color: rgba(122, 122, 122, 0.5);
+  pointer-events: none;
+}
+.c-conv__searchinput {
+  width: 100%;
+  height: 32px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: transparent;
+  padding: 0 12px 0 30px;
+  color: var(--c-chat-fg);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 20px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.c-conv__searchinput::placeholder {
+  color: rgba(122, 122, 122, 0.7);
+}
+.c-conv__searchinput:focus-visible {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.c-conv__list {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px; /* 官方 `space-y-1` */
+}
+.c-conv__group {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 8px 10px;
+  color: rgba(122, 122, 122, 0.6); /* 官方 `text-muted-foreground/60` */
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-conv__group:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(122, 122, 122, 0.8);
+}
+.c-conv-item {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.c-conv-item:hover,
+.c-conv-item:focus-within,
+.c-conv-item[data-active] {
+  background: rgba(255, 255, 255, 0.06); /* 官方选中/hover 同一个值 */
+}
+.c-conv-item__main {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.c-conv-item__main:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+}
+.c-conv-item__body {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.c-conv-item__titlerow {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+}
+.c-conv-item__title {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(245, 245, 245, 0.8);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  transition: color 0.15s;
+}
+.c-conv-item:hover .c-conv-item__title,
+.c-conv-item:focus-within .c-conv-item__title {
+  color: rgba(245, 245, 245, 0.95);
+}
+/* 最后消息摘要（MTV 多出来的一行；官方这里放的是时间） */
+.c-conv-item__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(122, 122, 122, 0.6);
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+/* 三点菜单键：官方 `size-6 rounded-md text-muted-foreground/50` */
+.c-conv-item__action {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 0;
+  color: rgba(122, 122, 122, 0.5);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, opacity 0.15s;
+}
+.c-conv-item__action:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--c-chat-fg);
+}
+.c-conv-item__action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.c-conv-item__action--danger:hover {
+  background: rgba(147, 76, 76, 0.1);
+  color: #ff6163;
+}
+.c-conv-item__action > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.c-conv-item__actionslot {
+  flex: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.c-conv-item:hover .c-conv-item__actionslot,
+.c-conv-item:focus-within .c-conv-item__actionslot,
+.c-conv-item[data-menu-open] .c-conv-item__actionslot {
+  opacity: 1;
+}
+/* 官方重命名输入框：`h-6 flex-1 bg-transparent p-0 text-[13px] outline-none border-none` */
+.c-conv-item__input {
+  min-width: 0;
+  height: 24px;
+  flex: 1 1 auto;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: rgba(245, 245, 245, 0.95);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  outline: none;
+}
+/* MTV 的任务状态徽章 / 只读标记（官方没有；用官方 muted 字号） */
+.c-conv-item__badge {
+  flex: none;
+  font-size: 11px;
+  line-height: 16px;
+  color: rgba(122, 122, 122, 0.6);
+}
+/* 官方菜单（右键/三点菜单）：`w-72 p-1.5 rounded-xl` 的项 `rounded-lg px-2.5 py-2`
+   + 文字 `text-[13px]` + `hover:bg-white/[0.06]` */
+.c-conv__menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 50;
+  margin-top: 4px;
+  width: 160px;
+  overflow: hidden;
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  background: var(--c-bubble-surface);
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.c-conv__menuitem {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 8px 10px;
+  color: rgba(245, 245, 245, 0.8);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-conv__menuitem:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(245, 245, 245, 0.95);
+}
+.c-conv__menuitem--danger {
+  color: #ff6163;
+}
+.c-conv__menuitem--danger:hover {
+  background: rgba(147, 76, 76, 0.1);
+  color: #ff6163;
+}
+.c-conv__menuitem > svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+[data-theme='light'] .c-conv__title,
+[data-theme='light'] .c-conv-item__title {
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-conv-item:hover,
+[data-theme='light'] .c-conv-item[data-active] {
+  background: rgba(51, 54, 77, 0.07);
+}
+[data-theme='light'] .c-conv-item__meta,
+[data-theme='light'] .c-conv-item__badge,
+[data-theme='light'] .c-conv__group {
+  color: var(--theme-text-muted, #6b6b6b);
+}
+
+/* 官方 Input / SelectTrigger 在助手作用域里的皮（等同设置面板的 `.o-input` / `.o-select-trigger`，
+   但那边靠 `--o-*` token，助手面板只有 `.c-scope` ⇒ 这里用 chat token 重写一份） */
+.c-input {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: transparent;
+  padding: 0 12px;
+  color: var(--c-chat-fg);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.c-input::placeholder {
+  color: var(--c-muted);
+}
+.c-input:focus-visible {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.c-select-trigger.c-select-trigger {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: transparent;
+  padding: 0 28px 0 12px;
+  color: var(--c-chat-fg);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.c-select-trigger.c-select-trigger:hover:not(:disabled) {
+  background: transparent;
+  border-color: var(--c-border);
+}
+.c-select-trigger.c-select-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.c-select-trigger.c-select-trigger:focus-visible {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+/* 官方状态点/字色 */
+.c-status--ok { color: #7cd5a7; }
+.c-status--fail { color: #a55050; }
+.c-status--auto { color: #90c4e5; }
+.c-status--muted { color: rgba(255, 255, 255, 0.4); }
+.c-dot { display: inline-block; width: 6px; height: 6px; flex: none; border-radius: 9999px; }
+[data-theme='light'] .c-card {
+  background: rgba(51, 54, 77, 0.05);
+}
+[data-theme='light'] .c-opt:hover:not(:disabled) {
+  background: rgba(51, 54, 77, 0.05);
+}
+[data-theme='light'] .c-opt[aria-pressed='true'],
+[data-theme='light'] .c-opt[aria-selected='true'] {
+  background: rgba(51, 54, 77, 0.09);
+}
+[data-theme='light'] .c-btn-pill {
+  background: var(--theme-hover, rgba(51, 54, 77, 0.1));
+  color: var(--theme-text, #1a1a1a);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ⚠️ 本段原来是一层「助手面板里 MTV `canvas-*` 的**字面色归一化**」（作用域 `.c-scope`）：
+      `.c-scope .text-canvas-text { color: var(--c-chat-fg) }` 一族，
+      作用是把 MTV 自造的偏紫 `canvas-*` 类在本作用域里逐条改写成官方 chat 值
+      （会话列表 / 任务时间线 / 上下文用量指示器等仍是 MTV 自绘结构 ⇒ 改不动变量，只能改字面色）。
+
+   **2026 round 96：整段删除。** 理由：
+     MTV `canvas-*` 一族已按用户裁决**从全仓使用点移除**；助手面板这几个组件
+     （`AgentToolDetails` / `AgentExecutionRationale` / `AgentTaskTimeline` /
+      `ChatReferenceText` / `MessageBubble`）已**直接改成官方 chat 令牌**
+     ⇒ 本段每条规则都失去作用对象，成为死规则。
+   改前 / 改后的**等价关系**（同值，取值来源见本文件 @59-66 的 `--c-*` 定义）：
+     text-canvas-text                   → --c-chat-fg #d4d4d8 = 官方 `--chat-foreground`
+                                        ⇒ 使用点改为 `text-chat-foreground`
+     text-canvas-text-secondary / -muted → --c-text-2 #9c9c9c = 官方 `--text-text-secondary`
+                                        ⇒ `text-text-text-secondary`
+     hover:text-canvas-text             → #ffffff ⇒ `hover:text-chat-foreground`
+     border-canvas-border / divide-…    → --c-border #ffffff1a = 官方 `--border` ⇒ `border-border` / `divide-border`
+     bg-canvas-card / bg-canvas-surface → --c-bubble #1a1a1a = 官方 `--chat-bubble-header`
+                                        ⇒ `bg-chat-bubble-header`
+     bg-canvas-bg                       → --c-chat-bg #141414 = 官方 `--chat-background`
+                                        ⇒ `bg-chat-background`
+     bg-canvas-hover 一族               → rgba(255,255,255,.06) ⇒ `bg-foreground/5`
+                                        （官方 `index-BDGj8rGN.js`@1109049 真用的写法，5% 白）
+   ══════════════════════════════════════════════════════════════════════ */
+/* 靛蓝/品牌色重映射段已删除（2026 round 95，loop 95）—— 原来这里把 `.c-scope` 里的
+   `indigo` 色族的 `text-` / `border-` / `bg-` / `ring-` 工具类逐条改写成官方色。
+   使用点已全部改成官方类（`text-accent-primary` / `bg-primary/*` / `focus-visible:ring-white/80` …），
+   整段成为死规则 ⇒ 删除。理由与映射表见 `tests/styles/indigoColorRemoved.test.ts` 顶部注释。 */
+.c-scope .agent-task-center__header > svg,
+.c-scope .agent-task-center__header > * > svg {
+  color: #90c4e5;
+}
+.c-scope .bg-emerald-400\/10,
+.c-scope .bg-emerald-500\/5 {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+/* 2026 round 96：原 `.c-scope .border-canvas-border\/80` 与下面两条浅色
+   `[data-theme='light'] .c-scope .text-canvas-*` 覆盖已随 `canvas-*` 移除而删除
+   （规则失去作用对象）。助手面板那几个组件现在直接用官方 chat 令牌，
+   浅色主题的等价覆盖按同样的 0,3,0 特异性写在下面，保证浅色下仍可读、底色仍对。 */
+[data-theme='light'] .c-scope .text-chat-foreground {
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-scope .text-text-text-secondary {
+  color: var(--theme-text-muted, #6b6b6b);
+}
+[data-theme='light'] .c-scope .bg-chat-bubble-header {
+  background-color: var(--c-bubble);
+}
+[data-theme='light'] .c-scope .bg-chat-background {
+  background-color: var(--c-chat-bg);
+}
+[data-theme='light'] .c-scope .bg-foreground\/5 {
+  background-color: rgba(51, 54, 77, 0.06);
+}
+
+/* ── 工具卡 / 步骤卡 / 时间线的状态色（AgentStepCard · AgentTaskTimeline · AgentToolDetails）──
+   官方 chat 卡片的五种状态色（逐字）：confirmed `#7CD5A7` · failed `#A55050`
+   · auto（进行中）`#90C4E5` · skipped/cancelled `white/40`。
+   MTV 原来用 tailwind 的 amber（进行中）/ red（失败）/ emerald（成功）/ violet / sky ——
+   官方**没有琥珀也没有紫**，统一映射到上面这五个值。 */
+.c-scope .text-amber-100,
+.c-scope .text-amber-200,
+.c-scope .text-amber-300,
+.c-scope .text-amber-400,
+.c-scope .text-sky-400,
+.c-scope .text-blue-400 {
+  color: #90c4e5;
+}
+.c-scope .text-red-300,
+.c-scope .text-red-400 {
+  color: #a55050;
+}
+.c-scope .text-emerald-300,
+.c-scope .text-emerald-400,
+.c-scope .text-green-400 {
+  color: #7cd5a7;
+}
+.c-scope .text-violet-300,
+.c-scope .text-violet-400 {
+  color: var(--c-text-2);
+}
+.c-scope .bg-amber-400\/5,
+.c-scope .bg-amber-400\/10,
+.c-scope .bg-amber-500\/10,
+.c-scope .bg-amber-300\/10,
+.c-scope .bg-amber-300\/15,
+.c-scope .bg-red-500\/10,
+.c-scope .bg-red-500\/15,
+.c-scope .bg-emerald-500\/10 {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.c-scope .border-amber-300\/15,
+.c-scope .border-amber-400\/30,
+.c-scope .border-amber-400\/40,
+.c-scope .border-amber-400\/60,
+.c-scope .border-amber-300\/40,
+.c-scope .border-red-500\/20,
+.c-scope .border-emerald-500\/20 {
+  border-color: var(--c-border);
+}
+.c-scope .bg-amber-400,
+.c-scope .bg-amber-500 {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #d4d4d8;
+}
+.c-scope .accent-amber-400 {
+  accent-color: #d4d4d8;
+}
+.c-scope .hover\:text-amber-300:hover,
+.c-scope .hover\:text-red-400:hover {
+  color: var(--c-chat-fg);
+}
+.c-scope .hover\:bg-red-500\/10:hover,
+.c-scope .hover\:bg-amber-400\/15:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   助手里的「按钮弹窗」—— 官方的 DropdownMenu / Popover（`page-DVqoHdTT.js` 实测）
+     · 容器（`.bg-popover text-popover-foreground z-50 min-w-[8rem]`）：
+         bg **rgb(38,38,38)** = `--popover` #262626 · 圆角 **16px** · padding **6px**
+         · 边框 **0.5px rgba(255,255,255,.1)**
+     · 行（shadcn DropdownMenuItem）：圆角 **12px** · padding **8px 10px** · 高 35
+         · 字 **14px / 400** · 色 **rgb(204,204,204)** = #ccc · gap 8px
+         · `focus:bg-accent`（官方 `--accent` #404040）
+   ⚠️ MTV 的这三套弹层（`.model-dropdown` / `.mention-picker` / Skill 菜单）原来各用各的底色：
+      `.model-dropdown` #292929 / `.mention-picker` #2f2f2f / Skill 菜单走 MTV `canvas-*` 的「面」底色，
+      而且**都没有边框**、模型行文字是 `#8888a0`（MTV `canvas-*` 的弱化文字色）16px/400 ——
+      与官方的 #262626 / 0.5px 边 / #ccc 14px/400 都对不上 ⇒ 这里按官方值统一。
+   ⚠️ 只在助手面板里生效：`ModelSelector` / `MentionPicker` 在节点面板里也被复用。
+   ⚠️ `.model-dropdown` 是 **`createPortal` 到 `document.body`** 的（实测 `closest('.c-scope')` = false），
+      所以不能靠 `.c-scope` 祖先选择器 —— 由助手给 `ModelSelector` 传 `dropdownClassName="c-pop"`，
+      这里用 `.c-pop`（再加基类做特异性）来命中；`.mention-picker` 是就地渲染的，两者都写。
+   ══════════════════════════════════════════════════════════════════════ */
+.model-dropdown.c-pop {
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: #262626; /* 官方 `--popover` */
+  padding: 6px;
+  color: #ccc;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  width: 288px; /* 官方 DropdownMenu 实测 288 */
+}
+.c-pop .model-item {
+  border-radius: 12px;
+  padding: 8px 10px;
+  color: #cccccc;
+  font-size: 14px;
+  font-weight: 400;
+  transition: background-color 0.15s, color 0.15s;
+}
+.c-pop .model-item:hover:not(:disabled),
+.c-pop .model-item.is-active {
+  background: #404040; /* 官方 `focus:bg-accent` */
+  color: #fafafa;
+}
+/* 行内次要信息（模型 id / 分类 / 说明） */
+.c-pop .model-item-meta,
+.c-pop .model-item-desc,
+.c-pop .model-item-model {
+  color: #7a7a7a;
+  font-size: 12px;
+  line-height: 16px;
+}
+.c-pop .model-item-name {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+/* 分组标题（官方 `text-muted-foreground text-xs`） */
+.c-pop .model-group-header {
+  color: #7a7a7a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+.c-pop .model-dropdown-empty {
+  color: #7a7a7a;
+  font-size: 12px;
+}
+
+/* ── 官方 `AgentModelPicker`（助手面板专用，`agentStyle`）────────────────────────────
+   官方 DOM 实测（CDP 9222，新会话）：
+     面板   `w-fit overflow-visible rounded-2xl border border-border/50 bg-popover p-0 shadow-lg`
+            → 内容 `relative w-[252px]` + `relative flex flex-col p-1`
+     模型行 `relative flex h-8 w-full min-w-0 items-center rounded-md py-1.5 pr-2 pl-3
+             transition-colors duration-150 hover:bg-accent/70`
+     Auto 行 `min-h-12 … rounded-md py-1.5 pr-2 pl-3`（选中 `bg-accent/85`）           */
+.model-dropdown.c-pop.agent-model-picker {
+  width: 252px;
+  padding: 4px;
+  border-width: 1px;
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: var(--popover, #262626);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  /* 官方结构 = 外壳 `relative flex flex-col p-1` + 内层滚动条
+     `Ou = "max-h-[280px] min-h-0 overflow-y-auto overscroll-contain"` + 外层滚动渐隐 `_s`(=`bN`)：
+     外壳 4px 上下内边距 + 列表 280px ⇒ **总高正好 288px**（与实测一致）。
+     这里外壳仍然自己滚（`overflow-y:auto`），因为 MTV 的内层列表是**一层平铺**的按钮，
+     外面多包一层会破坏 `.model-dropdown > .model-group:first-child` 这种直接子选择器。
+     高度用 288（= 280 + 4 + 4）与官方总高一致。 */
+  max-height: 288px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.model-dropdown.agent-model-picker .model-item {
+  min-height: 32px;
+  /* ★ 官方行基类 `Z1 = "rounded-md py-1.5 pr-2 pl-3"`（r127 `vendor-pkg-canvas-Dp0xADoD.js` @81789，逐字；
+     行 = `Fve = z("relative flex h-8 w-full min-w-0 items-center", Z1, "transition-colors duration-150",
+     "hover:bg-accent/70")` @81839）。官方 `rounded-md = calc(var(--radius) - 2px) = 12 - 2 = **10px**`
+     （真机探针实测该行 `border-radius:10px` / `height:32px` / `padding:6px 8px 6px 12px`）
+     ⚠️ 原值 6px 是 MTV 自造（≠ 官方 10px，也与 `--menu-item-radius` 那档无关）⇒ 已改。 */
+  border-radius: 10px;
+  padding: 6px 8px 6px 12px;
+  font-size: 12px;
+  line-height: 16px;
+}
+.model-dropdown.agent-model-picker .model-item:hover:not(:disabled),
+.model-dropdown.agent-model-picker .model-item.is-active {
+  background: color-mix(in oklab, var(--accent, #404040) 70%, transparent);
+}
+.model-dropdown.agent-model-picker .model-item-name {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 16px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ⚠️ `@` 提到选择器（MentionPicker）**不要在 `.c-scope` 里再写规则** ——
+      它自己那份 `mention-picker.css` 就是照官方 `ffe` 逐条抄的（含每行的实测注释）：
+        · 容器 `Dg = "text-white rounded-[16px] overflow-hidden backdrop-blur-[28px]"`
+          + inline `backgroundColor:"#2f2f2f"` ⇒ 9444 实测 bg rgb(47,47,47) / 16px / 无边框 / blur(28px)
+        · 分组标题 `Ph` = 12px/500 `white/40` + `tracking-[0.48px]`，hint 11px/400 `white/30`
+        · 行 `Ta` = 14px/500 `white/90` + `px-8 py-6` + 圆角 6px + hover/选中 `bg-white/10`
+      我上一版在这里把 Tab/芯片/分组标题按「猜测的官方值」覆盖过一遍（14px/400 white/90 之类），
+      全都是**臆造**：官方弹窗里根本没有 Tab/芯片行，分组标题也不是 14px/400
+      ⇒ 整段 `.c-scope .mention-*` 覆盖已删除（MTV 主题紫已改在其本体 `mention-picker.css` 里）。
+   ══════════════════════════════════════════════════════════════════════ */
+[data-theme='light'] .model-dropdown.c-pop {
+  background: var(--theme-surface, #ffffff);
+  border-color: var(--theme-border, rgba(51, 54, 77, 0.16));
+}
+[data-theme='light'] .c-pop .model-item {
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-pop .model-item:hover:not(:disabled) {
+  background: var(--theme-hover, rgba(51, 54, 77, 0.06));
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ⚠️ 输入框「编辑态」的底色：`base.css` 给**全站**每个 `[contenteditable]` 挂了
+     ```css
+     [contenteditable]:hover { background-color: var(--white-alpha-03); }
+     [contenteditable]:focus { background-color: rgba(255, 255, 255, 0.05); }  // 靛蓝 rgba(99,102,241,.05)
+     ```
+   于是助手输入框一聚焦就染上一层**靛蓝**（实测像素：卡片 #1A1A1A 被染成 **#1E1E25**）——
+     正是用户看到的「编辑态底色不对」。官方输入框的编辑态**没有底色**（正文直接排在卡片底上，
+     逐字 class 里也没有任何 `hover:`/`focus:` 底色）⇒ 在助手作用域里收回。
+     `.c-scope [contenteditable]:focus`(0,3,0) 压过 `[contenteditable]:focus`(0,2,0)。
+   ══════════════════════════════════════════════════════════════════════ */
+.c-scope [contenteditable]:hover,
+.c-scope [contenteditable]:focus,
+.c-scope [contenteditable]:focus-visible {
+  background-color: transparent;
+  outline: none;
+}
+
+/* ── 助手内的全屏覆盖浮层（智能体中心 / 项目记忆 / 子智能体）──
+
+/* ── 助手内的全屏覆盖浮层（智能体中心 / 项目记忆 / 子智能体）──
+   官方没有这几个面板（MTV 专有功能）⇒ 用官方助手头部那套几何，让它们在面板里**看起来是同一个壳**：
+     · 根：不透明面板底（与助手面板同色）；**绝不能透明** —— 透明会让底下的聊天
+       （连聊天头部那颗 X）透上来，和浮层自己的标题栏叠在一起
+     · 头部：`pt-4 pb-1 pr-4` 同官方头部 ⇒ 关闭键的落点与聊天头部那颗**完全一致**
+       （实测：都是 32×32 / 圆角 10 / 距面板右缘 16px / 距顶 20px） */
+.c-overlay {
+  background: var(--c-chat-bg);
+}
+.c-overlay__head {
+  display: flex;
+  box-sizing: content-box; /* 让 min-height 落在**内容行**上，与官方头部的 `h-10` 一致 */
+  flex: none;
+  min-height: 40px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 16px 4px;
+  border-bottom: 1px solid var(--c-border);
+}
+.c-overlay__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(245, 245, 245, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.c-overlay__count {
+  flex: none;
+  color: rgba(122, 122, 122, 0.9);
+  font-size: 11px;
+  line-height: 16px;
+}
+.c-overlay__body {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+}
+[data-theme='light'] .c-overlay {
+  background: var(--theme-surface, #ffffff);
+}
+[data-theme='light'] .c-overlay__title {
+  color: var(--theme-text, #1a1a1a);
+}
+
+/* ── 助手里的关闭键统一成官方那颗（`common-dialog-close-btn`：32×32 / 圆角 10 / 中性 hover）──
+   `PopupCloseButton` 在助手里的实例（智能体中心 / 项目记忆 / 子智能体的标题栏）原来带
+   `rounded-lg`(8px) + **红底 hover**，而聊天头部那颗是我按官方做的 `.c-icon-btn`（10px / 中性 hover）
+   ⇒ 两处看起来「各是各的」。这里把它拉平到同一套几何与 hover。
+   ⚠️ 只在 `.c-scope`（助手面板）里改，不影响其它弹窗对 `PopupCloseButton` 的用法。 */
+.c-scope .chat-panel-close-btn {
+  border-radius: 10px;
+  color: rgba(245, 245, 245, 0.8);
+  /* 官方第 5 颗逐字带 `-ml-[3px]`（PAGE@737713）：在 `gap-3`(12px) 基础上再左移 3px ⇒ 实际间距 9px */
+  margin-left: -3px;
+}
+.c-scope .chat-panel-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f5f5f5;
+}
+.c-scope .chat-panel-close-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18);
+}
+[data-theme='light'] .c-scope .chat-panel-close-btn {
+  color: var(--theme-text-secondary, #4a4a4a);
+}
+[data-theme='light'] .c-scope .chat-panel-close-btn:hover {
+  background: var(--theme-hover, rgba(51, 54, 77, 0.06));
+  color: var(--theme-text, #1a1a1a);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   浅色主题覆写（官方只有暗色 ⇒ 这不是官方值，是 MTV 专有主题的记账）
+   ══════════════════════════════════════════════════════════════════════ */
+[data-theme='light'] .c-scope {
+  --c-chat-bg: var(--theme-surface, #ffffff);
+  --c-bubble: var(--theme-card, #ffffff);
+  --c-text-1: var(--theme-text, #1a1a1a);
+  --c-text-2: var(--theme-text-muted, #6b6b6b);
+  --c-border: var(--theme-border, rgba(51, 54, 77, 0.16));
+}
+[data-theme='light'] .c-panel {
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-title {
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-icon-btn {
+  color: var(--theme-text-secondary, #4a4a4a);
+}
+[data-theme='light'] .c-icon-btn:hover:not(:disabled) {
+  background: var(--theme-hover, rgba(51, 54, 77, 0.06));
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-suggest {
+  border-color: var(--theme-border, rgba(51, 54, 77, 0.16));
+}
+[data-theme='light'] .c-suggest__label > span,
+[data-theme='light'] .c-suggest__desc {
+  color: var(--theme-text-muted, #6b6b6b);
+}
+[data-theme='light'] .c-suggest__title {
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-chip {
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-chip--fill,
+[data-theme='light'] .c-chip:hover:not(:disabled) {
+  background: rgba(51, 54, 77, 0.08);
+}
+[data-theme='light'] .c-sq {
+  color: var(--theme-text, #1a1a1a);
+}
+[data-theme='light'] .c-sq:hover:not(:disabled) {
+  background: rgba(51, 54, 77, 0.08);
+}
+[data-theme='light'] .c-send {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+[data-theme='light'] .c-send:disabled {
+  background: rgba(51, 54, 77, 0.14);
+  color: rgba(51, 54, 77, 0.4);
+}
+[data-theme='light'] .c-messages::-webkit-scrollbar-thumb {
+  background: rgba(51, 54, 77, 0.24);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   官方 `.chat-markdown` 全套规则（逐字搬自官方 `page-DdKu6wtx.css`，36 条）
+
+   ⚠️ 之前 `ChatMarkdown.tsx` **只挂了 `chat-markdown` 这个类名，仓库里却一条对应 CSS 都没有**
+   ⇒ 助手产出的正文/标题/列表/代码块/引用/表格全部落回 MTV 自己的配色与排版
+   （用户实测「agent 产出的内容格式与官方完全不一样」）。这里把官方那 36 条原样补上。
+   官方用到的变量 `--chat-foreground` / `--muted-foreground` / `--border` 本仓都已存在。
+   ══════════════════════════════════════════════════════════════════════ */
+.chat-markdown {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC', sans-serif;
+  text-autospace: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+.chat-markdown > * + * { margin-top: .9em; }
+/* ⚠️ 第 60 轮（用户「图 1 官方 / 图 2 你，总感觉不对」）：
+   官方这条 `.45em` 在**官方 DOM 里永远不命中** —— streamdown 会在每个块外面套一层 wrapper，
+   标题并不是 `.chat-markdown` 的直接子元素；官方实测渲染出的间距是 wrapper 之间的 `.9em`：
+     · 官方 h3 margin-top = **0px**（自身），与前一块的净间距 = **12.6px**（= .9em）
+     · 紧跟标题的下一个块 margin-top = **12.6px**（不是 .45em = 6.3px）
+   MTV 的 markdown 是**直接子元素**结构（无 wrapper）⇒ 原来的 `.45em` 与 `> h3 { margin-top: 1.5em }`
+   会真的生效（实测：标题上 27px、标题下 6.3px）⇒ 与官方渲染**相反**。这里按官方**渲染结果**改成 .9em。 */
+.chat-markdown > :is(h1, h2, h3, h4, h5, h6) + * { margin-top: .9em; }
+.chat-markdown :is(h1, h2, h3, h4, h5, h6) { color: #fff; font-weight: 600; line-height: 1.35; letter-spacing: 0; }
+.chat-markdown > h1 { font-size: 24px; margin-top: .9em; }
+.chat-markdown > h2 { font-size: 20px; margin-top: .9em; }
+.chat-markdown > h3 { font-size: 18px; margin-top: .9em; }
+.chat-markdown > h4 { font-size: 16px; margin-top: .9em; }
+.chat-markdown > h5 { font-size: 15px; margin-top: .9em; }
+.chat-markdown > h6 { font-size: 14px; margin-top: .9em; color: color-mix(in srgb, #fff 88%, transparent); }
+.chat-markdown > :is(h1, h2, h3, h4, h5, h6):first-child { margin-top: 0; }
+.chat-markdown :is(strong, [data-streamdown='strong']) { color: #fff; font-weight: 600; }
+.chat-markdown :is(del, s) { color: var(--muted-foreground); text-decoration: line-through; }
+.chat-markdown :is(sub, sup) { font-size: .75em; line-height: 0; }
+.chat-markdown :is(ul, ol) { padding-left: 1.5em; list-style-position: outside; }
+.chat-markdown ul { list-style-type: disc; }
+.chat-markdown ul ul { list-style-type: circle; }
+.chat-markdown ul ul ul { list-style-type: square; }
+.chat-markdown ol { list-style-type: decimal; }
+.chat-markdown ol ol { list-style-type: lower-alpha; }
+.chat-markdown li { list-style: inherit; padding-left: .15em; }
+.chat-markdown li + li { margin-top: .4em; }
+.chat-markdown li::marker { color: color-mix(in srgb, var(--chat-foreground) 55%, transparent); }
+.chat-markdown ol > li::marker { font-variant-numeric: tabular-nums; }
+.chat-markdown li > :is(ul, ol) { margin-top: .4em; }
+.chat-markdown li > p + p { margin-top: .4em; }
+.chat-markdown li:is(.task-list-item, :has(> input[type='checkbox'])) { list-style: none; margin-left: -1.5em; }
+.chat-markdown li > input[type='checkbox'] { width: .9em; height: .9em; margin: 0 .45em 0 0; vertical-align: -.1em; accent-color: var(--chat-foreground); }
+.chat-markdown .chat-code-block { min-width: 0; max-width: 100%; }
+.chat-markdown pre {
+  max-width: 100%;
+  padding: .75em .9em;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--chat-foreground) 6%, transparent);
+  color: color-mix(in srgb, var(--chat-foreground) 92%, transparent);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 2;
+}
+.chat-markdown .chat-code-block[data-wrap='off'] > pre { white-space: pre; overflow-wrap: normal; }
+.chat-markdown .chat-code-block > pre { padding-right: 4.6em; }
+.chat-markdown .chat-code-block code { font: inherit; color: inherit; background: transparent; }
+.chat-markdown blockquote {
+  padding: .35em 0 .35em 1em;
+  border-left: 2px solid color-mix(in srgb, var(--chat-foreground) 28%, transparent);
+  color: color-mix(in srgb, var(--chat-foreground) 78%, transparent);
+  font-style: normal;
+}
+.chat-markdown blockquote > p + p { margin-top: .5em; }
+.chat-markdown hr { margin: 1.2em 0; border: 0; border-top: 1px solid var(--border); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   官方 `flowing-border`（逐字搬自官方 `course-api-base-url-CB2umUVF.css`）
+
+   用途：官方节点外壳（`course-api-base-url-*.js@1238881`）里
+     `className={cn("canvas-node-presence-surface relative h-full w-full rounded-2xl",
+                    ye ? "flowing-border" : "bg-card", …)}`
+   其中 `ye = 连线目标 || 节点选中高亮 || 播放列表拾取高亮 || **insertPick.showHighlight**`
+   ⇒ **「从画布添加」拾取模式下，可拾取（且尚未被引用）的卡片会带 `flowing-border`**，
+   鼠标悬浮时出现一圈流动的光带（这就是官方那张卡片的 hover 动画）。
+
+   MTV 的卡面元素是 `.react-flow__node > .canvas-node-lod-boundary > .node-wrapper > .node`
+   （实测），所以这里用后代选择器 `.react-flow__node[data-insert-pick] .node` 命中它
+   （先前写成 `> .node-wrapper > .node`，中间隔着 `.canvas-node-lod-boundary` ⇒ **永不命中**，
+   这就是「悬浮没有动画」的原因）。
+   ══════════════════════════════════════════════════════════════════════ */
+.react-flow__node[data-insert-pick] .node,
+.react-flow__node[data-insert-pick] .canvas-node-presence-surface {
+  position: relative;
+  background-color: var(--card);
+  --flow-start: 100%;
+  --flow-end: -100%;
+}
+.react-flow__node[data-insert-pick] .node::before,
+.react-flow__node[data-insert-pick] .canvas-node-presence-surface::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, transparent 0%, transparent 20%, rgba(255, 255, 255, .55) 40%, rgba(255, 255, 255, 1) 50%, rgba(255, 255, 255, .55) 60%, transparent 80%, transparent 100%);
+  background-size: 200% 200%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.react-flow__node[data-insert-pick] .node::after,
+.react-flow__node[data-insert-pick] .canvas-node-presence-surface::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 22px;
+  background: linear-gradient(90deg, transparent 0%, transparent 20%, rgba(255, 255, 255, .24) 40%, rgba(255, 255, 255, .58) 50%, rgba(255, 255, 255, .24) 60%, transparent 80%, transparent 100%);
+  background-size: 200% 200%;
+  filter: blur(8px);
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.react-flow__node[data-insert-pick] .node:hover::before,
+.react-flow__node[data-insert-pick] .node:hover::after,
+.react-flow__node[data-insert-pick] .canvas-node-presence-surface:hover::before,
+.react-flow__node[data-insert-pick] .canvas-node-presence-surface:hover::after {
+  opacity: 1;
+  animation: flowingLight 1.5s linear infinite;
+}
+@keyframes flowingLight {
+  0% { background-position: var(--flow-start) 50%; }
+  to { background-position: var(--flow-end) 50%; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   官方**通用节点选择模式**（`dr`）的节点三态 —— 由 `NodeSelectionPickLayer` 打 `data-node-pick`，
+   CSS 把官方 `course-api-base-url-*.css` 的三组规则挂到 MTV 的真实卡面 `.node` 上。
+
+   ① `disabled`（类型不在 `allowedNodeTypes` / `isNodeSelectable` 不通过 / 连线不合法）
+      官方 `node-disabled-blur` **逐字**：
+        `.node-disabled-blur{position:relative;filter:blur(3px);transition:filter .3s}`
+        `.node-disabled-blur:after{content:"";position:absolute;inset:0;border-radius:inherit;
+                                   background:#000000b3;pointer-events:none;z-index:20}`
+        `.react-flow__node:has(.node-disabled-blur){outline:none!important}`（`:hover` 同）
+      ⇒ 就是「不同类的卡片被遮罩住、添加不了」那条。
+   ② `highlight`（`showHighlight`）⇒ 官方 `flowing-border`（hover 才亮，规则同上文 insert-pick 那组）。
+   ③ `picked` ⇒ 官方 `boxShadow:"0 0 0 2px var(--muted-foreground)"`（element-library 用 `#e6e6e6`）
+      + 16×16 圆角方块对号（`<yU size={12} strokeWidth={3}/>` = lucide `check`，`left-3 top-3`）。
+   ══════════════════════════════════════════════════════════════════════ */
+.react-flow__node[data-node-pick="disabled"] .node {
+  position: relative;
+  filter: blur(3px);
+  transition: filter .3s;
+}
+.react-flow__node[data-node-pick="disabled"] .node::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #000000b3;
+  pointer-events: none;
+  z-index: 20;
+}
+.react-flow__node[data-node-pick="disabled"],
+.react-flow__node[data-node-pick="disabled"]:hover {
+  outline: none !important;
+  cursor: not-allowed;
+}
+
+.react-flow__node[data-node-pick="highlight"] .node,
+.react-flow__node[data-node-pick="highlight"] .canvas-node-presence-surface {
+  position: relative;
+  background-color: var(--card);
+  --flow-start: 100%;
+  --flow-end: -100%;
+}
+.react-flow__node[data-node-pick="highlight"] .node::before,
+.react-flow__node[data-node-pick="highlight"] .canvas-node-presence-surface::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, transparent 0%, transparent 20%, rgba(255, 255, 255, .55) 40%, rgba(255, 255, 255, 1) 50%, rgba(255, 255, 255, .55) 60%, transparent 80%, transparent 100%);
+  background-size: 200% 200%;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.react-flow__node[data-node-pick="highlight"] .node::after,
+.react-flow__node[data-node-pick="highlight"] .canvas-node-presence-surface::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 22px;
+  background: linear-gradient(90deg, transparent 0%, transparent 20%, rgba(255, 255, 255, .24) 40%, rgba(255, 255, 255, .58) 50%, rgba(255, 255, 255, .24) 60%, transparent 80%, transparent 100%);
+  background-size: 200% 200%;
+  filter: blur(8px);
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.react-flow__node[data-node-pick="highlight"] .node:hover::before,
+.react-flow__node[data-node-pick="highlight"] .node:hover::after,
+.react-flow__node[data-node-pick="highlight"] .canvas-node-presence-surface:hover::before,
+.react-flow__node[data-node-pick="highlight"] .canvas-node-presence-surface:hover::after {
+  opacity: 1;
+  animation: flowingLight 1.5s linear infinite;
+}
+
+.react-flow__node[data-node-pick="picked"] .node,
+.react-flow__node[data-node-pick="picked"] .canvas-node-presence-surface {
+  box-shadow: 0 0 0 2px var(--muted-foreground);
+}
+.react-flow__node[data-node-pick="picked-library"] .node,
+.react-flow__node[data-node-pick="picked-library"] .canvas-node-presence-surface {
+  box-shadow: 0 0 0 2px #e6e6e6;
+}
+.react-flow__node[data-node-pick="picked"] .node::after,
+.react-flow__node[data-node-pick="picked-library"] .node::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 40;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background-color: #e6e6e6;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231f1f1f' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 12px;
+  pointer-events: none;
+}
+.react-flow__node[data-node-pick="picked-library"] .node::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 40;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, .7);
+  background: rgba(0, 0, 0, .35);
+  pointer-events: none;
+}
