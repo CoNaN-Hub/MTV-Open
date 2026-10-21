@@ -1526,15 +1526,20 @@ export function useImageVideoChipController(input: ImageVideoChipControllerInput
    */
   const declaredImageSizes = useMemo<readonly string[] | null>(() => {
     if (!isImage) return null;
-    const allowed = (list: readonly string[]) => (channelLimits
-      ? list.filter((value) => !isChannelDisabled(channelLimits.disabledImageSizes, value))
-      : list);
-    if (Array.isArray(imageInfo?.imageSizeOptions)) return allowed(imageInfo.imageSizeOptions);
-    if (imageCapability) {
-      return allowed(imageSizesForModel([...modelAliasKeys], editedAspectRatio || undefined));
-    }
-    return null;
-  }, [channelLimits, editedAspectRatio, imageCapability, imageInfo?.imageSizeOptions, isImage, modelAliasKeys]);
+    /* 渠道置灰的档位直接从「声明支持」里去掉（chip 菜单没有置灰态）。
+       ⚠️ 不能在 useMemo 里定义内层函数再调用 —— React Compiler 会报
+          「Existing memoization could not be preserved」（eslint 直接红）。 */
+    const declared = Array.isArray(imageInfo?.imageSizeOptions)
+      ? imageInfo.imageSizeOptions
+      : imageCapability
+        ? imageSizesForModel([...modelAliasKeys], editedAspectRatio || undefined)
+        : null;
+    if (!declared) return null;
+    if (!channelLimits) return declared;
+    return declared.filter((value) => !isChannelDisabled(channelLimits.disabledImageSizes, value));
+    /* ⚠️ `imageInfo` 必须整个进依赖表：React Compiler 推断的是 `imageInfo`（比 `imageInfo?.imageSizeOptions`
+       更宽），不写会报 `react-hooks/preserve-manual-memoization`；`imageInfo` 已覆盖它，故不再单列。 */
+  }, [channelLimits, editedAspectRatio, imageCapability, imageInfo, isImage, modelAliasKeys]);
   const imageSizeOptions = useMemo<ParamChipOption[]>(() => (
     imageSizeCollapsed
       ? []
