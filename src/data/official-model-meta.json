@@ -1,0 +1,1649 @@
+{
+  "image": {
+    "gpt-image-2.5-flare": {
+      "modelId": "gpt-image-2.5-flare",
+      "displayName": "GPT Image 2.5 Flare",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "4K"
+        }
+      ],
+      "iconKey": "da.OPENAI",
+      "iconExpr": "hs?da.TAPNOW:da.OPENAI",
+      "iconBranch": "model-brand(else)",
+      "description": "GPT Image 2 升级版，更快更清晰，画质最高可到极致档",
+      "descriptionKey": "imageModels.descriptions.gptImage25Flare"
+    },
+    "gpt-image-2.5-sunburst": {
+      "modelId": "gpt-image-2.5-sunburst",
+      "displayName": "GPT Image 2.5 Sunburst",
+      "featureTags": [],
+      "iconKey": "da.OPENAI",
+      "iconExpr": "hs?da.TAPNOW:da.OPENAI",
+      "iconBranch": "model-brand(else)",
+      "description": "GPT Image 2.5 精修档，编辑更精准，适合成品级创作",
+      "descriptionKey": "imageModels.descriptions.gptImage25Sunburst"
+    },
+    "gpt-image-2": {
+      "modelId": "gpt-image-2",
+      "displayName": "GPT Image2",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "4K"
+        }
+      ],
+      "iconKey": "da.OPENAI",
+      "iconExpr": "hs?da.TAPNOW:da.OPENAI",
+      "iconBranch": "model-brand(else)",
+      "description": "高级AI图像生成，支持质量控制",
+      "descriptionKey": "imageModels.descriptions.gptImage2"
+    },
+    "nano-banana-flash": {
+      "modelId": "nano-banana-flash",
+      "displayName": "Banana 2",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "4K"
+        }
+      ],
+      "iconKey": "da.BANANA",
+      "iconExpr": "hs?da.GEMINI:da.BANANA",
+      "iconBranch": "model-brand(else)",
+      "description": "更快更便宜的图像编辑模型",
+      "descriptionKey": "imageModels.descriptions.nano-banana-2-0"
+    },
+    "nano-banana-flash-lite": {
+      "modelId": "nano-banana-flash-lite",
+      "displayName": "Nano Banana 2 Lite",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1K"
+        }
+      ],
+      "iconKey": "da.BANANA",
+      "iconExpr": "hs?da.GEMINI:da.BANANA",
+      "iconBranch": "model-brand(else)",
+      "description": "更快更便宜的图像编辑模型",
+      "descriptionKey": "imageModels.descriptions.nano-banana-flash-lite"
+    },
+    "tamar-google-gemini-pro": {
+      "modelId": "tamar-google-gemini-pro",
+      "displayName": "Banana Pro",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "4K"
+        }
+      ],
+      "iconKey": "da.BANANA",
+      "iconExpr": "hs?da.GEMINI:da.BANANA",
+      "iconBranch": "model-brand(else)",
+      "description": "世界最强图像编辑模型",
+      "descriptionKey": "imageModels.descriptions.gemini-banana-2"
+    },
+    "nano-banana": {
+      "modelId": "nano-banana",
+      "displayName": "Banana",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.BANANA",
+      "iconExpr": "hs?da.GEMINI:da.BANANA",
+      "iconBranch": "model-brand(else)",
+      "description": "世界第二强图像编辑模型",
+      "descriptionKey": "imageModels.descriptions.gemini-banana"
+    },
+    "reve-2.1": {
+      "modelId": "reve-2.1",
+      "displayName": "Reve 2.1",
+      "featureTags": [],
+      "iconKey": "da.REVE",
+      "description": "Reve 2.1 文生图，支持 18 种画幅，单次最多 4 张",
+      "descriptionKey": "imageModels.descriptions.reve21"
+    },
+    "fal-recraft-v4": {
+      "modelId": "fal-recraft-v4",
+      "displayName": "Recraft V4",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.RECRAFT",
+      "description": "面向设计师的 AI 图片生成，适合品牌素材、插画和图标",
+      "descriptionKey": "imageModels.descriptions.falRecraftV4"
+    },
+    "fal-recraft-v4-vector": {
+      "modelId": "fal-recraft-v4-vector",
+      "displayName": "Recraft V4 矢量版",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.RECRAFT",
+      "description": "AI 驱动的 SVG 矢量图生成，支持无损缩放",
+      "descriptionKey": "imageModels.descriptions.falRecraftV4Vector"
+    },
+    "doubao-seedream-5.0-lite": {
+      "modelId": "doubao-seedream-5.0-lite",
+      "displayName": "Seedream 5.0 Lite",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "2K"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "字节跳动即梦5.0 Lite - 新一代轻量级图像生成",
+      "descriptionKey": "imageModels.descriptions.seedream50lite"
+    },
+    "doubao-seedream-5.0-pro": {
+      "modelId": "doubao-seedream-5.0-pro",
+      "displayName": "Seedream 5.0 Pro",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "2K"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "字节跳动即梦5.0 Pro - 新一代专业级图像生成",
+      "descriptionKey": "imageModels.descriptions.seedream50pro"
+    },
+    "tapnow-image-turbo": {
+      "modelId": "tapnow-image-turbo",
+      "displayName": "TapNow Flash",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "4K"
+        }
+      ],
+      "iconKey": "da.TAPNOW",
+      "description": "轻量极速模型，几乎零等待、超低算力成本，让生成随手即得。",
+      "descriptionKey": "imageModels.descriptions.tapnowImageTurbo"
+    },
+    "grok-2-image": {
+      "modelId": "grok-2-image",
+      "displayName": "Grok2 Image",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.XAI",
+      "description": "xAI Grok 图片生成模型",
+      "descriptionKey": "imageModels.descriptions.grok2Image"
+    },
+    "grok-imagine-image": {
+      "modelId": "grok-imagine-image",
+      "displayName": "Grok Imagine",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "2K"
+        }
+      ],
+      "iconKey": "da.XAI",
+      "description": "xAI Grok Imagine - 快速图片生成，支持多种宽高比",
+      "descriptionKey": "imageModels.descriptions.grokImagineImage"
+    },
+    "grok-imagine-image-quality": {
+      "modelId": "grok-imagine-image-quality",
+      "displayName": "Grok Imagine Quality",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "2K"
+        }
+      ],
+      "iconKey": "da.XAI",
+      "description": "xAI Grok Imagine Quality - 高质量图片生成，支持多种宽高比",
+      "descriptionKey": "imageModels.descriptions.grokImagineImageQuality"
+    },
+    "doubao-seedream-4.0": {
+      "modelId": "doubao-seedream-4.0",
+      "displayName": "Seedream 4.0",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "4K"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "字节跳动最强图像编辑模型",
+      "descriptionKey": "imageModels.descriptions.seedream"
+    },
+    "doubao-seedream-4.5": {
+      "modelId": "doubao-seedream-4.5",
+      "displayName": "Seedream 4.5",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "4K"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "字节跳动即梦4.5 - 更强大的图像生成能力",
+      "descriptionKey": "imageModels.descriptions.seedream45"
+    },
+    "midjourney-v7": {
+      "modelId": "midjourney-v7",
+      "displayName": "MJ V7",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.MIDJOURNEY",
+      "description": "复杂场景图像生成",
+      "descriptionKey": "imageModels.descriptions.midjourney"
+    },
+    "midjourney-v8.2": {
+      "modelId": "midjourney-v8.2",
+      "displayName": "MJ V8.2",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "2K"
+        }
+      ],
+      "iconKey": "da.MIDJOURNEY",
+      "description": "Midjourney V8.2 - 美学与画质全面升级，出图更具张力、废片更少，支持 HD（2K）模式",
+      "descriptionKey": "imageModels.descriptions.midjourneyV82"
+    },
+    "midjourney-v8.1": {
+      "modelId": "midjourney-v8.1",
+      "displayName": "MJ V8.1",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "2K"
+        }
+      ],
+      "iconKey": "da.MIDJOURNEY",
+      "description": "Midjourney V8.1 - 细节更锐利、构图更丰富，支持草图（快速）和 HD（2K）模式",
+      "descriptionKey": "imageModels.descriptions.midjourneyV81"
+    },
+    "midjourney-niji7": {
+      "modelId": "midjourney-niji7",
+      "displayName": "MJ Niji7",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.MIDJOURNEY",
+      "description": "二次元风格图像生成",
+      "descriptionKey": "imageModels.descriptions.midjourneyNiji7"
+    },
+    "gpt-image-1": {
+      "modelId": "gpt-image-1",
+      "displayName": "GPT Image",
+      "featureTags": [],
+      "iconKey": "da.OPENAI",
+      "description": "基于GPT的图像生成",
+      "descriptionKey": "imageModels.descriptions.gptImage1"
+    },
+    "imagen-4.0": {
+      "modelId": "imagen-4.0",
+      "displayName": "IMAGEN 4.0",
+      "featureTags": [],
+      "iconKey": "da.GEMINI",
+      "description": "谷歌Imagen 4.0 - 新一代图像合成技术",
+      "descriptionKey": "imageModels.descriptions.imagen4"
+    },
+    "flux-2-pro": {
+      "modelId": "flux-2-pro",
+      "displayName": "Flux 2 Pro",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "2K"
+        }
+      ],
+      "iconKey": "da.BFL",
+      "description": "Flux 2 Pro - 最高质量图像生成，支持多张图像参考和精确尺寸控制",
+      "descriptionKey": "imageModels.descriptions.flux2Pro"
+    },
+    "flux-kontext-max": {
+      "modelId": "flux-kontext-max",
+      "displayName": "Flux Max",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.BFL",
+      "description": "Flux Kontext Max - 高性能版本",
+      "descriptionKey": "imageModels.descriptions.fluxMax"
+    },
+    "flux-kontext-pro": {
+      "modelId": "flux-kontext-pro",
+      "displayName": "Flux",
+      "featureTags": [
+        {
+          "label": "image.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.BFL",
+      "description": "Flux Kontext Pro - 标准版本",
+      "descriptionKey": "imageModels.descriptions.flux"
+    },
+    "world-edit": {
+      "modelId": "world-edit",
+      "displayName": "世界编辑",
+      "featureTags": [],
+      "iconKey": "da.TAPNOW",
+      "description": "全景世界编辑模型",
+      "descriptionKey": "imageModels.descriptions.tamar-world-edit"
+    },
+    "nano-banana-2": {
+      "modelId": "nano-banana-2",
+      "displayName": "Banana Pro",
+      "featureTags": [],
+      "iconKey": "da.BANANA",
+      "iconExpr": "hs?da.GEMINI:da.BANANA",
+      "iconBranch": "model-brand(else)",
+      "description": "世界最强图像编辑模型",
+      "descriptionKey": "imageModels.descriptions.gemini-banana-2"
+    }
+  },
+  "text": {
+    "gemini-3.5-flash": {
+      "modelId": "gemini-3.5-flash",
+      "displayName": "Gemini 3.5 Flash",
+      "featureTags": [
+        {
+          "label": "textModels.tags.fastEfficient",
+          "value": "快速高效"
+        },
+        {
+          "label": "textModels.tags.general",
+          "value": "通用"
+        }
+      ],
+      "iconKey": "da.GEMINI_SOLID",
+      "description": "Gemini 3.5 系列的快速高效 AI 模型",
+      "descriptionKey": "textModels.descriptions.gemini35Flash"
+    },
+    "gemini-3.6-flash": {
+      "modelId": "gemini-3.6-flash",
+      "displayName": "Gemini 3.6 Flash",
+      "featureTags": [
+        {
+          "label": "textModels.tags.fastEfficient",
+          "value": "快速高效"
+        },
+        {
+          "label": "textModels.tags.general",
+          "value": "通用"
+        }
+      ],
+      "iconKey": "da.GEMINI_SOLID",
+      "description": "Gemini 3.6 系列的快速高效 AI 模型",
+      "descriptionKey": "textModels.descriptions.gemini36Flash"
+    },
+    "gemini-3.1-pro": {
+      "modelId": "gemini-3.1-pro",
+      "displayName": "Gemini 3.1 Pro",
+      "featureTags": [
+        {
+          "label": "textModels.tags.enhancedReasoning",
+          "value": "增强推理"
+        },
+        {
+          "label": "textModels.tags.highQuality",
+          "value": "高质量"
+        }
+      ],
+      "iconKey": "da.GEMINI_SOLID",
+      "description": "Gemini 3.1 系列最先进的推理模型",
+      "descriptionKey": "textModels.descriptions.gemini31Pro"
+    },
+    "gemini-3.1-flash-lite": {
+      "modelId": "gemini-3.1-flash-lite",
+      "displayName": "Gemini 3.1 Flash Lite",
+      "featureTags": [
+        {
+          "label": "textModels.tags.lightweightFast",
+          "value": "轻量快速"
+        },
+        {
+          "label": "textModels.tags.lowCost",
+          "value": "低成本"
+        }
+      ],
+      "iconKey": "da.GEMINI_SOLID",
+      "description": "Gemini 3.1 系列轻量快速 AI 模型",
+      "descriptionKey": "textModels.descriptions.gemini31FlashLite"
+    },
+    "gemini-3-pro": {
+      "modelId": "gemini-3-pro",
+      "displayName": "Gemini 3 Pro",
+      "featureTags": [],
+      "iconKey": "da.GEMINI_SOLID",
+      "description": "史上最先进的推理模型",
+      "descriptionKey": "textModels.descriptions.gemini3Pro"
+    },
+    "gemini-3-flash": {
+      "modelId": "gemini-3-flash",
+      "displayName": "Gemini 3 Flash",
+      "featureTags": [
+        {
+          "label": "textModels.tags.fastEfficient",
+          "value": "快速高效"
+        },
+        {
+          "label": "textModels.tags.general",
+          "value": "通用"
+        }
+      ],
+      "iconKey": "da.GEMINI_SOLID",
+      "description": "Gemini 3 系列的快速高效 AI 模型",
+      "descriptionKey": "textModels.descriptions.gemini3Flash"
+    },
+    "gemini-2.5-flash": {
+      "modelId": "gemini-2.5-flash",
+      "displayName": "Gemini 2.5 Flash",
+      "featureTags": [],
+      "iconKey": "da.GEMINI_SOLID",
+      "description": "Gemini 2.5 Flash - 快速语言模型",
+      "descriptionKey": "textModels.descriptions.gemini"
+    },
+    "gemini-2.5-pro": {
+      "modelId": "gemini-2.5-pro",
+      "displayName": "Gemini 2.5 Pro",
+      "featureTags": [],
+      "iconKey": "da.GEMINI_SOLID",
+      "description": "Gemini 2.5 Pro - 高级语言模型",
+      "descriptionKey": "textModels.descriptions.geminiPro"
+    },
+    "deepseek-v4-pro": {
+      "modelId": "deepseek-v4-pro",
+      "displayName": "DeepSeek V4 Pro",
+      "featureTags": [
+        {
+          "label": "textModels.tags.deepReasoning",
+          "value": "深度推理"
+        },
+        {
+          "label": "textModels.tags.highQuality",
+          "value": "高质量"
+        }
+      ],
+      "iconKey": "da.DEEPSEEK",
+      "description": "阿里云百炼 DeepSeek V4 Pro，长上下文与强推理；仅支持纯文本（不支持图片/视频连线）",
+      "descriptionKey": "textModels.descriptions.deepseekV4Pro"
+    },
+    "grok-4.6": {
+      "modelId": "grok-4.6",
+      "displayName": "Grok 4.6",
+      "featureTags": [
+        {
+          "label": "textModels.tags.deepReasoning",
+          "value": "深度推理"
+        },
+        {
+          "label": "textModels.tags.highQuality",
+          "value": "高质量"
+        }
+      ],
+      "iconKey": "da.XAI",
+      "description": "xAI Grok 4.6，长上下文与强推理；仅支持纯文本（不支持图片/视频连线）",
+      "descriptionKey": "textModels.descriptions.grok46"
+    },
+    "gpt-5.6-sol": {
+      "modelId": "gpt-5.6-sol",
+      "displayName": "GPT-5.6 Sol",
+      "featureTags": [
+        {
+          "label": "textModels.tags.deepReasoning",
+          "value": "深度推理"
+        },
+        {
+          "label": "textModels.tags.highQuality",
+          "value": "高质量"
+        }
+      ],
+      "iconKey": "da.OPENAI",
+      "description": "GPT-5.6 最强档，深度推理与高质量长文；仅支持纯文本（不支持图片/视频连线）",
+      "descriptionKey": "textModels.descriptions.gpt56Sol"
+    },
+    "gpt-5.6-terra": {
+      "modelId": "gpt-5.6-terra",
+      "displayName": "GPT-5.6 Terra",
+      "featureTags": [
+        {
+          "label": "textModels.tags.enhancedReasoning",
+          "value": "增强推理"
+        },
+        {
+          "label": "textModels.tags.general",
+          "value": "通用"
+        }
+      ],
+      "iconKey": "da.OPENAI",
+      "description": "GPT-5.6 均衡档，质量与速度兼顾；仅支持纯文本（不支持图片/视频连线）",
+      "descriptionKey": "textModels.descriptions.gpt56Terra"
+    },
+    "gpt-5.6-luna": {
+      "modelId": "gpt-5.6-luna",
+      "displayName": "GPT-5.6 Luna",
+      "featureTags": [
+        {
+          "label": "textModels.tags.lightweightFast",
+          "value": "轻量快速"
+        },
+        {
+          "label": "textModels.tags.lowCost",
+          "value": "低成本"
+        }
+      ],
+      "iconKey": "da.OPENAI",
+      "description": "GPT-5.6 轻快档，响应快、成本低；仅支持纯文本（不支持图片/视频连线）",
+      "descriptionKey": "textModels.descriptions.gpt56Luna"
+    },
+    "gpt-6-astra": {
+      "modelId": "gpt-6-astra",
+      "displayName": "GPT-6 Astra",
+      "featureTags": [
+        {
+          "label": "textModels.tags.deepReasoning",
+          "value": "深度推理"
+        },
+        {
+          "label": "textModels.tags.highQuality",
+          "value": "高质量"
+        }
+      ],
+      "iconKey": "da.OPENAI",
+      "description": "GPT-6 旗舰推理档，推理更深、质量更高；支持文本与图片输入（不支持音频/视频）",
+      "descriptionKey": "textModels.descriptions.gpt6Astra"
+    },
+    "anthropic.claude-opus-5": {
+      "modelId": "anthropic.claude-opus-5",
+      "displayName": "Claude Opus 5",
+      "featureTags": [
+        {
+          "label": "textModels.tags.deepReasoning",
+          "value": "深度推理"
+        },
+        {
+          "label": "textModels.tags.highQuality",
+          "value": "高质量"
+        }
+      ],
+      "iconKey": "da.CLAUDE",
+      "description": "Anthropic Claude Opus 5，超长上下文与深度推理；仅支持纯文本（不支持图片/视频连线）",
+      "descriptionKey": "textModels.descriptions.claudeOpus5"
+    },
+    "anthropic.claude-fable-5": {
+      "modelId": "anthropic.claude-fable-5",
+      "displayName": "Claude Fable 5",
+      "featureTags": [
+        {
+          "label": "textModels.tags.deepReasoning",
+          "value": "深度推理"
+        },
+        {
+          "label": "textModels.tags.complexTask",
+          "value": "复杂任务"
+        }
+      ],
+      "iconKey": "da.CLAUDE",
+      "description": "Anthropic Claude Fable 5，擅长复杂长任务与创作；仅支持纯文本（不支持图片/视频连线）",
+      "descriptionKey": "textModels.descriptions.claudeFable5"
+    }
+  },
+  "video": {
+    "seedance-2.0": {
+      "modelId": "seedance-2.0",
+      "displayName": "Seedance 2.0",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-15S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "多分镜专业影视模型，支持多模态参考生成。",
+      "descriptionKey": "videoModels.descriptions.seedance20"
+    },
+    "seedance-2.0-mini": {
+      "modelId": "seedance-2.0-mini",
+      "displayName": "Seedance 2.0 Mini",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "720P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-15S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "Seedance 2.0 Mini - 轻量视频生成模型，适合快速创意探索。",
+      "descriptionKey": "videoModels.descriptions.seedance20Mini"
+    },
+    "seedance-2.0-fast": {
+      "modelId": "seedance-2.0-fast",
+      "displayName": "Seedance 2.0 Fast",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "720P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-15S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "Seedance 2.0 Fast 版本，速度和成本优先。",
+      "descriptionKey": "videoModels.descriptions.seedance20Fast"
+    },
+    "seedance-2.5": {
+      "modelId": "seedance-2.5",
+      "displayName": "Seedance 2.5",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-30S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "单次生成最长 30 秒音画一体视频，支持最多 50 个多模态参考素材，并支持视频编辑与延长。",
+      "descriptionKey": "videoModels.descriptions.seedance25"
+    },
+    "minimax-h3": {
+      "modelId": "MiniMax-H3",
+      "displayName": "MiniMax H3",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "2K"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-15S"
+        }
+      ],
+      "iconKey": "da.MINIMAX",
+      "description": "MiniMax H3 - 2K 影视级视频，自带音效，支持首尾帧与多模态参考。",
+      "descriptionKey": "videoModels.descriptions.minimaxH3"
+    },
+    "minimax-h3-max": {
+      "modelId": "MiniMax-H3-Max",
+      "displayName": "MiniMax H3 Max",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "768P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-15S"
+        }
+      ],
+      "iconKey": "da.MINIMAX",
+      "description": "MiniMax H3 Max - 最高 768P 影视级视频的 LoRA 风格强化版，自带音效。",
+      "descriptionKey": "videoModels.descriptions.minimaxH3Max"
+    },
+    "wan3.0-video": {
+      "modelId": "wan3.0-video",
+      "displayName": "Wan 3.0",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "2-30S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.WANXIANG",
+      "description": "Wan 3.0 - 统一文生 / 图生 / 参考图 / 参考视频生视频模型，480P/720P/1080P，2~30 秒或智能时长，默认带音频",
+      "descriptionKey": "videoModels.descriptions.wan30"
+    },
+    "kling-video-o3": {
+      "modelId": "kling-video-o3",
+      "displayName": "Kling 3.0 Omni",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "4K"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "3-15S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.KLING",
+      "description": "Kling 3.0 Omni - 支持图生视频、首尾帧生成，可选音频，时长3-15秒",
+      "descriptionKey": "videoModels.descriptions.klingVideoO3"
+    },
+    "flux-3": {
+      "modelId": "flux-3",
+      "displayName": "FLUX 3",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-20S"
+        }
+      ],
+      "iconKey": "da.BFL",
+      "description": "FLUX 3 - 文本 / 图片生视频，自带同步音频，最高 1080p，5-20 秒",
+      "descriptionKey": "videoModels.descriptions.flux3"
+    },
+    "gemini-omni-flash": {
+      "modelId": "gemini-omni-flash",
+      "displayName": "Gemini Omni Flash",
+      "featureTags": [
+        {
+          "label": "video.featureTag.duration",
+          "value": "3-10S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.GEMINI",
+      "description": "Gemini Omni Flash - 快速多模态视频生成模型，支持原生音频。",
+      "descriptionKey": "videoModels.descriptions.geminiOmniFlash"
+    },
+    "gemini-omni-1.1-flash": {
+      "modelId": "gemini-omni-1.1-flash",
+      "displayName": "Gemini Omni 1.1 Flash",
+      "featureTags": [
+        {
+          "label": "video.featureTag.duration",
+          "value": "3-10S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.GEMINI",
+      "description": "Gemini Omni 1.1 Flash - 快速多模态视频生成模型，支持原生音频。",
+      "descriptionKey": "videoModels.descriptions.geminiOmni11Flash"
+    },
+    "kling-v3-pro": {
+      "modelId": "kling-v3-pro",
+      "displayName": "Kling 3.0",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "4K"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "3-15S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.KLING",
+      "description": "Kling 3.0 - 支持图生视频、首尾帧、宽高比选择、音频生成，时长3-15秒",
+      "descriptionKey": "videoModels.descriptions.klingV3Pro"
+    },
+    "happyhorse-1.0": {
+      "modelId": "happyhorse-1.0",
+      "displayName": "HappyHorse 1.0",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "3-15S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.ALIBABA",
+      "description": "HappyHorse 1.0 - 统一支持文生 / 图生 / 参考生视频与视频编辑，720P/1080P，3~15 秒",
+      "descriptionKey": "videoModels.descriptions.happyhorse10"
+    },
+    "happyhorse-1.1": {
+      "modelId": "happyhorse-1.1",
+      "displayName": "HappyHorse 1.1",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "3-15S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.ALIBABA",
+      "description": "HappyHorse 1.1 - 新一代统一文生 / 图生 / 参考生视频模型，720P/1080P，3~15 秒",
+      "descriptionKey": "videoModels.descriptions.happyhorse11"
+    },
+    "happyhorse-1.0-edit": {
+      "modelId": "happyhorse-1.0-edit",
+      "displayName": "HappyHorse 1.0 视频编辑",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.ALIBABA",
+      "description": "HappyHorse 1.0 视频编辑 - 提示词驱动的视频编辑，可选参考图与原声控制",
+      "descriptionKey": "videoModels.descriptions.happyhorse10VideoEdit"
+    },
+    "kling-o3-video-edit": {
+      "modelId": "kling-o3-video-edit",
+      "displayName": "Kling 3.0 Omni 视频编辑",
+      "featureTags": [],
+      "iconKey": "da.KLING",
+      "description": "Kling 3.0 Omni 视频编辑 - 支持 prompt 驱动的视频编辑，可提供参考图片，可选保留原始音频",
+      "descriptionKey": "videoModels.descriptions.klingO3VideoEdit"
+    },
+    "kling-video-o3-edit": {
+      "modelId": "kling-video-o3-edit",
+      "displayName": "Kling 3.0 Omni 视频编辑",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        }
+      ],
+      "iconKey": "da.KLING",
+      "description": "Kling 3.0 Omni 视频编辑 - 支持 prompt 驱动编辑、元素插槽、参考图片",
+      "descriptionKey": "videoModels.descriptions.klingVideoO3Edit"
+    },
+    "kling-video-o1-edit": {
+      "modelId": "kling-video-o1-edit",
+      "displayName": "Kling O1 视频编辑",
+      "featureTags": [],
+      "iconKey": "da.KLING",
+      "description": "Kling O1 视频编辑 - 支持视频编辑、元素插槽、参考图片和保留原声",
+      "descriptionKey": "videoModels.descriptions.klingVideoO1Edit"
+    },
+    "kling-video-o1": {
+      "modelId": "kling-video-o1",
+      "displayName": "Kling O1",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        }
+      ],
+      "iconKey": "da.KLING",
+      "description": "Kling Video O1 - 视频参考、主体锁定、视频编辑全部支持",
+      "descriptionKey": "videoModels.descriptions.klingVideoO1"
+    },
+    "veo3.1-lite": {
+      "modelId": "veo3.1-lite",
+      "displayName": "VEO3.1-Lite",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-8S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.GEMINI",
+      "description": "Google VEO3.1 Lite - 轻量级视频生成模型，速度更快，成本更低。",
+      "descriptionKey": "videoModels.descriptions.veo3_1Lite"
+    },
+    "veo3.1-lite-extend": {
+      "modelId": "veo3.1-lite-extend",
+      "displayName": "VEO3.1-Lite 视频延长",
+      "featureTags": [],
+      "iconKey": "da.GEMINI",
+      "description": "VEO3.1 Lite 视频延长 - 延长现有视频以生成更长内容。",
+      "descriptionKey": "videoModels.descriptions.veo3_1LiteExtend"
+    },
+    "veo3.1-fast": {
+      "modelId": "veo3.1-fast",
+      "displayName": "VEO3.1-Fast",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "4K"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-8S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.GEMINI",
+      "description": "VEO3.1 Fast - 极速视频生成模式，快速高质输出。",
+      "descriptionKey": "videoModels.descriptions.veo3_1_fast"
+    },
+    "veo3.1": {
+      "modelId": "veo3.1",
+      "displayName": "VEO3.1",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "4K"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-8S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.GEMINI",
+      "description": "Google VEO3.1 - 全球最先进视频生成模型，支持多语言与音频。",
+      "descriptionKey": "videoModels.descriptions.veo3_1"
+    },
+    "seedance-1.5-pro": {
+      "modelId": "seedance-1.5-pro",
+      "displayName": "Seedance 1.5 Pro",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.BYTEPLUS",
+      "description": "Seedance 1.5 Pro - 高质量视频生成，支持原生音频",
+      "descriptionKey": "videoModels.descriptions.seedance15Pro"
+    },
+    "wanxiang-v2-6": {
+      "modelId": "wanxiang-v2-6",
+      "displayName": "Wan 2.6",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "2-15S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.WANXIANG",
+      "description": "万象2.6 - 支持文生/图生/视频参考，最长15秒，高质量音频生成和多镜头",
+      "descriptionKey": "videoModels.descriptions.wanxiang26"
+    },
+    "kling-v2-6": {
+      "modelId": "kling-v2-6",
+      "displayName": "Kling 2.6",
+      "featureTags": [
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.KLING",
+      "description": "Kling 2.6 - 支持原生音频的高质量视频生成",
+      "descriptionKey": "videoModels.descriptions.kling26"
+    },
+    "minimax-hailuo-2.3": {
+      "modelId": "MiniMax-Hailuo-2.3",
+      "displayName": "Hailuo-2.3",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "6-10S"
+        }
+      ],
+      "iconKey": "da.MINIMAX",
+      "description": "Hailuo 2.3 - 让动态更自然，动作与情感表现全面进化。",
+      "descriptionKey": "videoModels.descriptions.hailuo23"
+    },
+    "doubao-seedance-pro": {
+      "modelId": "doubao-seedance-pro",
+      "displayName": "Seedance 1.0 Pro",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "Seedance 1.0 Pro - 字节跳动高级版视频生成",
+      "descriptionKey": "videoModels.descriptions.jimengPro"
+    },
+    "doubao-seedance-lite": {
+      "modelId": "doubao-seedance-lite",
+      "displayName": "Seedance 1.0 Lite",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        }
+      ],
+      "iconKey": "da.SEEDANCE",
+      "description": "Seedance 1.0 - 字节跳动标准版视频生成",
+      "descriptionKey": "videoModels.descriptions.jimengLite"
+    },
+    "midjourney-video": {
+      "modelId": "midjourney-video",
+      "displayName": "MJ Video",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "720P"
+        }
+      ],
+      "iconKey": "da.MIDJOURNEY",
+      "description": "Midjourney - 擅长把高质量图像变成动感短片。",
+      "descriptionKey": "videoModels.descriptions.midjourneyVideo"
+    },
+    "minimax": {
+      "modelId": "minimax",
+      "displayName": "Hailuo-02",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "6-10S"
+        }
+      ],
+      "iconKey": "da.MINIMAX",
+      "description": "海螺02 - 复杂动作视频生成",
+      "descriptionKey": "videoModels.descriptions.hailuo"
+    },
+    "minimax-hailuo-2.3-fast": {
+      "modelId": "MiniMax-Hailuo-2.3-Fast",
+      "displayName": "Hailuo-2.3 Fast",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "6-10S"
+        }
+      ],
+      "iconKey": "da.MINIMAX",
+      "description": "Hailuo 2.3 Fast - 以更高速度生成视频，适合快速预览与创意实验。",
+      "descriptionKey": "videoModels.descriptions.hailuo23Fast"
+    },
+    "viduq1": {
+      "modelId": "viduq1",
+      "displayName": "Vidu-Q1",
+      "featureTags": [],
+      "iconKey": "da.VIDU",
+      "description": "Vidu-Q1 - 国产高质量视频生成模型",
+      "descriptionKey": "videoModels.descriptions.viduQ1"
+    },
+    "viduq2": {
+      "modelId": "viduq2",
+      "displayName": "Vidu Q2",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "1-8S"
+        }
+      ],
+      "iconKey": "da.VIDU",
+      "description": "Vidu Q2 - 多图参考生视频，支持1-7张参考图，最长8秒1080P",
+      "descriptionKey": "videoModels.descriptions.viduQ2"
+    },
+    "viduq2-pro": {
+      "modelId": "viduq2-pro",
+      "displayName": "Vidu Q2 Pro",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "1-8S"
+        }
+      ],
+      "iconKey": "da.VIDU",
+      "description": "Vidu Q2 Pro - 高级视频生成，支持更长时长",
+      "descriptionKey": "videoModels.descriptions.viduQ2Pro"
+    },
+    "viduq2-turbo": {
+      "modelId": "viduq2-turbo",
+      "displayName": "Vidu Q2 Turbo",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "1-8S"
+        }
+      ],
+      "iconKey": "da.VIDU",
+      "description": "Vidu Q2 Turbo - 高速高质量视频生成",
+      "descriptionKey": "videoModels.descriptions.viduQ2Turbo"
+    },
+    "viduq3-pro": {
+      "modelId": "viduq3-pro",
+      "displayName": "Vidu Q3",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "1-16S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.VIDU",
+      "description": "Vidu Q3 - 文生/图生视频，音视频同步生成，1-16秒时长，图生最高支持2K分辨率",
+      "descriptionKey": "videoModels.descriptions.viduQ3"
+    },
+    "kling": {
+      "modelId": "kling",
+      "displayName": "Kling 2.1",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        }
+      ],
+      "iconKey": "da.KLING",
+      "description": "可灵2.1 - 专业级视频生成，真实流畅动作",
+      "descriptionKey": "videoModels.descriptions.kling"
+    },
+    "kling-v2-5-turbo-pro": {
+      "modelId": "kling-v2-5-turbo-pro",
+      "displayName": "Kling 2.5",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        }
+      ],
+      "iconKey": "da.KLING",
+      "description": "可灵2.5 Turbo Pro - 极速高质量视频生成",
+      "descriptionKey": "videoModels.descriptions.kling25"
+    },
+    "kling-motion-control": {
+      "modelId": "kling-motion-control",
+      "displayName": "Kling 2.6 动作迁移",
+      "featureTags": [],
+      "iconKey": "da.KLING",
+      "description": "Kling 2.6 动作迁移 - 视频生视频、精准骨架保持、复杂动作完美复刻",
+      "descriptionKey": "videoModels.descriptions.klingMotionControl"
+    },
+    "wanxiang-plus": {
+      "modelId": "wanxiang-plus",
+      "displayName": "Wan 2.2",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5S"
+        }
+      ],
+      "iconKey": "da.WANXIANG",
+      "description": "万象2.2专业版 - 高品质生成（480p/1080p）",
+      "descriptionKey": "videoModels.descriptions.wanxiangPlus"
+    },
+    "wanxiang-i2v-flash": {
+      "modelId": "wanxiang-i2v-flash",
+      "displayName": "Wan 2.2 Flash",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "720P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5S"
+        }
+      ],
+      "iconKey": "da.WANXIANG",
+      "description": "万象2.2闪速版 - 快速生成（480p/720p）",
+      "descriptionKey": "videoModels.descriptions.wanxiangFlash"
+    },
+    "wanxiang-preview": {
+      "modelId": "wanxiang-preview",
+      "displayName": "Wan 2.5",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.WANXIANG",
+      "description": "万象2.5预览版 - 最新，支持文生/图生视频、音频生成、10秒时长",
+      "descriptionKey": "videoModels.descriptions.wanxiangPreview"
+    },
+    "pixverse-v5.5": {
+      "modelId": "pixverse-v5.5",
+      "displayName": "PixVerse 5.5",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-10S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.PIXVERSE",
+      "description": "通过多镜头叙事、角色一致性，实现电影级的AI视频创作体验。",
+      "descriptionKey": "videoModels.descriptions.pixverse_v5_5"
+    },
+    "pixverse-v5": {
+      "modelId": "pixverse-v5",
+      "displayName": "PixVerse 5.0",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "5-8S"
+        }
+      ],
+      "iconKey": "da.PIXVERSE",
+      "description": "主打高速高保真视频生成，并具备更精准的语义理解能力。",
+      "descriptionKey": "videoModels.descriptions.pixverse_v5"
+    },
+    "veo3": {
+      "modelId": "veo3",
+      "displayName": "VEO3",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-8S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.GEMINI",
+      "description": "谷歌VEO3 - 支持音频的视频生成",
+      "descriptionKey": "videoModels.descriptions.veo3"
+    },
+    "veo3-fast": {
+      "modelId": "veo3-fast",
+      "displayName": "VEO3-Fast",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-8S"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.GEMINI",
+      "description": "VEO3快速版 - 快速视频生成模式",
+      "descriptionKey": "videoModels.descriptions.veo3Fast"
+    },
+    "veo2": {
+      "modelId": "veo2",
+      "displayName": "VEO2",
+      "featureTags": [],
+      "iconKey": "da.GEMINI",
+      "description": "VEO2 - 首尾帧视频生成",
+      "descriptionKey": "videoModels.descriptions.veo2"
+    },
+    "sora-2-standard": {
+      "modelId": "sora-2-standard",
+      "displayName": "Sora 2",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "720P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-12S"
+        }
+      ],
+      "iconKey": "da.SORA",
+      "description": "具备导演思维的最强模型，一键生成大片",
+      "descriptionKey": "videoModels.descriptions.sora2Standard"
+    },
+    "sora-2-pro": {
+      "modelId": "sora-2-pro",
+      "displayName": "Sora 2 Pro",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "4-12S"
+        }
+      ],
+      "iconKey": "da.SORA",
+      "description": "清晰度更高，达到商用质量的 Sora 2 Pro",
+      "descriptionKey": "videoModels.descriptions.sora2Pro"
+    },
+    "grok-imagine-video-1.5": {
+      "modelId": "grok-imagine-video-1.5",
+      "displayName": "Grok Imagine 1.5",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "1-15S"
+        }
+      ],
+      "iconKey": "da.XAI",
+      "description": "Grok Imagine 1.5 - 图生视频，最高 1080p，1-15 秒（预览版）",
+      "descriptionKey": "videoModels.descriptions.grokImagineVideo15"
+    },
+    "grok-imagine-video": {
+      "modelId": "grok-imagine-video",
+      "displayName": "Grok Imagine",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "720P"
+        },
+        {
+          "label": "video.featureTag.duration",
+          "value": "1-15S"
+        }
+      ],
+      "iconKey": "da.XAI",
+      "description": "Grok Imagine - 文本 / 图片 / 参考图生视频，最高 720p，1-15 秒",
+      "descriptionKey": "videoModels.descriptions.grokImagineVideo"
+    },
+    "omnihuman-1.5": {
+      "modelId": "omnihuman-1.5",
+      "displayName": "OmniHuman 1.5",
+      "featureTags": [
+        {
+          "label": "video.featureTag.resolution",
+          "value": "1080P"
+        },
+        {
+          "label": "video.featureTag.audio",
+          "value": "音频"
+        }
+      ],
+      "iconKey": "da.BYTEPLUS",
+      "description": "OmniHuman 1.5 - 数字人视频生成，支持说话和唱歌",
+      "descriptionKey": "videoModels.descriptions.omnihuman15"
+    }
+  },
+  "audio": {
+    "seed-audio-1-0": {
+      "modelId": "seed-audio-1-0",
+      "displayName": "Seed audio 1.0",
+      "featureTags": [],
+      "iconKey": "da.SEEDANCE",
+      "description": "支持文本、参考音频或参考图片的语音生成",
+      "descriptionKey": "audio.virtualModel.seedAudio10.description"
+    },
+    "minimax-music-26": {
+      "modelId": "minimax-music-26",
+      "displayName": "MiniMax Music 2.6",
+      "featureTags": [],
+      "iconKey": "da.MINIMAX",
+      "description": null,
+      "descriptionKey": "audio.virtualModel.minimaxMusic26.description"
+    },
+    "elevenlabs-v3": {
+      "modelId": "elevenlabs-v3",
+      "displayName": "11Lab V3",
+      "featureTags": [],
+      "iconKey": "da.ELEVENLAB",
+      "description": null,
+      "descriptionKey": "audio.virtualModel.elevenlabsV3.description"
+    },
+    "mureka-v8": {
+      "modelId": "mureka-v8",
+      "displayName": "Mureka V8",
+      "featureTags": [
+        {
+          "label": "audio.featureTag.emotional",
+          "value": "情感表达"
+        }
+      ],
+      "iconKey": "da.MUREKA",
+      "description": null,
+      "descriptionKey": "audio.virtualModel.murekaV8.description"
+    },
+    "mureka-o2": {
+      "modelId": "mureka-o2",
+      "displayName": "Mureka O2",
+      "featureTags": [
+        {
+          "label": "audio.featureTag.professional",
+          "value": "专业制作"
+        }
+      ],
+      "iconKey": "da.MUREKA",
+      "description": null,
+      "descriptionKey": "audio.virtualModel.murekaO2.description"
+    },
+    "sonilo-music": {
+      "modelId": "sonilo-music",
+      "displayName": "Sonilo Music",
+      "featureTags": [],
+      "iconKey": "da.SONILO",
+      "description": null,
+      "descriptionKey": "audio.virtualModel.soniloMusic.description"
+    },
+    "lyria-3-clip": {
+      "modelId": "lyria-3-clip",
+      "displayName": "Lyria 3 Clip",
+      "featureTags": [],
+      "iconKey": "da.GOOGLE",
+      "description": "Google Lyria 3 Clip：30 秒音乐片段，支持文字或图片提示",
+      "descriptionKey": "audio.model.lyria3Clip.description"
+    },
+    "lyria-3-pro": {
+      "modelId": "lyria-3-pro",
+      "displayName": "Lyria 3 Pro",
+      "featureTags": [],
+      "iconKey": "da.GOOGLE",
+      "description": "Google Lyria 3 Pro：最长 184 秒完整歌曲，支持文字或图片提示",
+      "descriptionKey": "audio.model.lyria3Pro.description"
+    }
+  },
+  "threeD": {
+    "tripo-image-to-model-h3": {
+      "modelId": "tripo-image-to-model-h3",
+      "displayName": "Tripo H3 图生",
+      "featureTags": [],
+      "iconKey": "da.TRIPO",
+      "description": "用单张图片生成独立 3D 物体。",
+      "descriptionKey": "worldModels.descriptions.tripoImageToModelH3"
+    },
+    "tripo-text-to-model-h3": {
+      "modelId": "tripo-text-to-model-h3",
+      "displayName": "Tripo H3 文生",
+      "featureTags": [],
+      "iconKey": "da.TRIPO",
+      "description": "用文字描述生成独立 3D 物体。",
+      "descriptionKey": "worldModels.descriptions.tripoTextToModelH3"
+    },
+    "worldlabs-marble-1.1": {
+      "modelId": "worldlabs-marble-1.1",
+      "displayName": "Marble 1.1",
+      "featureTags": [],
+      "iconKey": "da.WORLDLABS",
+      "description": "3D 世界生成，更高生成质量。",
+      "descriptionKey": "worldModels.descriptions.worldlabsMarble1_1"
+    },
+    "worldlabs-marble-1.1-plus": {
+      "modelId": "worldlabs-marble-1.1-plus",
+      "displayName": "Marble 1.1 Plus",
+      "featureTags": [],
+      "iconKey": "da.WORLDLABS",
+      "description": "支持更广阔的 3D 世界生成。",
+      "descriptionKey": "worldModels.descriptions.worldlabsMarble1_1Plus"
+    },
+    "tripo-h3": {
+      "modelId": "tripo-h3",
+      "displayName": "Tripo H3",
+      "featureTags": [],
+      "iconKey": "da.TRIPO",
+      "description": "用文字或单张图片生成独立 3D 物体。",
+      "descriptionKey": "worldModels.descriptions.tripoH3"
+    }
+  }
+}

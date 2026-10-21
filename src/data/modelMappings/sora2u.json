@@ -1,0 +1,26 @@
+{
+  "_readme": [
+    "平台 sora2u 的模型映射表（配置化，可版本管理）。",
+    "providerModelId 一律**原样**发请求（含 async 等平台规格后缀）；本文件不参与出站 id 计算。"
+  ],
+  "providerId": "sora2u",
+  "mappings": [
+    {
+      "providerId": "sora2u",
+      "providerModelId": "gemini-image",
+      "displayNameOverride": "Gemini Image",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "sora2u",
+      "providerModelId": "kontext-image",
+      "displayNameOverride": "Kontext Image",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    }
+  ],
+  "aliases": []
+}

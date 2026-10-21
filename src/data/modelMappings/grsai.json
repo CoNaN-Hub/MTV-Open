@@ -1,0 +1,196 @@
+{
+  "_readme": [
+    "平台 grsai 的模型映射表（配置化，可版本管理）。",
+    "只登记了「base id 与官方 id 精确相等」的条目（零猜测）；其余模型运行时显示原始平台名并进「待审核」。",
+    "providerModelId 一律**原样**发请求（含 async 等平台规格后缀）；本文件不参与出站 id 计算。"
+  ],
+  "providerId": "grsai",
+  "mappings": [
+    {
+      "providerId": "grsai",
+      "providerModelId": "gemini-2.5-flash",
+      "canonicalId": "google/gemini-2-5-flash",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gemini-2.5-flash → google/gemini-2-5-flash",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gemini-2.5-pro",
+      "canonicalId": "google/gemini-2-5-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gemini-2.5-pro → google/gemini-2-5-pro",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gemini-3-flash",
+      "canonicalId": "google/gemini-3-flash",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gemini-3-flash → google/gemini-3-flash",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gemini-3-pro",
+      "canonicalId": "google/gemini-3-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gemini-3-pro → google/gemini-3-pro",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gemini-3.1-flash-lite",
+      "canonicalId": "google/gemini-3-1-flash-lite",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gemini-3.1-flash-lite → google/gemini-3-1-flash-lite",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gemini-3.1-pro",
+      "canonicalId": "google/gemini-3-1-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gemini-3.1-pro → google/gemini-3-1-pro",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gemini-3.5-flash",
+      "canonicalId": "google/gemini-3-5-flash",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gemini-3.5-flash → google/gemini-3-5-flash",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gpt-5.4",
+      "displayNameOverride": "GPT-5.4",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gpt-5.5",
+      "canonicalId": "openai/gpt-5-5",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "上游 id 与官方 id 完全一致 ⇒ 官方表精确命中。官方显示名逐字「GPT-5.5」（live-assets-new/vendor-pkg-canvas-CvbAwZyy.js 的 chatAdapter.modelOptions.labels.gpt55，zh charIdx 4305910）。本条原来的策划名与官方逐字相同，本轮改为正式 canonical 映射。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gpt-image-2",
+      "canonicalId": "openai/gpt-image2",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-image-2 → openai/gpt-image2",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "gpt-image-2-vip",
+      "displayNameOverride": "GPT Image 2 VIP",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-2",
+      "canonicalId": "google/banana-2",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "② **name 命中优先**：providerModelId「nano-banana-2」归一后 = canonical `google/banana-2` 的 officialName「Nano Banana 2」⇒ 绑定 `google/banana-2`。⚠️ 2026-10-15 交叉绑定修正：原先绑 `google/banana-pro`（依据是它 `officialModelIds` 里那条 `nano-banana-2`），但该条的 officialName 是「Nano Banana Pro」= **自相矛盾**（Registry 数据错误，本轮未动 `officialModelIds`）⇒ 按 name 优先改绑。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-2-2k-cl",
+      "displayNameOverride": "Nano Banana 2 2K CL",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-2-4k-cl",
+      "displayNameOverride": "Nano Banana 2 4K CL",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-2-cl",
+      "displayNameOverride": "Nano Banana 2 CL",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-2-lite",
+      "displayNameOverride": "Nano Banana 2 Lite",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-fast",
+      "displayNameOverride": "Nano Banana Fast",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-pro",
+      "displayNameOverride": "Nano Banana Pro",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-pro-4k-vip",
+      "displayNameOverride": "Nano Banana Pro 4K VIP",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-pro-cl",
+      "displayNameOverride": "Nano Banana Pro CL",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-pro-vip",
+      "displayNameOverride": "Nano Banana Pro VIP",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "grsai",
+      "providerModelId": "nano-banana-pro-vt",
+      "displayNameOverride": "Nano Banana Pro VT",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    }
+  ]
+}

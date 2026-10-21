@@ -1,0 +1,54 @@
+{
+  "_readme": [
+    "平台 xai 的模型映射表（配置化，可版本管理）。",
+    "只登记了「base id 与官方 id 精确相等」的条目（零猜测）；其余模型运行时显示原始平台名并进「待审核」。",
+    "providerModelId 一律**原样**发请求（含 async 等平台规格后缀）；本文件不参与出站 id 计算。"
+  ],
+  "providerId": "xai",
+  "mappings": [
+    {
+      "providerId": "xai",
+      "providerModelId": "grok-4.5",
+      "displayNameOverride": "Grok 4.5",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "xai",
+      "providerModelId": "grok-imagine-image",
+      "canonicalId": "xai/grok-imagine",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：grok-imagine-image → xai/grok-imagine",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "xai",
+      "providerModelId": "grok-imagine-image-quality",
+      "canonicalId": "xai/grok-imagine-quality",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：grok-imagine-image-quality → xai/grok-imagine-quality",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "xai",
+      "providerModelId": "grok-imagine-video",
+      "canonicalId": "xai/grok-imagine",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：grok-imagine-video → xai/grok-imagine",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "xai",
+      "providerModelId": "grok-imagine-video-1.5",
+      "canonicalId": "xai/grok-imagine-1-5",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：grok-imagine-video-1.5 → xai/grok-imagine-1-5",
+      "updatedAt": "2026-10-12"
+    }
+  ]
+}

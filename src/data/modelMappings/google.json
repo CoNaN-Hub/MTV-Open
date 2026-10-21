@@ -1,0 +1,75 @@
+{
+  "_readme": [
+    "平台 google 的模型映射表（配置化，可版本管理）。",
+    "只登记了「base id 与官方 id 精确相等」的条目（零猜测）；其余模型运行时显示原始平台名并进「待审核」。",
+    "providerModelId 一律**原样**发请求（含 async 等平台规格后缀）；本文件不参与出站 id 计算。"
+  ],
+  "providerId": "google",
+  "mappings": [
+    {
+      "providerId": "google",
+      "providerModelId": "gemini-3-pro-image",
+      "displayNameOverride": "Gemini 3 Pro Image",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "google",
+      "providerModelId": "gemini-3.1-flash-image",
+      "displayNameOverride": "Gemini 3.1 Flash Image",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "google",
+      "providerModelId": "gemini-3.1-flash-lite-image",
+      "displayNameOverride": "Gemini 3.1 Flash Lite Image",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "google",
+      "providerModelId": "gemini-3.1-flash-tts-preview",
+      "displayNameOverride": "Gemini 3.1 Flash TTS（Kore / WAV）",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "google",
+      "providerModelId": "gemini-3.5-flash-lite",
+      "displayNameOverride": "Gemini 3.5 Flash-Lite",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "google",
+      "providerModelId": "gemini-3.6-flash",
+      "canonicalId": "google/gemini-3-6-flash",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gemini-3.6-flash → google/gemini-3-6-flash",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "google",
+      "providerModelId": "gemini-omni-flash-preview",
+      "displayNameOverride": "Gemini Omni Flash Video（文生视频）",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "google",
+      "providerModelId": "veo-3.1-generate-preview",
+      "displayNameOverride": "Veo 3.1（文生视频）",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    }
+  ]
+}

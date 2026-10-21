@@ -1,0 +1,114 @@
+{
+  "_readme": [
+    "平台 volcengine 的模型映射表（配置化，可版本管理）。",
+    "providerModelId 一律**原样**发请求（含 async 等平台规格后缀）；本文件不参与出站 id 计算。"
+  ],
+  "providerId": "volcengine",
+  "mappings": [
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seed-2-0-lite-260428",
+      "displayNameOverride": "doubao-seed-2-0-lite",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seed-2-0-pro-260215",
+      "displayNameOverride": "doubao-seed-2-0-pro",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedance-1-0-pro-250528",
+      "displayNameOverride": "Seedance 1.0 Pro",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedance-1-0-pro-fast-251015",
+      "displayNameOverride": "Seedance 1.0 Pro Fast",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedance-1-5-pro-251215",
+      "displayNameOverride": "Seedance 1.5 Pro",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedance-2-0-260128",
+      "displayNameOverride": "Seedance 2.0",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedance-2-0-fast-260128",
+      "displayNameOverride": "Seedance 2.0 Fast",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedance-2-0-mini-260615",
+      "displayNameOverride": "Seedance 2.0 Mini",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedance-2-5-260628",
+      "displayNameOverride": "Seedance 2.5",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedream-4-0-250828",
+      "displayNameOverride": "Seedream 4.0",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedream-4-5-251128",
+      "displayNameOverride": "Seedream 4.5",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedream-5-0-lite-260128",
+      "displayNameOverride": "Seedream 5.0 Lite",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "volcengine",
+      "providerModelId": "doubao-seedream-5-0-pro-260628",
+      "displayNameOverride": "Seedream 5.0 Pro",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    }
+  ],
+  "aliases": []
+}

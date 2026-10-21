@@ -1,0 +1,912 @@
+{
+  "zh": [
+    {
+      "id": "home-fallback-zh-01",
+      "title": "体验最新的 Seedance 2.0 Mini 创作视频",
+      "prompt": "我想体验最新的 Seedance 2.0 Mini 视频创作能力。请根据这个项目当前的内容或我现在的想法，帮我设计一个适合快速生成的视频方向，并给出可以直接使用的完整创作指令。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-zh-02",
+      "title": "体验 Seedance 2.0 Mini 快速做一条视频",
+      "prompt": "请用 Seedance 2.0 Mini 帮我快速做一条视频。先帮我确定一个清楚的画面目标和情绪方向，再整理成适合生成视频的 prompt，让我可以马上试一版效果。",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-zh-03",
+      "title": "体验 Seedance 2.0 Mini 继续这个项目",
+      "prompt": "请用 Seedance 2.0 Mini 继续推进这个项目。请先理解当前已有的故事、画面或风格方向；如果内容还不完整，就先帮我补出一个适合继续生成的视频创意。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-zh-04",
+      "title": "体验 Seedance 2.0 4K 高清视频生成",
+      "prompt": "我想体验 Seedance 2.0 的 4K 高清视频生成能力。请帮我选择这个项目里最适合升级成 4K 视频的画面或镜头，并补全画面细节、运动方式、光线和质感描述。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-zh-05",
+      "title": "体验 Seedance 2.0 4K 提升视频质感",
+      "prompt": "请用 Seedance 2.0 4K 模式帮我提升这个项目的视频质感。请重点优化画面构图、镜头运动、主体状态、环境细节和视觉氛围，然后给出完整生成指令。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-zh-06",
+      "title": "把一个关键镜头做成 Seedance 2.0 4K",
+      "prompt": "请帮我把这个项目中的一个关键镜头做成 Seedance 2.0 4K 视频。如果当前还没有明确镜头，请先帮我挑一个最值得做成 4K 的核心画面，并说明它为什么适合。",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-zh-07",
+      "title": "体验 GPT Image 2 的 4K 图像生成",
+      "prompt": "我想体验 GPT Image 2 的 4K 图像生成能力。请根据这个项目当前的方向，帮我设计一张更完整、更清晰的 4K 主视觉，并给出可以直接生成的完整 prompt。",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-zh-08",
+      "title": "体验 GPT Image 2 4K 做项目主视觉",
+      "prompt": "请用 GPT Image 2 4K 模式帮我做这个项目的主视觉。请补足主体、场景、构图、光线、色彩、材质和氛围，让这张图可以代表这个项目的核心感觉。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-zh-09",
+      "title": "体验 GPT Image 2 4K 细化画面细节",
+      "prompt": "请用 GPT Image 2 4K 模式帮我细化这个项目的画面细节。请先判断最值得强化的视觉部分，再把它改写成更适合高清图像生成的 prompt。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-zh-10",
+      "title": "体验 Midjourney V8.1 生成主视觉",
+      "prompt": "我想体验 Midjourney V8.1 的图像创作能力。请根据这个项目当前的内容或我的想法，帮我设计一张有风格、有辨识度的主视觉，并给出适合 Midjourney V8.1 的完整 prompt。",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-zh-11",
+      "title": "体验 Midjourney V8.1 探索视觉风格",
+      "prompt": "请用 Midjourney V8.1 帮我探索这个项目的视觉风格。请给出几个差异明显的画面方向，并说明每个方向适合表达什么情绪、人物状态或故事气质。",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-zh-12",
+      "title": "体验 Midjourney V8.1 做电影感画面",
+      "prompt": "请用 Midjourney V8.1 帮我把这个项目发展成一张更有电影感的画面。请重点设计主体、场景、镜头语言、光线、色彩和氛围，让画面更适合继续发展成视频或故事。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-zh-13",
+      "title": "体验 Brainstorm 模式一起设计故事",
+      "prompt": "{{brainstorm:brainstorm}} design a story with me for this project. 请用 Brainstorm 模式和我一起设计这个项目的故事，先给我几个不同方向，再通过提问帮我选出最有潜力的一条继续发展。",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-zh-14",
+      "title": "体验 Brainstorm 模式打开故事方向",
+      "prompt": "{{brainstorm:brainstorm}} 请用 Brainstorm 模式帮我打开这个项目的故事方向。请先基于当前内容或我的初始想法，提出几个差异明显、适合影像化的故事可能性。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-zh-15",
+      "title": "体验 Brainstorm 模式丰富人物故事",
+      "prompt": "{{brainstorm:brainstorm}} 请用 Brainstorm 模式帮我丰富人物故事。请和我一起设计人物的目标、秘密、关系、矛盾和关键转折，让角色更立得住，也更适合继续生成影像。",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-zh-16",
+      "title": "体验 Brainstorm 模式设计人物关系",
+      "prompt": "{{brainstorm:brainstorm}} 请用 Brainstorm 模式帮我设计人物关系。请提出几组有张力、容易拍出画面的关系设定，再帮我判断哪一组最适合这个项目继续发展。",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-zh-17",
+      "title": "体验 Brainstorm 模式扩展世界观",
+      "prompt": "{{brainstorm:brainstorm}} 请用 Brainstorm 模式帮我扩展这个项目的世界观。请从空间、规则、视觉符号、人物关系和潜在冲突几个角度发散，再帮我收束成一个清楚的创作方向。",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-zh-18",
+      "title": "体验 Brainstorm 模式比较三种故事走向",
+      "prompt": "{{brainstorm:brainstorm}} 请用 Brainstorm 模式帮我比较三种不同的故事走向。每一种都要说明核心冲突、主要画面、情绪基调和下一步适合怎么生成。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-zh-19",
+      "title": "帮我记住我的创作风格",
+      "prompt": "请根据这个项目和我们之前的对话，总结我的画面偏好、叙事习惯、审美倾向和不喜欢的方向，后续创作都尽量沿用。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-zh-20",
+      "title": "帮我学习我的创作偏好",
+      "prompt": "请从当前项目和我们的对话里学习我的创作偏好。请总结我更喜欢什么题材、风格、节奏、镜头和表达方式，并告诉我你之后会如何用这些记忆辅助创作。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-zh-21",
+      "title": "帮我延续这个项目的记忆",
+      "prompt": "请利用你对这个项目的长期记忆，帮我延续创作上下文。请先总结目前已经确定的内容，再指出哪些设定、风格和方向应该在后续创作中持续保留。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-zh-22",
+      "title": "帮我按我的风格继续创作",
+      "prompt": "请根据你记住的我的创作风格，继续发展这个项目。请尽量贴近我的画面气质、语言节奏、故事密度和审美边界，而不是给一个通用方案。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-zh-23",
+      "title": "帮我建立这个项目的创作记忆",
+      "prompt": "请为这个项目建立一份可以持续使用的创作记忆。请记录项目主题、视觉风格、人物关系、重要设定、我喜欢的方向和明确不想要的方向。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-zh-24",
+      "title": "创建一个适合我的 Agent Skill",
+      "prompt": "请帮我创建一个适合我的 TapNow Agent Skill。请先总结我的创作目标、偏好、工作流程和希望的输出方式，然后给我若干个可选 Skill 方案。先不要直接执行创建，等我确认选择后再执行。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-zh-25",
+      "title": "根据我的偏好创建专属 Skill",
+      "prompt": "请根据你已经了解的我的偏好，为我设计专属 Skill。请先给我若干个 Skill 方向，每个说明适合解决什么创作问题、会如何指导你发散想法、整理故事和生成画面 prompt。先不要直接执行创建，等我确认后再执行。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-zh-26",
+      "title": "把我的创作流程做成 Skill",
+      "prompt": "请把我现在的创作流程整理成可复用的 Skill 方案。请先给我若干个版本，覆盖从想法发散、故事整理、视觉设定、生成指令到复盘修改的步骤，并说明每一步你应该怎么执行。先不要直接执行创建，等我确认后再执行。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-zh-27",
+      "title": "把这个项目的风格做成 Skill",
+      "prompt": "请把这个项目的风格沉淀成可复用的 Skill 方案。请先给我若干个可选方向，分别总结可复用的题材方向、视觉关键词、镜头语言、色彩气质和需要避免的内容。先不要直接执行创建，等我确认后再执行。",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-zh-28",
+      "title": "梳理这个项目的创作脉络",
+      "prompt": "请帮我梳理这个项目的创作脉络。请从最初想法、已有素材、关键人物或场景、风格变化、当前问题和下一步选择几个方面整理，让我清楚知道项目发展到了哪里。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-zh-29",
+      "title": "讲清这个项目的创作思路",
+      "prompt": "请像创作顾问一样讲清这个项目当前的创作思路。请说明主题是什么、画面为什么这样设计、故事可能如何展开、哪些选择最关键，以及下一步应该验证什么。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-zh-30",
+      "title": "规划下一步怎么创作",
+      "prompt": "请帮我规划这个项目下一步怎么创作。请先判断现在最需要补的是故事、人物、画面、参考还是生成执行，然后给出一个可以马上开始的行动方案。",
+      "icon_category": "next_step"
+    }
+  ],
+  "en": [
+    {
+      "id": "home-fallback-en-01",
+      "title": "Try Seedance 2.0 Mini video creation",
+      "prompt": "I want to try the latest Seedance 2.0 Mini video creation capability. Based on the current project or my current idea, help me design a video direction that is fast to generate, then give me a complete creation prompt I can use directly.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-en-02",
+      "title": "Try Seedance 2.0 Mini for a quick video",
+      "prompt": "Use Seedance 2.0 Mini to help me quickly make one video. First define a clear visual goal and mood direction, then turn it into a video generation prompt so I can test a first version right away.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-en-03",
+      "title": "Try Seedance 2.0 Mini to continue this project",
+      "prompt": "Use Seedance 2.0 Mini to continue this project. First understand the existing story, visuals, or style direction. If the project is still early, help me shape a video idea that is suitable for continued generation.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-en-04",
+      "title": "Try Seedance 2.0 4K video generation",
+      "prompt": "I want to try Seedance 2.0 4K video generation. Help me choose the shot or visual in this project that is most worth upgrading into 4K, then complete the visual details, motion, lighting, and texture description.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-en-05",
+      "title": "Try Seedance 2.0 4K to improve video quality",
+      "prompt": "Use Seedance 2.0 4K mode to improve the video quality of this project. Focus on composition, camera movement, subject state, environment detail, and visual mood, then give me the full generation prompt.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-en-06",
+      "title": "Turn a key shot into Seedance 2.0 4K",
+      "prompt": "Help me turn one key shot from this project into a Seedance 2.0 4K video. If there is no clear key shot yet, first choose the core visual that is most worth making in 4K and explain why it fits.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-en-07",
+      "title": "Try GPT Image 2 4K image generation",
+      "prompt": "I want to try GPT Image 2 4K image generation. Based on the current direction of this project, help me design a clearer and more complete 4K key visual, then give me a full prompt I can use directly.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-en-08",
+      "title": "Try GPT Image 2 4K for the project key visual",
+      "prompt": "Use GPT Image 2 4K mode to create the key visual for this project. Fill in the subject, setting, composition, lighting, color, material, and atmosphere so the image can represent the core feeling of the project.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-en-09",
+      "title": "Try GPT Image 2 4K to refine visual details",
+      "prompt": "Use GPT Image 2 4K mode to refine the visual details of this project. First decide which visual part is most worth strengthening, then rewrite it into a prompt better suited for high-resolution image generation.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-en-10",
+      "title": "Try Midjourney V8.1 for a key visual",
+      "prompt": "I want to try Midjourney V8.1 image creation. Based on the current project or my idea, help me design a stylish and recognizable key visual, then give me a complete prompt suitable for Midjourney V8.1.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-en-11",
+      "title": "Try Midjourney V8.1 to explore visual styles",
+      "prompt": "Use Midjourney V8.1 to help me explore visual styles for this project. Give me several clearly different visual directions and explain what emotion, character state, or story feeling each direction is best for.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-en-12",
+      "title": "Try Midjourney V8.1 for a cinematic image",
+      "prompt": "Use Midjourney V8.1 to develop this project into a more cinematic image. Focus on the subject, setting, camera language, lighting, color, and mood, so the image can continue into video or story development.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-en-13",
+      "title": "Try Brainstorm mode to design a story together",
+      "prompt": "{{brainstorm:brainstorm}} design a story with me for this project. Use Brainstorm mode to design this project's story with me. Start with several different directions, then ask questions to help me choose the most promising one to develop further.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-en-14",
+      "title": "Try Brainstorm mode to open story directions",
+      "prompt": "{{brainstorm:brainstorm}} Use Brainstorm mode to help me open up story directions for this project. Based on the current content or my initial idea, propose several clearly different story possibilities that can become visual work.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-en-15",
+      "title": "Try Brainstorm mode to enrich character stories",
+      "prompt": "{{brainstorm:brainstorm}} Use Brainstorm mode to help me enrich the character stories. Work with me to design the characters' goals, secrets, relationships, conflicts, and key turning points, so the characters feel stronger and easier to develop into visuals.",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-en-16",
+      "title": "Try Brainstorm mode to design character relationships",
+      "prompt": "{{brainstorm:brainstorm}} Use Brainstorm mode to help me design character relationships. Propose several relationship setups with tension and strong visual potential, then help me decide which one best fits this project.",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-en-17",
+      "title": "Try Brainstorm mode to expand the world",
+      "prompt": "{{brainstorm:brainstorm}} Use Brainstorm mode to help me expand this project's world. Explore space, rules, visual symbols, character relationships, and possible conflicts, then help me narrow them into a clear creative direction.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-en-18",
+      "title": "Try Brainstorm mode to compare three story paths",
+      "prompt": "{{brainstorm:brainstorm}} Use Brainstorm mode to compare three different story paths for this project. For each one, explain the core conflict, main visuals, emotional tone, and what should be generated next.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-en-19",
+      "title": "Help me remember my creative style",
+      "prompt": "Based on this project and our previous conversations, summarize my visual preferences, storytelling habits, aesthetic direction, and the things I do not like, then keep using them in future creative work.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-en-20",
+      "title": "Help me learn my creative preferences",
+      "prompt": "Learn my creative preferences from the current project and our conversation. Summarize what subjects, styles, pacing, shots, and forms of expression I tend to like, and tell me how you will use this memory to support future work.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-en-21",
+      "title": "Help me carry forward this project's memory",
+      "prompt": "Use your long-term memory of this project to help me carry the creative context forward. First summarize what has already been decided, then point out which settings, styles, and directions should be preserved in future work.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-en-22",
+      "title": "Help me continue in my own style",
+      "prompt": "Continue developing this project based on the creative style you remember from me. Stay close to my visual taste, language rhythm, story density, and aesthetic boundaries instead of giving a generic plan.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-en-23",
+      "title": "Help me build creative memory for this project",
+      "prompt": "Create a reusable creative memory for this project. Record the theme, visual style, character relationships, important settings, directions I like, and directions I clearly do not want.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-en-24",
+      "title": "Create an Agent Skill that fits me",
+      "prompt": "Help me create a TapNow Agent Skill that fits me. First summarize my creative goals, preferences, workflow, and desired output style, then give me several optional Skill proposals. Do not create the Skill yet. Wait for me to confirm a choice before executing.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-en-25",
+      "title": "Create a custom Skill from my preferences",
+      "prompt": "Based on what you already know about my preferences, design custom Skill directions for me. Give me several options and explain what creative problem each one solves and how it would guide ideation, story organization, and visual prompt generation. Do not create the Skill yet. Wait for my confirmation before executing.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-en-26",
+      "title": "Turn my creative workflow into a Skill",
+      "prompt": "Turn my current creative workflow into reusable Skill proposals. Give me several versions that cover ideation, story organization, visual setup, generation prompts, and revision review, and explain how you should execute each step. Do not create the Skill yet. Wait for my confirmation before executing.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-en-27",
+      "title": "Turn this project's style into a Skill",
+      "prompt": "Turn this project's style into reusable Skill proposals. Give me several optional directions, each summarizing reusable subject areas, visual keywords, camera language, color mood, and things to avoid. Do not create the Skill yet. Wait for my confirmation before executing.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-en-28",
+      "title": "Organize this project's creative thread",
+      "prompt": "Help me organize the creative thread of this project. Cover the initial idea, existing materials, key characters or scenes, style changes, current problems, and next choices, so I can clearly see where the project stands.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-en-29",
+      "title": "Explain this project's creative thinking",
+      "prompt": "Explain the current creative thinking of this project like a creative consultant. Tell me what the theme is, why the visuals are designed this way, how the story could develop, which choices matter most, and what should be tested next.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-en-30",
+      "title": "Plan the next creative step",
+      "prompt": "Help me plan the next creative step for this project. First decide whether the project most needs story, characters, visuals, references, or generation execution, then give me an action plan I can start right away.",
+      "icon_category": "next_step"
+    }
+  ],
+  "ja": [
+    {
+      "id": "home-fallback-ja-01",
+      "title": "Seedance 2.0 Miniで動画制作を試す",
+      "prompt": "最新のSeedance 2.0 Miniの動画制作機能を試したいです。このプロジェクトの現在の内容や今のアイデアをもとに、すばやく生成しやすい動画の方向性を設計し、そのまま使える完全な制作プロンプトをください。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ja-02",
+      "title": "Seedance 2.0 Miniですばやく動画を作る",
+      "prompt": "Seedance 2.0 Miniを使って、短時間で動画を1本作れるように手伝ってください。まず明確な画面目標とムードを決め、それを動画生成向けのプロンプトに整理して、すぐに初回テストできる形にしてください。",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-ja-03",
+      "title": "Seedance 2.0 Miniでこのプロジェクトを続ける",
+      "prompt": "Seedance 2.0 Miniを使ってこのプロジェクトを続けたいです。まず既存のストーリー、ビジュアル、スタイルの方向性を理解してください。まだ初期段階なら、継続生成に向いた動画アイデアを形にしてください。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ja-04",
+      "title": "Seedance 2.0 4K動画生成を試す",
+      "prompt": "Seedance 2.0の4K動画生成を試したいです。このプロジェクトの中で4K化する価値が最も高いショットやビジュアルを選び、画面の細部、動き、光、質感の描写を補完してください。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ja-05",
+      "title": "Seedance 2.0 4Kで動画品質を上げる",
+      "prompt": "Seedance 2.0 4Kモードで、このプロジェクトの動画品質を高めてください。構図、カメラワーク、被写体の状態、環境ディテール、ビジュアルのムードを重点的に整え、完全な生成プロンプトをください。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ja-06",
+      "title": "重要なショットをSeedance 2.0 4Kにする",
+      "prompt": "このプロジェクトの重要なショットを1つ、Seedance 2.0 4K動画にしてください。明確なショットがまだない場合は、4K化する価値が最も高い中心ビジュアルを先に選び、その理由も説明してください。",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-ja-07",
+      "title": "GPT Image 2の4K画像生成を試す",
+      "prompt": "GPT Image 2の4K画像生成を試したいです。このプロジェクトの現在の方向性をもとに、より明確で完成度の高い4Kキービジュアルを設計し、そのまま使える完全なプロンプトをください。",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-ja-08",
+      "title": "GPT Image 2 4Kでプロジェクトの主ビジュアルを作る",
+      "prompt": "GPT Image 2 4Kモードで、このプロジェクトの主ビジュアルを作ってください。主体、舞台、構図、光、色、素材感、雰囲気を補い、このプロジェクトの核となる感覚を表せる画像にしてください。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ja-09",
+      "title": "GPT Image 2 4Kで画面の細部を磨く",
+      "prompt": "GPT Image 2 4Kモードで、このプロジェクトの画面ディテールを磨いてください。まず強化する価値が最も高いビジュアル部分を判断し、それを高解像度画像生成に適したプロンプトへ書き換えてください。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ja-10",
+      "title": "Midjourney V8.1でキービジュアルを作る",
+      "prompt": "Midjourney V8.1の画像制作を試したいです。このプロジェクトや今のアイデアをもとに、スタイルがあり識別しやすいキービジュアルを設計し、Midjourney V8.1向けの完全なプロンプトをください。",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-ja-11",
+      "title": "Midjourney V8.1でビジュアルスタイルを探る",
+      "prompt": "Midjourney V8.1を使って、このプロジェクトのビジュアルスタイルを探ってください。明確に異なる複数の方向性を出し、それぞれがどんな感情、人物状態、物語の質感に向いているか説明してください。",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-ja-12",
+      "title": "Midjourney V8.1で映画的な画面にする",
+      "prompt": "Midjourney V8.1を使って、このプロジェクトをより映画的な画像へ発展させてください。主体、舞台、カメラ言語、光、色、ムードを重点的に設計し、動画や物語へ続けやすい画面にしてください。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ja-13",
+      "title": "Brainstormモードで一緒に物語を設計する",
+      "prompt": "{{brainstorm:brainstorm}} このプロジェクトの物語をBrainstormモードで一緒に設計してください。まず複数の異なる方向性を出し、質問を通じて最も可能性のある方向を選んで深められるようにしてください。",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-ja-14",
+      "title": "Brainstormモードで物語の方向性を広げる",
+      "prompt": "{{brainstorm:brainstorm}} Brainstormモードで、このプロジェクトの物語の方向性を広げてください。現在の内容や初期アイデアをもとに、映像化しやすく明確に異なる物語の可能性をいくつか提案してください。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ja-15",
+      "title": "Brainstormモードでキャラクターの物語を深める",
+      "prompt": "{{brainstorm:brainstorm}} Brainstormモードでキャラクターの物語を深めてください。キャラクターの目的、秘密、関係性、葛藤、重要な転換点を一緒に設計し、より強く映像化しやすい人物にしてください。",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-ja-16",
+      "title": "Brainstormモードで人物関係を設計する",
+      "prompt": "{{brainstorm:brainstorm}} Brainstormモードで人物関係を設計してください。緊張感があり映像にしやすい関係設定をいくつか提案し、このプロジェクトに最も合うものを判断できるようにしてください。",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-ja-17",
+      "title": "Brainstormモードで世界観を広げる",
+      "prompt": "{{brainstorm:brainstorm}} Brainstormモードで、このプロジェクトの世界観を広げてください。空間、ルール、視覚的シンボル、人物関係、潜在的な対立から発想を広げ、最後に明確な創作方向へ絞ってください。",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-ja-18",
+      "title": "Brainstormモードで3つの物語ルートを比べる",
+      "prompt": "{{brainstorm:brainstorm}} Brainstormモードで、このプロジェクトの3つの異なる物語ルートを比較してください。それぞれについて、中心的な葛藤、主なビジュアル、感情トーン、次に生成すべきものを説明してください。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ja-19",
+      "title": "私の創作スタイルを覚える",
+      "prompt": "このプロジェクトとこれまでの会話をもとに、私のビジュアルの好み、語り方の癖、美的な方向性、苦手なものをまとめ、今後の創作でもそれを使い続けてください。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ja-20",
+      "title": "私の創作の好みを学ぶ",
+      "prompt": "現在のプロジェクトと会話から、私の創作の好みを学んでください。好きな題材、スタイル、テンポ、ショット、表現方法をまとめ、今後その記憶をどう創作支援に使うか教えてください。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ja-21",
+      "title": "このプロジェクトの記憶を引き継ぐ",
+      "prompt": "このプロジェクトの長期的な記憶を使って、創作コンテキストを引き継いでください。まず既に決まっていることを要約し、今後も保つべき設定、スタイル、方向性を示してください。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ja-22",
+      "title": "私らしいスタイルで続きを作る",
+      "prompt": "あなたが覚えている私の創作スタイルにもとづいて、このプロジェクトを続けてください。一般的な案ではなく、私の視覚的な好み、言葉のリズム、物語の密度、美的な境界に近づけてください。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ja-23",
+      "title": "このプロジェクトの創作記憶を作る",
+      "prompt": "このプロジェクトで継続的に使える創作記憶を作ってください。テーマ、ビジュアルスタイル、人物関係、重要設定、好きな方向、明確に避けたい方向を記録してください。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ja-24",
+      "title": "私に合うAgent Skillを作る",
+      "prompt": "私に合うTapNow Agent Skillを作る手伝いをしてください。まず私の創作目標、好み、ワークフロー、望む出力形式を要約し、複数のSkill案を出してください。まだ作成は実行せず、私が選択を確認するまで待ってください。",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ja-25",
+      "title": "私の好みから専用Skillを作る",
+      "prompt": "あなたが既に理解している私の好みにもとづいて、専用Skillの方向性を設計してください。いくつかの案を出し、それぞれがどんな創作課題を解決し、発想、物語整理、ビジュアルプロンプト生成をどう導くか説明してください。まだ作成は実行せず、私の確認を待ってください。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ja-26",
+      "title": "私の創作フローをSkillにする",
+      "prompt": "現在の私の創作フローを、再利用できるSkill案にしてください。発想、物語整理、ビジュアル設定、生成プロンプト、修正レビューまでを含む複数の案を出し、各ステップをどう実行すべきか説明してください。まだ作成は実行せず、確認を待ってください。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ja-27",
+      "title": "このプロジェクトのスタイルをSkillにする",
+      "prompt": "このプロジェクトのスタイルを、再利用できるSkill案としてまとめてください。再利用できる題材、ビジュアルキーワード、カメラ言語、色のムード、避けるべき内容をそれぞれ要約する複数の方向性を出してください。まだ作成は実行せず、確認を待ってください。",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-ja-28",
+      "title": "このプロジェクトの創作の流れを整理する",
+      "prompt": "このプロジェクトの創作の流れを整理してください。最初のアイデア、既存素材、重要な人物や場面、スタイルの変化、現在の課題、次の選択肢を整理し、今どこまで進んでいるか分かるようにしてください。",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ja-29",
+      "title": "このプロジェクトの創作意図を説明する",
+      "prompt": "創作コンサルタントのように、このプロジェクトの現在の創作意図を説明してください。テーマ、なぜこのビジュアルなのか、物語がどう展開できるか、重要な選択、次に検証すべきことを教えてください。",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ja-30",
+      "title": "次の創作ステップを計画する",
+      "prompt": "このプロジェクトの次の創作ステップを計画してください。まず今最も必要なのが物語、人物、ビジュアル、参考資料、生成実行のどれか判断し、すぐ始められる行動計画をください。",
+      "icon_category": "next_step"
+    }
+  ],
+  "ko": [
+    {
+      "id": "home-fallback-ko-01",
+      "title": "Seedance 2.0 Mini 영상 제작 체험하기",
+      "prompt": "최신 Seedance 2.0 Mini 영상 제작 기능을 체험하고 싶습니다. 현재 프로젝트나 지금의 아이디어를 바탕으로 빠르게 생성하기 좋은 영상 방향을 설계하고, 바로 사용할 수 있는 완성형 제작 프롬프트를 주세요.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ko-02",
+      "title": "Seedance 2.0 Mini로 빠르게 영상 만들기",
+      "prompt": "Seedance 2.0 Mini로 영상 하나를 빠르게 만들 수 있게 도와주세요. 먼저 명확한 화면 목표와 분위기 방향을 정하고, 바로 첫 버전을 테스트할 수 있는 영상 생성 프롬프트로 정리해주세요.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-ko-03",
+      "title": "Seedance 2.0 Mini로 이 프로젝트 이어가기",
+      "prompt": "Seedance 2.0 Mini로 이 프로젝트를 이어가고 싶습니다. 먼저 기존 이야기, 화면, 스타일 방향을 이해해주세요. 아직 초기 단계라면 계속 생성하기 좋은 영상 아이디어를 만들어주세요.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ko-04",
+      "title": "Seedance 2.0 4K 영상 생성 체험하기",
+      "prompt": "Seedance 2.0의 4K 영상 생성 기능을 체험하고 싶습니다. 이 프로젝트에서 4K로 업그레이드할 가치가 가장 높은 장면이나 비주얼을 골라주고, 화면 디테일, 움직임, 조명, 질감 묘사를 보완해주세요.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ko-05",
+      "title": "Seedance 2.0 4K로 영상 퀄리티 높이기",
+      "prompt": "Seedance 2.0 4K 모드로 이 프로젝트의 영상 퀄리티를 높여주세요. 구도, 카메라 움직임, 피사체 상태, 환경 디테일, 시각적 분위기를 중심으로 다듬고 완성형 생성 프롬프트를 주세요.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ko-06",
+      "title": "핵심 장면을 Seedance 2.0 4K로 만들기",
+      "prompt": "이 프로젝트의 핵심 장면 하나를 Seedance 2.0 4K 영상으로 만들어주세요. 아직 명확한 장면이 없다면 4K로 만들 가치가 가장 높은 중심 비주얼을 먼저 고르고, 왜 적합한지도 설명해주세요.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-ko-07",
+      "title": "GPT Image 2 4K 이미지 생성 체험하기",
+      "prompt": "GPT Image 2의 4K 이미지 생성 기능을 체험하고 싶습니다. 이 프로젝트의 현재 방향을 바탕으로 더 선명하고 완성도 높은 4K 키 비주얼을 설계하고, 바로 사용할 수 있는 전체 프롬프트를 주세요.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-ko-08",
+      "title": "GPT Image 2 4K로 프로젝트 키 비주얼 만들기",
+      "prompt": "GPT Image 2 4K 모드로 이 프로젝트의 키 비주얼을 만들어주세요. 주체, 배경, 구도, 조명, 색, 재질, 분위기를 보완해서 프로젝트의 핵심 감각을 대표하는 이미지가 되게 해주세요.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ko-09",
+      "title": "GPT Image 2 4K로 화면 디테일 다듬기",
+      "prompt": "GPT Image 2 4K 모드로 이 프로젝트의 화면 디테일을 다듬어주세요. 먼저 강화할 가치가 가장 큰 비주얼 요소를 판단하고, 고해상도 이미지 생성에 더 적합한 프롬프트로 다시 써주세요.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ko-10",
+      "title": "Midjourney V8.1로 키 비주얼 만들기",
+      "prompt": "Midjourney V8.1 이미지 제작 기능을 체험하고 싶습니다. 현재 프로젝트나 아이디어를 바탕으로 스타일이 있고 식별력 있는 키 비주얼을 설계하고, Midjourney V8.1에 적합한 완성형 프롬프트를 주세요.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-ko-11",
+      "title": "Midjourney V8.1로 비주얼 스타일 탐색하기",
+      "prompt": "Midjourney V8.1로 이 프로젝트의 비주얼 스타일을 탐색해주세요. 뚜렷하게 다른 여러 화면 방향을 제안하고, 각 방향이 어떤 감정, 인물 상태, 이야기 분위기에 잘 맞는지 설명해주세요.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-ko-12",
+      "title": "Midjourney V8.1로 영화적인 이미지 만들기",
+      "prompt": "Midjourney V8.1로 이 프로젝트를 더 영화적인 이미지로 발전시켜주세요. 주체, 배경, 카메라 언어, 조명, 색, 분위기를 중심으로 설계해서 영상이나 이야기로 이어가기 좋은 화면을 만들어주세요.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ko-13",
+      "title": "Brainstorm 모드로 함께 이야기 설계하기",
+      "prompt": "{{brainstorm:brainstorm}} Brainstorm 모드로 이 프로젝트의 이야기를 함께 설계해주세요. 먼저 여러 다른 방향을 제안하고, 질문을 통해 가장 가능성 있는 방향을 고르고 더 발전시킬 수 있게 해주세요.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-ko-14",
+      "title": "Brainstorm 모드로 이야기 방향 열기",
+      "prompt": "{{brainstorm:brainstorm}} Brainstorm 모드로 이 프로젝트의 이야기 방향을 넓혀주세요. 현재 내용이나 초기 아이디어를 바탕으로 영상화하기 좋고 서로 분명히 다른 이야기 가능성을 여러 개 제안해주세요.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ko-15",
+      "title": "Brainstorm 모드로 캐릭터 이야기 풍부하게 하기",
+      "prompt": "{{brainstorm:brainstorm}} Brainstorm 모드로 캐릭터 이야기를 풍부하게 해주세요. 캐릭터의 목표, 비밀, 관계, 갈등, 핵심 전환점을 함께 설계해서 더 탄탄하고 영상화하기 쉬운 인물로 만들어주세요.",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-ko-16",
+      "title": "Brainstorm 모드로 인물 관계 설계하기",
+      "prompt": "{{brainstorm:brainstorm}} Brainstorm 모드로 인물 관계를 설계해주세요. 긴장감 있고 화면으로 표현하기 좋은 관계 설정을 여러 개 제안하고, 이 프로젝트에 가장 잘 맞는 것을 판단할 수 있게 도와주세요.",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-ko-17",
+      "title": "Brainstorm 모드로 세계관 확장하기",
+      "prompt": "{{brainstorm:brainstorm}} Brainstorm 모드로 이 프로젝트의 세계관을 확장해주세요. 공간, 규칙, 시각적 상징, 인물 관계, 잠재적 갈등의 관점에서 발산한 뒤 명확한 창작 방향으로 정리해주세요.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-ko-18",
+      "title": "Brainstorm 모드로 세 가지 이야기 경로 비교하기",
+      "prompt": "{{brainstorm:brainstorm}} Brainstorm 모드로 이 프로젝트의 서로 다른 세 가지 이야기 경로를 비교해주세요. 각각의 핵심 갈등, 주요 비주얼, 감정 톤, 다음에 생성하면 좋은 것을 설명해주세요.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ko-19",
+      "title": "내 창작 스타일 기억하기",
+      "prompt": "이 프로젝트와 이전 대화를 바탕으로 내 화면 취향, 서사 습관, 미적 방향, 좋아하지 않는 요소를 정리하고, 이후 창작에서도 계속 반영해주세요.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ko-20",
+      "title": "내 창작 취향 학습하기",
+      "prompt": "현재 프로젝트와 우리 대화에서 내 창작 취향을 학습해주세요. 내가 선호하는 소재, 스타일, 리듬, 샷, 표현 방식을 정리하고, 앞으로 이 기억을 창작 지원에 어떻게 사용할지 알려주세요.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ko-21",
+      "title": "이 프로젝트의 기억 이어가기",
+      "prompt": "이 프로젝트에 대한 장기 기억을 활용해 창작 맥락을 이어가주세요. 먼저 이미 결정된 내용을 요약하고, 이후 창작에서 계속 유지해야 할 설정, 스타일, 방향을 짚어주세요.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ko-22",
+      "title": "내 스타일로 계속 창작하기",
+      "prompt": "당신이 기억하는 내 창작 스타일을 바탕으로 이 프로젝트를 계속 발전시켜주세요. 일반적인 제안이 아니라 내 화면 감각, 언어 리듬, 이야기 밀도, 미적 경계에 가깝게 맞춰주세요.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ko-23",
+      "title": "이 프로젝트의 창작 기억 만들기",
+      "prompt": "이 프로젝트에서 계속 사용할 수 있는 창작 기억을 만들어주세요. 프로젝트 주제, 비주얼 스타일, 인물 관계, 중요한 설정, 내가 좋아하는 방향, 명확히 원하지 않는 방향을 기록해주세요.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ko-24",
+      "title": "나에게 맞는 Agent Skill 만들기",
+      "prompt": "나에게 맞는 TapNow Agent Skill을 만드는 것을 도와주세요. 먼저 내 창작 목표, 취향, 작업 흐름, 원하는 출력 방식을 요약하고 여러 Skill 제안을 주세요. 아직 바로 만들지는 말고, 내가 선택을 확인할 때까지 기다려주세요.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-ko-25",
+      "title": "내 취향으로 맞춤 Skill 만들기",
+      "prompt": "이미 이해한 내 취향을 바탕으로 맞춤 Skill 방향을 설계해주세요. 여러 옵션을 제안하고, 각각이 어떤 창작 문제를 해결하며 아이디어 발산, 이야기 정리, 비주얼 프롬프트 생성을 어떻게 안내하는지 설명해주세요. 아직 만들지는 말고 내 확인을 기다려주세요.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ko-26",
+      "title": "내 창작 흐름을 Skill로 만들기",
+      "prompt": "현재 내 창작 흐름을 재사용 가능한 Skill 제안으로 정리해주세요. 아이디어 발산, 이야기 정리, 비주얼 설정, 생성 지시, 수정 리뷰까지 포함한 여러 버전을 제안하고 각 단계를 어떻게 실행해야 하는지 설명해주세요. 아직 만들지는 말고 확인을 기다려주세요.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ko-27",
+      "title": "이 프로젝트의 스타일을 Skill로 만들기",
+      "prompt": "이 프로젝트의 스타일을 재사용 가능한 Skill 제안으로 정리해주세요. 재사용 가능한 소재 방향, 비주얼 키워드, 카메라 언어, 색감, 피해야 할 내용을 각각 요약한 여러 방향을 제안해주세요. 아직 만들지는 말고 확인을 기다려주세요.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-ko-28",
+      "title": "이 프로젝트의 창작 흐름 정리하기",
+      "prompt": "이 프로젝트의 창작 흐름을 정리해주세요. 초기 아이디어, 기존 소재, 핵심 인물이나 장면, 스타일 변화, 현재 문제, 다음 선택지를 정리해서 프로젝트가 어디까지 왔는지 명확히 보이게 해주세요.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-ko-29",
+      "title": "이 프로젝트의 창작 의도 설명하기",
+      "prompt": "창작 컨설턴트처럼 이 프로젝트의 현재 창작 의도를 설명해주세요. 주제가 무엇인지, 왜 이런 화면인지, 이야기가 어떻게 전개될 수 있는지, 어떤 선택이 가장 중요한지, 다음에 무엇을 검증해야 하는지 알려주세요.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-ko-30",
+      "title": "다음 창작 단계 계획하기",
+      "prompt": "이 프로젝트의 다음 창작 단계를 계획해주세요. 먼저 지금 가장 필요한 것이 이야기, 인물, 화면, 참고 자료, 생성 실행 중 무엇인지 판단하고, 바로 시작할 수 있는 실행 계획을 주세요.",
+      "icon_category": "next_step"
+    }
+  ],
+  "fr": [
+    {
+      "id": "home-fallback-fr-01",
+      "title": "Essayer la création vidéo avec Seedance 2.0 Mini",
+      "prompt": "Je veux essayer la dernière capacité de création vidéo Seedance 2.0 Mini. À partir du projet actuel ou de mon idée du moment, aide-moi à concevoir une direction vidéo rapide à générer, puis donne-moi une consigne complète que je peux utiliser directement.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-fr-02",
+      "title": "Créer rapidement une vidéo avec Seedance 2.0 Mini",
+      "prompt": "Utilise Seedance 2.0 Mini pour m'aider à créer rapidement une vidéo. Définis d'abord un objectif visuel clair et une direction émotionnelle, puis transforme-les en prompt de génération vidéo pour que je puisse tester une première version tout de suite.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-fr-03",
+      "title": "Continuer ce projet avec Seedance 2.0 Mini",
+      "prompt": "Utilise Seedance 2.0 Mini pour continuer ce projet. Commence par comprendre l'histoire, les visuels ou la direction de style déjà présents. Si le projet est encore au début, aide-moi à construire une idée vidéo adaptée à une génération continue.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-fr-04",
+      "title": "Essayer la génération vidéo Seedance 2.0 4K",
+      "prompt": "Je veux essayer la génération vidéo Seedance 2.0 en 4K. Aide-moi à choisir le plan ou le visuel de ce projet qui mérite le plus d'être transformé en 4K, puis complète les détails visuels, le mouvement, la lumière et la texture.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-fr-05",
+      "title": "Améliorer la qualité vidéo avec Seedance 2.0 4K",
+      "prompt": "Utilise le mode Seedance 2.0 4K pour améliorer la qualité vidéo de ce projet. Concentre-toi sur la composition, le mouvement de caméra, l'état du sujet, les détails de l'environnement et l'ambiance visuelle, puis donne-moi le prompt complet.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-fr-06",
+      "title": "Transformer un plan clé en Seedance 2.0 4K",
+      "prompt": "Aide-moi à transformer un plan clé de ce projet en vidéo Seedance 2.0 4K. S'il n'y a pas encore de plan clé évident, choisis d'abord le visuel central qui mérite le plus d'être réalisé en 4K et explique pourquoi.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-fr-07",
+      "title": "Essayer la génération d'image GPT Image 2 4K",
+      "prompt": "Je veux essayer la génération d'image GPT Image 2 en 4K. À partir de la direction actuelle du projet, aide-moi à concevoir un key visual 4K plus clair et plus complet, puis donne-moi un prompt complet que je peux utiliser directement.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-fr-08",
+      "title": "Créer le key visual du projet avec GPT Image 2 4K",
+      "prompt": "Utilise le mode GPT Image 2 4K pour créer le key visual de ce projet. Complète le sujet, le décor, la composition, la lumière, la couleur, la matière et l'atmosphère afin que l'image représente le sentiment central du projet.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-fr-09",
+      "title": "Affiner les détails visuels avec GPT Image 2 4K",
+      "prompt": "Utilise le mode GPT Image 2 4K pour affiner les détails visuels de ce projet. Décide d'abord quelle partie visuelle mérite le plus d'être renforcée, puis réécris-la en prompt mieux adapté à la génération d'image haute résolution.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-fr-10",
+      "title": "Créer un key visual avec Midjourney V8.1",
+      "prompt": "Je veux essayer la création d'image avec Midjourney V8.1. À partir du projet actuel ou de mon idée, aide-moi à concevoir un key visual stylé et reconnaissable, puis donne-moi un prompt complet adapté à Midjourney V8.1.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-fr-11",
+      "title": "Explorer des styles visuels avec Midjourney V8.1",
+      "prompt": "Utilise Midjourney V8.1 pour m'aider à explorer des styles visuels pour ce projet. Propose plusieurs directions clairement différentes et explique quelle émotion, quel état de personnage ou quelle sensation narrative chacune exprime le mieux.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-fr-12",
+      "title": "Créer une image cinématique avec Midjourney V8.1",
+      "prompt": "Utilise Midjourney V8.1 pour développer ce projet en une image plus cinématique. Travaille le sujet, le décor, le langage de caméra, la lumière, la couleur et l'ambiance pour que l'image puisse se prolonger en vidéo ou en histoire.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-fr-13",
+      "title": "Concevoir une histoire ensemble en mode Brainstorm",
+      "prompt": "{{brainstorm:brainstorm}} Conçois avec moi l'histoire de ce projet en mode Brainstorm. Commence par plusieurs directions différentes, puis pose des questions pour m'aider à choisir la plus prometteuse et à la développer.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-fr-14",
+      "title": "Ouvrir des directions d'histoire en mode Brainstorm",
+      "prompt": "{{brainstorm:brainstorm}} Utilise le mode Brainstorm pour ouvrir les directions d'histoire de ce projet. À partir du contenu actuel ou de mon idée initiale, propose plusieurs possibilités narratives clairement différentes et faciles à visualiser.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-fr-15",
+      "title": "Enrichir les histoires de personnages en mode Brainstorm",
+      "prompt": "{{brainstorm:brainstorm}} Utilise le mode Brainstorm pour enrichir les histoires des personnages. Conçois avec moi leurs objectifs, secrets, relations, conflits et tournants clés afin qu'ils deviennent plus solides et plus faciles à développer visuellement.",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-fr-16",
+      "title": "Concevoir les relations entre personnages en mode Brainstorm",
+      "prompt": "{{brainstorm:brainstorm}} Utilise le mode Brainstorm pour concevoir les relations entre personnages. Propose plusieurs configurations tendues et visuellement fortes, puis aide-moi à décider laquelle convient le mieux à ce projet.",
+      "icon_category": "character"
+    },
+    {
+      "id": "home-fallback-fr-17",
+      "title": "Développer l'univers en mode Brainstorm",
+      "prompt": "{{brainstorm:brainstorm}} Utilise le mode Brainstorm pour développer l'univers de ce projet. Explore l'espace, les règles, les symboles visuels, les relations et les conflits possibles, puis resserre le tout en une direction créative claire.",
+      "icon_category": "inspiration"
+    },
+    {
+      "id": "home-fallback-fr-18",
+      "title": "Comparer trois chemins narratifs en mode Brainstorm",
+      "prompt": "{{brainstorm:brainstorm}} Utilise le mode Brainstorm pour comparer trois chemins narratifs différents pour ce projet. Pour chacun, explique le conflit central, les principaux visuels, le ton émotionnel et ce qu'il faudrait générer ensuite.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-fr-19",
+      "title": "Mémoriser mon style créatif",
+      "prompt": "À partir de ce projet et de nos conversations précédentes, résume mes préférences visuelles, mes habitudes narratives, mon orientation esthétique et ce que je n'aime pas, puis continue à les utiliser dans les créations futures.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-fr-20",
+      "title": "Apprendre mes préférences créatives",
+      "prompt": "Apprends mes préférences créatives à partir du projet actuel et de notre conversation. Résume les sujets, styles, rythmes, plans et formes d'expression que j'ai tendance à aimer, puis explique comment tu utiliseras cette mémoire pour m'aider ensuite.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-fr-21",
+      "title": "Poursuivre la mémoire de ce projet",
+      "prompt": "Utilise ta mémoire long terme de ce projet pour prolonger le contexte créatif. Résume d'abord ce qui est déjà décidé, puis indique quels paramètres, styles et directions doivent être conservés dans la suite.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-fr-22",
+      "title": "Continuer dans mon propre style",
+      "prompt": "Continue à développer ce projet selon le style créatif que tu as mémorisé chez moi. Reste proche de mon goût visuel, de mon rythme de langage, de ma densité narrative et de mes limites esthétiques, au lieu de donner une solution générique.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-fr-23",
+      "title": "Créer une mémoire créative pour ce projet",
+      "prompt": "Crée une mémoire créative réutilisable pour ce projet. Note le thème, le style visuel, les relations entre personnages, les paramètres importants, les directions que j'aime et celles que je ne veux clairement pas.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-fr-24",
+      "title": "Créer un Agent Skill qui me correspond",
+      "prompt": "Aide-moi à créer un TapNow Agent Skill qui me correspond. Résume d'abord mes objectifs créatifs, mes préférences, mon workflow et le type de sortie souhaité, puis propose plusieurs options de Skill. Ne le crée pas encore; attends que je confirme mon choix.",
+      "icon_category": "next_step"
+    },
+    {
+      "id": "home-fallback-fr-25",
+      "title": "Créer un Skill personnalisé depuis mes préférences",
+      "prompt": "À partir de ce que tu sais déjà de mes préférences, conçois des directions de Skill personnalisées pour moi. Propose plusieurs options et explique quel problème créatif chacune résout, ainsi que la façon dont elle guiderait l'idéation, l'organisation de l'histoire et la génération de prompts visuels. Ne crée rien encore; attends ma confirmation.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-fr-26",
+      "title": "Transformer mon workflow créatif en Skill",
+      "prompt": "Transforme mon workflow créatif actuel en propositions de Skill réutilisables. Donne plusieurs versions couvrant l'idéation, l'organisation de l'histoire, la mise en place visuelle, les prompts de génération et la revue des révisions, puis explique comment exécuter chaque étape. Ne crée rien encore; attends ma confirmation.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-fr-27",
+      "title": "Transformer le style de ce projet en Skill",
+      "prompt": "Transforme le style de ce projet en propositions de Skill réutilisables. Propose plusieurs directions, chacune résumant les sujets réutilisables, les mots-clés visuels, le langage de caméra, l'ambiance couleur et les éléments à éviter. Ne crée rien encore; attends ma confirmation.",
+      "icon_category": "reference"
+    },
+    {
+      "id": "home-fallback-fr-28",
+      "title": "Organiser le fil créatif de ce projet",
+      "prompt": "Aide-moi à organiser le fil créatif de ce projet. Couvre l'idée initiale, les matériaux existants, les personnages ou scènes clés, les changements de style, les problèmes actuels et les prochains choix, pour que je voie clairement où en est le projet.",
+      "icon_category": "organize"
+    },
+    {
+      "id": "home-fallback-fr-29",
+      "title": "Expliquer la pensée créative de ce projet",
+      "prompt": "Explique la pensée créative actuelle de ce projet comme un consultant créatif. Dis-moi quel est le thème, pourquoi les visuels sont conçus ainsi, comment l'histoire pourrait se développer, quels choix comptent le plus et ce qu'il faut tester ensuite.",
+      "icon_category": "analyze"
+    },
+    {
+      "id": "home-fallback-fr-30",
+      "title": "Planifier la prochaine étape créative",
+      "prompt": "Aide-moi à planifier la prochaine étape créative de ce projet. Détermine d'abord si le projet a le plus besoin d'histoire, de personnages, de visuels, de références ou d'exécution de génération, puis donne-moi un plan d'action que je peux commencer tout de suite.",
+      "icon_category": "next_step"
+    }
+  ]
+}

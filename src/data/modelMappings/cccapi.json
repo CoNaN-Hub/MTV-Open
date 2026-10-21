@@ -1,0 +1,322 @@
+{
+  "_readme": [
+    "平台 cccapi 的模型映射表（配置化，可版本管理）。",
+    "只登记了「base id 与官方 id 精确相等」的条目（零猜测）；其余模型运行时显示原始平台名并进「待审核」。",
+    "providerModelId 一律**原样**发请求（含 async 等平台规格后缀）；本文件不参与出站 id 计算。"
+  ],
+  "providerId": "cccapi",
+  "mappings": [
+    {
+      "providerId": "cccapi",
+      "providerModelId": "apimart",
+      "displayNameOverride": "APIMart",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "bocha",
+      "displayNameOverride": "博查 Web Search",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "cccapi",
+      "displayNameOverride": "CCC API",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "codex-auto-review",
+      "displayNameOverride": "Codex Auto Review",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "custom-openai",
+      "displayNameOverride": "自定义接口",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "dreamina",
+      "displayNameOverride": "即梦",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "exa",
+      "displayNameOverride": "Exa",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "google",
+      "displayNameOverride": "Google Gemini 官方",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-4",
+      "displayNameOverride": "GPT-4",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-4-turbo",
+      "displayNameOverride": "GPT-4 Turbo",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-4.1",
+      "displayNameOverride": "GPT-4.1",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-4.1-mini",
+      "displayNameOverride": "GPT-4.1 mini",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-4.1-nano",
+      "displayNameOverride": "GPT-4.1 nano",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-4o",
+      "displayNameOverride": "GPT-4o",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-4o-mini",
+      "displayNameOverride": "GPT-4o mini",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5",
+      "displayNameOverride": "GPT-5",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.2",
+      "displayNameOverride": "GPT-5.2",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.2-pro",
+      "displayNameOverride": "GPT-5.2 Pro",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.3-codex-spark",
+      "displayNameOverride": "GPT-5.3 Codex Spark",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.4",
+      "displayNameOverride": "GPT-5.4",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.4-mini",
+      "displayNameOverride": "GPT-5.4 mini",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.5",
+      "canonicalId": "openai/gpt-5-5",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "上游 id 与官方 id 完全一致 ⇒ 官方表精确命中。官方显示名逐字「GPT-5.5」（live-assets-new/vendor-pkg-canvas-CvbAwZyy.js 的 chatAdapter.modelOptions.labels.gpt55，zh charIdx 4305910）。本条原来的策划名与官方逐字相同，本轮改为正式 canonical 映射。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.6",
+      "displayNameOverride": "GPT-5.6",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.6-luna",
+      "canonicalId": "openai/gpt-5-6-luna",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-5.6-luna → openai/gpt-5-6-luna",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.6-sol",
+      "canonicalId": "openai/gpt-5-6-sol",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-5.6-sol → openai/gpt-5-6-sol",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-5.6-terra",
+      "canonicalId": "openai/gpt-5-6-terra",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-5.6-terra → openai/gpt-5-6-terra",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-image-1",
+      "canonicalId": "openai/gpt-image",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-image-1 → openai/gpt-image",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-image-2",
+      "canonicalId": "openai/gpt-image2",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-image-2 → openai/gpt-image2",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-image-2.5-flare",
+      "canonicalId": "openai/gpt-image-2-5-flare",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-image-2.5-flare → openai/gpt-image-2-5-flare",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "gpt-image-2.5-sunburst",
+      "canonicalId": "openai/gpt-image-2-5-sunburst",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-image-2.5-sunburst → openai/gpt-image-2-5-sunburst",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "grsai",
+      "displayNameOverride": "GRSAI",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "runninghub-model",
+      "displayNameOverride": "RunningHub",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "sora2u",
+      "displayNameOverride": "Sora2U",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "tavily",
+      "displayNameOverride": "Tavily",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "volcengine",
+      "displayNameOverride": "火山方舟",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "workflow-api",
+      "displayNameOverride": "工作流 API",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "xai",
+      "displayNameOverride": "xAI / Grok 官方",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "cccapi",
+      "providerModelId": "zhipu-search",
+      "displayNameOverride": "智谱联网搜索",
+      "matchStatus": "unverified",
+      "source": "MTV 内置策划名（未与官方表核对，待人工确认）",
+      "updatedAt": "2026-10-12"
+    }
+  ]
+}

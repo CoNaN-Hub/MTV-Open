@@ -1,0 +1,87 @@
+{
+  "_readme": [
+    "平台定义表 —— 把「一个连接」解析成「哪个平台」（providerId）。",
+    "匹配顺序：matchHosts（按 baseUrl 域名，最具体）→ catalogIds（内置厂商的 catalogId）→ 连接 key 本身 → '*'（通用兜底）。",
+    "新增平台只改本文件 + 加一个 src/data/modelMappings/<providerId>.json，不动 Agent UI。",
+    "suffixSpec 声明该平台的「执行规格后缀」（async / batch / priority …）——后缀必须原样发出去，只在展示时拼到官方名后面。",
+    "⚠️ 域名匹配是为了让用户自定义连接（catalogId 都是 custom-openai）也能定位到具体中转站；同一家中转站换域名只改这里。"
+  ],
+  "providers": [
+    {
+      "providerId": "tudou",
+      "label": "土豆中转站",
+      "adapterId": "openai-compatible",
+      "matchHosts": ["api.ai-tudou.net"],
+      "catalogIds": ["tudou"],
+      "suffixSpec": { "separator": "-", "suffixes": ["async"], "executionMode": { "async": "async" } }
+    },
+    {
+      "providerId": "apimart",
+      "label": "APIMart",
+      "adapterId": "openai-compatible",
+      "matchHosts": ["api.apimart.ai"],
+      "catalogIds": ["apimart"]
+    },
+    {
+      "providerId": "grsai",
+      "label": "GRSAI",
+      "adapterId": "openai-compatible",
+      "catalogIds": ["grsai"]
+    },
+    {
+      "providerId": "volcengine",
+      "label": "火山方舟",
+      "adapterId": "openai-compatible",
+      "matchHosts": ["ark.cn-beijing.volces.com"],
+      "catalogIds": ["volcengine"]
+    },
+    {
+      "providerId": "dreamina",
+      "label": "即梦",
+      "adapterId": "local-manifest",
+      "catalogIds": ["dreamina"]
+    },
+    {
+      "providerId": "runninghub",
+      "label": "RunningHub",
+      "adapterId": "local-manifest",
+      "catalogIds": ["runninghub-model", "runninghub"]
+    },
+    {
+      "providerId": "cccapi",
+      "label": "CCC API",
+      "adapterId": "local-manifest",
+      "catalogIds": ["cccapi"]
+    },
+    {
+      "providerId": "xai",
+      "label": "xAI",
+      "adapterId": "local-manifest",
+      "catalogIds": ["xai"]
+    },
+    {
+      "providerId": "google",
+      "label": "Google",
+      "adapterId": "local-manifest",
+      "catalogIds": ["google"]
+    },
+    {
+      "providerId": "sora2u",
+      "label": "Sora2U",
+      "adapterId": "local-manifest",
+      "catalogIds": ["sora2u"]
+    },
+    {
+      "providerId": "workflow-api",
+      "label": "工作流 API",
+      "adapterId": "local-manifest",
+      "catalogIds": ["workflow-api", "autodl-workflow"]
+    },
+    {
+      "providerId": "custom-openai",
+      "label": "自定义接口",
+      "adapterId": "openai-compatible",
+      "catalogIds": ["custom-openai"]
+    }
+  ]
+}

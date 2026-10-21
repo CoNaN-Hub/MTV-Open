@@ -1,0 +1,1822 @@
+{
+  "_readme": [
+    "平台 apimart 的模型映射表（配置化，可版本管理）。",
+    "★ 本表按官方定价页清单**重建**：https://apimart.ai/en/pricing（React Server Component payload，无需 API key；extracted_at 2026-10-15T07:06:29Z，model_count 47 = image 43 + token 4）。",
+    "官方 47 条一律：providerModelId = 官方 id 原样、providerModelName = 官方 name 逐字（含 `Nano Banana 2.1` / `Nano-Banana-2-Lite` 这类大小写与连字符写法，照抄不美化）；官方给出的 specification / unit / prices 一并逐字带上。⚠️ 只写 schema 里已有的字段（`ProviderModelMapping`），**绝不发明字段**。",
+    "canonicalId 绑定规则：官方 id / alias / name 与 canonical 的 `officialModelIds` / `officialName` 逐字（或归一后）相等**才**绑定；匹配不到就**不绑**（零猜测）。",
+    "没有 canonicalId 的条目用 displayNameOverride = 官方 name 逐字（否则界面会退化成原始 id）；**已有 canonicalId 的条目一律不写 override** —— 展示名由 canonical 收口（既有契约 tests/models/tudouDisplayNameCoverage.test.ts 禁止 canonical 行带 override）。",
+    "★ 2026-10-15 用户裁决：`unverified` **只表示「该模型不在官方 apimart 清单里」**（本轮该清单只有 image 43 + token 4 段，**没有** text/video 段），**不表示「必须没有 canonicalId」**。只有**绑定依据本身**拿不准时才留空。",
+    "    ⇒ 官方清单里**不存在**的 MTV 条目照 tudou.json 的先例做**登记**：不删；依据成立（providerModelId 与 canonical `officialModelIds` 逐字相等）的**保留绑定**并标 unverified；依据不成立的才不绑、显示原始平台 id，绝不美化。",
+    "    ⇒ 每条登记行的 `source` 必须**分开写两条独立事实**：① 不在官方 apimart 清单（含 URL + extracted_at）；② canonicalId 的依据（或「依据不成立 ⇒ 不绑」）。不许混成一句。",
+    "★ 本仓的**两层结构**（用户 2026-10-15 澄清；写在此处避免后人再混）：",
+    "    ① **模型清单 / 身份**：以 **apimart 清单**为准（它更全）；`canonicalId` 是**跨厂商的公共身份**，所以 apimart 清单能补齐土豆那边没有的身份 —— 这正是本轮按官方清单重建本表的目的。",
+    "    ② **价格**：**逐厂商各自持有、互不覆盖** —— apimart 的价格在本文件（`prices` / `unit` / `billingType`，来源 = apimart 厂商定价页），土豆的价格在 `tudou.json`。两者都是**合法数据**，不存在谁覆盖谁。",
+    "    ③ **接入现状**：当前**只接入了土豆**（`tudou`）⇒ 运行时实际调用与计费走土豆那条链路；apimart 的价格是**已归档的厂商价目**，保留待用。",
+    "    计费链路事实（只为如实描述现状，不是给任何一家的价格降级）：`src/services/ai/creditEstimate.ts` 读的是 provider 计费配置 `ProviderBillingConfig.modelOverrides`（设置里的「逐模型手动价」）与 new-api `/api/pricing` 响应；本文件的 `prices` / `unit` / `billingType` 目前**没有运行时消费者**（`billingType` 全仓无消费者）。",
+    "    `specification` 属**模型身份**（模态：image / token），与价格无关，照常保留。**不要再为取价格去追 apimart 详情页。**",
+    "本文件不参与出站 id 计算：providerModelId 一律原样发请求（含平台规格后缀）。"
+  ],
+  "providerId": "apimart",
+  "mappings": [
+    {
+      "providerId": "apimart",
+      "providerModelId": "dall-e-3",
+      "providerModelName": "DALL-E 3",
+      "canonicalId": "openai/dall-e-3",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.04,
+          "effective": 0.032
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「dall-e-3」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「DALL-E 3」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "midjourney",
+      "providerModelName": "Midjourney",
+      "canonicalId": "midjourney/midjourney",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_call",
+      "prices": {
+        "default": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "blend": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "blend-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "blend-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "describe": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "describe-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "describe-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "edits": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "edits-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "edits-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "high_variation": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "high_variation-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "high_variation-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-niji6": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-niji6-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-niji6-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine-niji7": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-niji7-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-niji7-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine-v5.1": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-v5.1-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-v5.1-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine-v5.2": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-v5.2-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-v5.2-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine-v6.1": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-v6.1-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-v6.1-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine-v7": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-v7-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-v7-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine-v8.1": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-v8.1-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-v8.1-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "imagine-v8.2": {
+          "list": 0.0563,
+          "effective": 0.04504
+        },
+        "imagine-v8.2-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "imagine-v8.2-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "inpaint": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "inpaint-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "inpaint-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "low_variation": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "low_variation-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "low_variation-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "modal": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "modal-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "modal-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "pan": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "pan-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "pan-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "remix_strong": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "remix_strong-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "remix_strong-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "remix_subtle": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "remix_subtle-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "remix_subtle-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "reroll": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "reroll-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "reroll-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "shorten": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "shorten-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "shorten-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "upscale": {
+          "list": 0,
+          "effective": 0
+        },
+        "upscale-fast": {
+          "list": 0,
+          "effective": 0
+        },
+        "upscale-hd": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "upscale-hd-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "upscale-hd-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "upscale-relax": {
+          "list": 0,
+          "effective": 0
+        },
+        "upscale-turbo": {
+          "list": 0,
+          "effective": 0
+        },
+        "variation": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "variation-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "variation-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        },
+        "video": {
+          "list": 0.25,
+          "effective": 0.2
+        },
+        "video-720p": {
+          "list": 0.5,
+          "effective": 0.4
+        },
+        "zoom": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "zoom-fast": {
+          "list": 0.0688,
+          "effective": 0.05504
+        },
+        "zoom-turbo": {
+          "list": 0.125,
+          "effective": 0.1
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「midjourney」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「Midjourney」。2026-10-15 新增绑定：canonicalId = `midjourney/midjourney`（canonical 的 `officialModelIds` 含官方 id `midjourney` 逐字）—— 真实厂商 Midjourney。**vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/midjourney 的 JSON-LD `Product.brand.name` —— 详情页逐字 `Product.brand.name=\"Midjourney\"`；该字段是真厂商来源，**不是**用户口头确认。绑定后本行不再带 `displayNameOverride`（展示名由 canonical 收口）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-2.5-flash-image-preview",
+      "providerModelName": "Nano Banana",
+      "canonicalId": "google/banana",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.015625,
+          "effective": 0.0125
+        }
+      },
+      "source": "官方 name「Nano Banana」逐字命中 canonical `google/banana` 的 officialName「Nano Banana」（该 officialName 于 2026-10-15 按用户裁决从品牌化简写 `Banana` 更正而来）⇒ 绑定。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-2.5-flash-image-preview」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「Nano Banana」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-3.1-flash-image-preview",
+      "providerModelName": "Nano Banana 2",
+      "canonicalId": "google/banana-2",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.01875,
+          "effective": 0.015
+        },
+        "0.5K": {
+          "list": 0.01875,
+          "effective": 0.015
+        },
+        "1K": {
+          "list": 0.01875,
+          "effective": 0.015
+        },
+        "2K": {
+          "list": 0.025,
+          "effective": 0.02
+        },
+        "4K": {
+          "list": 0.03125,
+          "effective": 0.025
+        }
+      },
+      "source": "官方 name「Nano Banana 2」逐字命中 canonical `google/banana-2` 的 officialName「Nano Banana 2」（该 officialName 于 2026-10-15 按用户裁决从品牌化简写 `Banana 2` 更正而来）⇒ 绑定。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-3.1-flash-image-preview」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「Nano Banana 2」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-nano-banana-2.1",
+      "providerModelName": "Nano Banana 2.1",
+      "canonicalId": "google/nano-banana-2-1",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 1.5,
+          "cached_text_input": 0,
+          "image_input": 1.5,
+          "cached_image_input": 0,
+          "text_output": 7.5,
+          "image_output": 30
+        },
+        "effective": {
+          "text_input": 1.2,
+          "cached_text_input": 0,
+          "image_input": 1.2,
+          "cached_image_input": 0,
+          "text_output": 6,
+          "image_output": 24
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-nano-banana-2.1」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「Nano Banana 2.1」。**vendor 分层取证**：本页 `/model/nano-banana-2-1` 是 JSON-LD `Service`、**无** `brand` 字段，也没有 vendor icon ⇒ vendor = Google 是**同族页** https://apimart.ai/model/nano-banana-2-api 的 JSON-LD `Product.brand.name=\"Google\"` 补齐的，**不是本页的直接证据**。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-3-pro-image-preview",
+      "providerModelName": "Nano Banana Pro",
+      "canonicalId": "google/banana-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.0375,
+          "effective": 0.03
+        },
+        "4K": {
+          "list": 0.05,
+          "effective": 0.04
+        }
+      },
+      "source": "官方 name「Nano Banana Pro」逐字命中 canonical `google/banana-pro` 的 officialName「Nano Banana Pro」（该 officialName 于 2026-10-15 按用户裁决从品牌化简写 `Banana Pro` 更正而来）⇒ 绑定。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-3-pro-image-preview」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「Nano Banana Pro」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-3.1-flash-lite-image",
+      "providerModelName": "Nano-Banana-2-Lite",
+      "canonicalId": "google/nano-banana-2-lite",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 0.25,
+          "cached_text_input": 0,
+          "image_input": 0.25,
+          "cached_image_input": 0,
+          "text_output": 1.5,
+          "image_output": 30
+        },
+        "effective": {
+          "text_input": 0.2,
+          "cached_text_input": 0,
+          "image_input": 0.2,
+          "cached_image_input": 0,
+          "text_output": 1.2,
+          "image_output": 24
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "官方 name「Nano-Banana-2-Lite」逐字命中 canonical 的 officialName「Nano Banana 2 Lite」 → google/nano-banana-2-lite。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-3.1-flash-lite-image」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「Nano-Banana-2-Lite」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "flux-2-flex",
+      "providerModelName": "flux-2-flex",
+      "canonicalId": "bfl/flux-2-flex",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "1MP": {
+          "list": 0.05,
+          "effective": 0.04
+        },
+        "2MP": {
+          "list": 0.1,
+          "effective": 0.08
+        },
+        "3MP": {
+          "list": 0.15,
+          "effective": 0.12
+        },
+        "4MP": {
+          "list": 0.2,
+          "effective": 0.16
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「flux-2-flex」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「flux-2-flex」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "flux-2-max",
+      "providerModelName": "flux-2-max",
+      "canonicalId": "bfl/flux-2-max",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.1,
+          "effective": 0.08
+        },
+        "1MP": {
+          "list": 0.07,
+          "effective": 0.056
+        },
+        "2MP": {
+          "list": 0.1,
+          "effective": 0.08
+        },
+        "3MP": {
+          "list": 0.13,
+          "effective": 0.104
+        },
+        "4MP": {
+          "list": 0.16,
+          "effective": 0.128
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「flux-2-max」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「flux-2-max」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "flux-2-pro",
+      "providerModelName": "flux-2-pro",
+      "canonicalId": "bfl/flux-2-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "1MP": {
+          "list": 0.03,
+          "effective": 0.024
+        },
+        "2MP": {
+          "list": 0.045,
+          "effective": 0.036
+        },
+        "3MP": {
+          "list": 0.06,
+          "effective": 0.048
+        },
+        "4MP": {
+          "list": 0.075,
+          "effective": 0.06
+        }
+      },
+      "source": "官方 id「flux-2-pro」逐字命中 canonical 的 officialModelIds → bfl/flux-2-pro。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「flux-2-pro」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「flux-2-pro」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "flux-3-image",
+      "providerModelName": "flux-3-image",
+      "canonicalId": "bfl/flux-3-image",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "token",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": null,
+          "effective": 0.0384
+        },
+        "1.5K": {
+          "list": null,
+          "effective": 0.056
+        },
+        "1K": {
+          "list": null,
+          "effective": 0.0384
+        },
+        "2K": {
+          "list": null,
+          "effective": 0.08
+        },
+        "4K": {
+          "list": null,
+          "effective": 0.4856
+        },
+        "768SQ": {
+          "list": null,
+          "effective": 0.0328
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「flux-3-image」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「flux-3-image」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "flux-kontext-max",
+      "providerModelName": "flux-kontext-max",
+      "canonicalId": "bfl/flux-max",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.08,
+          "effective": 0.064
+        }
+      },
+      "source": "官方 id「flux-kontext-max」逐字命中 canonical 的 officialModelIds → bfl/flux-max。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「flux-kontext-max」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「flux-kontext-max」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "flux-kontext-pro",
+      "providerModelName": "flux-kontext-pro",
+      "canonicalId": "bfl/flux",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.04,
+          "effective": 0.032
+        }
+      },
+      "source": "官方 id「flux-kontext-pro」逐字命中 canonical 的 officialModelIds → bfl/flux。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「flux-kontext-pro」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「flux-kontext-pro」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-2.5-flash-image-preview-official",
+      "providerModelName": "gemini-2.5-flash-image-preview-official",
+      "canonicalId": "google/banana",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 0.3,
+          "cached_text_input": 0,
+          "image_input": 0.3,
+          "cached_image_input": 0,
+          "text_output": 2.5,
+          "image_output": 30
+        },
+        "effective": {
+          "text_input": 0.24,
+          "cached_text_input": 0,
+          "image_input": 0.24,
+          "cached_image_input": 0,
+          "text_output": 2,
+          "image_output": 24
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "官方 alias「nano-banana」逐字命中 canonical 的 officialModelIds → google/banana（**① id 命中**）。（本条无冲突：`google/banana` 的 officialName 已是「Nano Banana」，与 alias 一致。）出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-2.5-flash-image-preview-official」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gemini-2.5-flash-image-preview-official」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-3-pro-image-preview-official",
+      "providerModelName": "gemini-3-pro-image-preview-official",
+      "canonicalId": "google/gemini-3-pro-image-preview-official",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 2,
+          "cached_text_input": 0,
+          "image_input": 2,
+          "cached_image_input": 0,
+          "text_output": 12,
+          "image_output": 120
+        },
+        "effective": {
+          "text_input": 1.6,
+          "cached_text_input": 0,
+          "image_input": 1.6,
+          "cached_image_input": 0,
+          "text_output": 9.6,
+          "image_output": 96
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-3-pro-image-preview-official」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gemini-3-pro-image-preview-official」。⚠️ 本行官方 alias 为「nano-banana-pro」（归一后 = canonical `google/banana-pro` 的 officialName「Nano Banana Pro」），与本行 `canonicalId`（按官方 id 逐条登记的独立条目）不同名 —— 按裁决④「apimart 官方清单里它们是独立 id ⇒ 逐条登记、本轮不合并」保留本行绑定，**登记待裁决**。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-3.1-flash-image-preview-official",
+      "providerModelName": "gemini-3.1-flash-image-preview-official",
+      "canonicalId": "google/banana-2",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 0.5,
+          "cached_text_input": 0,
+          "image_input": 0.5,
+          "cached_image_input": 0,
+          "text_output": 3,
+          "image_output": 60
+        },
+        "effective": {
+          "text_input": 0.4,
+          "cached_text_input": 0,
+          "image_input": 0.4,
+          "cached_image_input": 0,
+          "text_output": 2.4,
+          "image_output": 48
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "② name / alias 命中优先：官方 alias「nano-banana-2」归一后 = canonical `google/banana-2` 的 officialName「Nano Banana 2」⇒ 绑定 `google/banana-2`。⚠️ 该 alias 同时**逐字等于** `google/banana-pro` 的 officialModelIds 里那条 `nano-banana-2`，而 `google/banana-pro` 的 officialName 是「Nano Banana Pro」—— **自相矛盾** ⇒ 以 officialName 为准（id/alias 命中被 name 命中覆盖）。那条 officialModelIds 属 Registry 数据错误，本轮**未动**，登记待裁决。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-3.1-flash-image-preview-official」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gemini-3.1-flash-image-preview-official」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-3.1-flash-lite-image-ext",
+      "providerModelName": "gemini-3.1-flash-lite-image-ext",
+      "canonicalId": "google/gemini-3-1-flash-lite-image-ext",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.015625,
+          "effective": 0.0125
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-3.1-flash-lite-image-ext」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gemini-3.1-flash-lite-image-ext」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-nano-banana-2.1-ext",
+      "providerModelName": "gemini-nano-banana-2.1-ext",
+      "canonicalId": "google/gemini-nano-banana-2-1-ext",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.025,
+          "effective": 0.02
+        },
+        "1K": {
+          "list": 0.025,
+          "effective": 0.02
+        },
+        "2K": {
+          "list": 0.03125,
+          "effective": 0.025
+        },
+        "4K": {
+          "list": 0.0375,
+          "effective": 0.03
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gemini-nano-banana-2.1-ext」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gemini-nano-banana-2.1-ext」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-image-1",
+      "providerModelName": "gpt-image-1",
+      "canonicalId": "openai/gpt-image",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "token",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 5,
+          "cached_text_input": 1.25,
+          "image_input": 10,
+          "cached_image_input": 2.5,
+          "image_output": 40
+        },
+        "effective": {
+          "text_input": 4,
+          "cached_text_input": 1,
+          "image_input": 8,
+          "cached_image_input": 2,
+          "image_output": 32
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "官方 id「gpt-image-1」逐字命中 canonical 的 officialModelIds → openai/gpt-image。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gpt-image-1」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gpt-image-1」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-image-1-official",
+      "providerModelName": "gpt-image-1-official",
+      "canonicalId": "openai/gpt-image-1-official",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 5,
+          "cached_text_input": 1.25,
+          "image_input": 10,
+          "cached_image_input": 2.5,
+          "image_output": 40
+        },
+        "effective": {
+          "text_input": 4,
+          "cached_text_input": 1,
+          "image_input": 8,
+          "cached_image_input": 2,
+          "image_output": 32
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gpt-image-1-official」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gpt-image-1-official」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-image-1.5-official",
+      "providerModelName": "gpt-image-1.5-official",
+      "canonicalId": "openai/gpt-image-1-5-official",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 5,
+          "cached_text_input": 1.25,
+          "image_input": 8,
+          "cached_image_input": 2,
+          "text_output": 10,
+          "image_output": 32
+        },
+        "effective": {
+          "text_input": 4,
+          "cached_text_input": 1,
+          "image_input": 6.4,
+          "cached_image_input": 1.6,
+          "text_output": 8,
+          "image_output": 25.6
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gpt-image-1.5-official」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gpt-image-1.5-official」。**vendor 分层取证**：该详情页是 JSON-LD `Service`、**无** `brand` 字段 ⇒ 用页面 vendor icon 文件名（`https://apimart.ai/supplier/openai.svg`，与同厂商其它行的 brand 一致）作为厂商依据。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-image-2",
+      "providerModelName": "gpt-image-2",
+      "canonicalId": "openai/gpt-image2",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.010625,
+          "effective": 0.0085
+        },
+        "1K": {
+          "list": 0.2109,
+          "effective": 0.0085
+        },
+        "2K": {
+          "list": 0.4283,
+          "effective": 0.015
+        },
+        "4K": {
+          "list": 0.7117,
+          "effective": 0.022
+        }
+      },
+      "source": "官方 id「gpt-image-2」逐字命中 canonical 的 officialModelIds → openai/gpt-image2。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gpt-image-2」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gpt-image-2」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-image-2-official",
+      "providerModelName": "gpt-image-2-official",
+      "canonicalId": "openai/gpt-image-2-official",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 5,
+          "cached_text_input": 1.25,
+          "image_input": 8,
+          "cached_image_input": 2,
+          "image_output": 30
+        },
+        "effective": {
+          "text_input": 4,
+          "cached_text_input": 1,
+          "image_input": 6.4,
+          "cached_image_input": 1.6,
+          "image_output": 24
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gpt-image-2-official」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gpt-image-2-official」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-image-2.5-ext",
+      "providerModelName": "gpt-image-2.5-ext",
+      "canonicalId": "openai/gpt-image-2-5-ext",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "flare@1K": {
+          "list": 0.010625,
+          "effective": 0.0085
+        },
+        "flare@2K": {
+          "list": 0.0175,
+          "effective": 0.03
+        },
+        "flare@4K": {
+          "list": 0.02625,
+          "effective": 0.04
+        },
+        "sunburst@1K": {
+          "list": 0.010625,
+          "effective": 0.0085
+        },
+        "sunburst@2K": {
+          "list": 0.0175,
+          "effective": 0.03
+        },
+        "sunburst@4K": {
+          "list": 0.02625,
+          "effective": 0.04
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gpt-image-2.5-ext」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gpt-image-2.5-ext」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-image-2.5-flare",
+      "providerModelName": "gpt-image-2.5-flare",
+      "canonicalId": "openai/gpt-image-2-5-flare",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 5,
+          "cached_text_input": 1.25,
+          "image_input": 8,
+          "cached_image_input": 2,
+          "image_output": 30
+        },
+        "effective": {
+          "text_input": 4,
+          "cached_text_input": 1,
+          "image_input": 6.4,
+          "cached_image_input": 1.6,
+          "image_output": 24
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "官方 id「gpt-image-2.5-flare」逐字命中 canonical 的 officialModelIds → openai/gpt-image-2-5-flare。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gpt-image-2.5-flare」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gpt-image-2.5-flare」。**vendor 分层取证**：该详情页是 JSON-LD `Service`、**无** `brand` 字段 ⇒ 用页面 vendor icon 文件名（`https://apimart.ai/supplier/openai.svg`，与同厂商其它行的 brand 一致）作为厂商依据。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-image-2.5-sunburst",
+      "providerModelName": "gpt-image-2.5-sunburst",
+      "canonicalId": "openai/gpt-image-2-5-sunburst",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 5,
+          "cached_text_input": 1.25,
+          "image_input": 8,
+          "cached_image_input": 2,
+          "image_output": 30
+        },
+        "effective": {
+          "text_input": 4,
+          "cached_text_input": 1,
+          "image_input": 6.4,
+          "cached_image_input": 1.6,
+          "image_output": 24
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "官方 id「gpt-image-2.5-sunburst」逐字命中 canonical 的 officialModelIds → openai/gpt-image-2-5-sunburst。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「gpt-image-2.5-sunburst」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「gpt-image-2.5-sunburst」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "grok-imagine-1.5-apimart",
+      "providerModelName": "grok-imagine-1.5-apimart",
+      "canonicalId": "xai/grok-imagine-1-5-apimart",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.01875,
+          "effective": 0.015
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「grok-imagine-1.5-apimart」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「grok-imagine-1.5-apimart」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "grok-imagine-1.5-edit-apimart",
+      "providerModelName": "grok-imagine-1.5-extï¼grok-imagine-1.5-apimartï¼",
+      "canonicalId": "xai/grok-imagine-1-5-edit-apimart",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.01875,
+          "effective": 0.015
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**。本行有 `canonicalId` 即命中。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「grok-imagine-1.5-edit-apimart」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「grok-imagine-1.5-extï¼grok-imagine-1.5-apimartï¼」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "grok-imagine-2.0-ext",
+      "providerModelName": "grok-imagine-2.0-ext",
+      "canonicalId": "xai/grok-imagine-2-0-ext",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.06,
+          "effective": 0.015
+        },
+        "region-edit": {
+          "list": 0.01875,
+          "effective": 0.015
+        },
+        "upload-image": {
+          "list": 0,
+          "effective": 0
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「grok-imagine-2.0-ext」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「grok-imagine-2.0-ext」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "grok-imagine-image",
+      "providerModelName": "grok-imagine-image",
+      "canonicalId": "xai/grok-imagine",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "1K": {
+          "list": 0.02,
+          "effective": 0.016
+        },
+        "2K": {
+          "list": 0.02,
+          "effective": 0.016
+        }
+      },
+      "source": "官方 id「grok-imagine-image」逐字命中 canonical 的 officialModelIds → xai/grok-imagine。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「grok-imagine-image」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「grok-imagine-image」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "grok-imagine-image-2.0",
+      "providerModelName": "grok-imagine-image-2.0",
+      "canonicalId": "xai/grok-imagine-image-2-0",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "1K@low": {
+          "list": 0.04,
+          "effective": 0.032
+        },
+        "1K@medium": {
+          "list": 0.06,
+          "effective": 0.048
+        },
+        "2K@low": {
+          "list": 0.06,
+          "effective": 0.048
+        },
+        "2K@medium": {
+          "list": 0.08,
+          "effective": 0.064
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「grok-imagine-image-2.0」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「grok-imagine-image-2.0」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "grok-imagine-image-quality",
+      "providerModelName": "grok-imagine-image-quality",
+      "canonicalId": "xai/grok-imagine-quality",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "1K": {
+          "list": 0.05,
+          "effective": 0.04
+        },
+        "2K": {
+          "list": 0.07,
+          "effective": 0.056
+        }
+      },
+      "source": "官方 id「grok-imagine-image-quality」逐字命中 canonical 的 officialModelIds → xai/grok-imagine-quality。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「grok-imagine-image-quality」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「grok-imagine-image-quality」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "imagen-4.0-apimart",
+      "providerModelName": "imagen-4.0-apimart",
+      "displayNameOverride": "imagen-4.0-apimart",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.05,
+          "effective": 0.04
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「imagen-4.0-apimart」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「imagen-4.0-apimart」。2026-10-15 登记（**仍不绑定**）：本行**仍是本表唯一的未绑定官方行**；apimart 详情页 slug `/model/imagen-4-0-apimart` 对应的厂商身份（Google）已有 canonical `google/imagen-4-0`，但该条目的 `officialModelIds` 只含官方 id `imagen-4.0`，**不含**本行的 `imagen-4.0-apimart`（逐字不等）⇒ 按裁决①「依据不成立 ⇒ 零猜测不绑」保持未绑定，显示原始 id。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "mai-image-2.6",
+      "providerModelName": "mai-image-2.6",
+      "canonicalId": "microsoft/mai-image-2-6",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "token",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 5,
+          "cached_text_input": 0,
+          "image_input": 8,
+          "cached_image_input": 0,
+          "text_output": 0,
+          "image_output": 38
+        },
+        "effective": {
+          "text_input": 4,
+          "cached_text_input": 0,
+          "image_input": 6.4,
+          "cached_image_input": 0,
+          "text_output": 0,
+          "image_output": 30.4
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「mai-image-2.6」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「mai-image-2.6」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "mai-image-2.6-flash",
+      "providerModelName": "mai-image-2.6-flash",
+      "canonicalId": "microsoft/mai-image-2-6-flash",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "token",
+      "unit": "usd_per_million_tokens",
+      "prices": {
+        "list": {
+          "text_input": 1.75,
+          "cached_text_input": 0,
+          "image_input": 2.5,
+          "cached_image_input": 0,
+          "text_output": 0,
+          "image_output": 19
+        },
+        "effective": {
+          "text_input": 1.4,
+          "cached_text_input": 0,
+          "image_input": 2,
+          "cached_image_input": 0,
+          "text_output": 0,
+          "image_output": 15.2
+        }
+      },
+      "billingType": "tiered_token",
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「mai-image-2.6-flash」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「mai-image-2.6-flash」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "qwen-image-2.0",
+      "providerModelName": "qwen-image-2.0",
+      "canonicalId": "alibaba/qwen-image-2-0",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.025,
+          "effective": 0.02
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「qwen-image-2.0」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「qwen-image-2.0」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "qwen-image-2.0-pro",
+      "providerModelName": "qwen-image-2.0-pro",
+      "canonicalId": "alibaba/qwen-image-2-0-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.0625,
+          "effective": 0.05
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「qwen-image-2.0-pro」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「qwen-image-2.0-pro」。2026-10-15 新增绑定：canonicalId = `alibaba/qwen-image-2-0-pro`。⚠️ 依据分层说明：官方 id `qwen-image-2.0-pro` 与 canonical 的 `officialModelIds`（`qwen-image-2-0-pro`）**不是逐字相等**（点 vs 连字符）；本绑定按用户 2026-10-15 本轮指令执行 —— 该 canonical 条目来自用户已取证清单 `_r128-canonical-new.tsv`（canonicalId / 官方名 / 官方 id 由该清单给定，**不是本表自行猜测**）；**这不属于本表 `_readme` 定义的「① id 命中 / ② name 命中」**，故在此显式登记。**vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/qwen-image-2-0-pro 的 JSON-LD `Product.brand.name` —— 详情页逐字 `Product.brand.name=\"Alibaba\"`；该字段是真厂商来源，**不是**用户口头确认。绑定后本行不再带 `displayNameOverride`。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "qwen-image-3.0",
+      "providerModelName": "qwen-image-3.0",
+      "canonicalId": "alibaba/qwen-image-3-0",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.025714,
+          "effective": 0.0205712
+        },
+        "1K": {
+          "list": 0.025714,
+          "effective": 0.0205712
+        },
+        "2K": {
+          "list": 0.025714,
+          "effective": 0.0205712
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「qwen-image-3.0」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「qwen-image-3.0」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "qwen-image-3.0-pro",
+      "providerModelName": "qwen-image-3.0-pro",
+      "canonicalId": "alibaba/qwen-image-3-0-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.035714,
+          "effective": 0.0285712
+        },
+        "1K": {
+          "list": 0.035714,
+          "effective": 0.0285712
+        },
+        "2K": {
+          "list": 0.071429,
+          "effective": 0.0571432
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「qwen-image-3.0-pro」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「qwen-image-3.0-pro」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "seedream-4-0",
+      "providerModelName": "seedream-4-0",
+      "canonicalId": "bytedance/seedream-4-0",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.024375,
+          "effective": 0.0195
+        }
+      },
+      "source": "官方 name「seedream-4-0」逐字命中 canonical 的 officialName「Seedream 4.0」 → bytedance/seedream-4-0。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「seedream-4-0」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「seedream-4-0」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "seedream-4-5",
+      "providerModelName": "seedream-4-5",
+      "canonicalId": "bytedance/seedream-4-5",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.0325,
+          "effective": 0.026
+        }
+      },
+      "source": "官方 name「seedream-4-5」逐字命中 canonical 的 officialName「Seedream 4.5」 → bytedance/seedream-4-5。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「seedream-4-5」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「seedream-4-5」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "seedream-5-0-flash",
+      "providerModelName": "seedream-5-0-flash",
+      "canonicalId": "bytedance/seedream-5-0-flash",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.017143,
+          "effective": 0.0137144
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「seedream-5-0-flash」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「seedream-5-0-flash」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "seedream-5-0-lite",
+      "providerModelName": "seedream-5-0-lite",
+      "canonicalId": "bytedance/seedream-5-0-lite",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.035,
+          "effective": 0.028
+        }
+      },
+      "source": "官方 name「seedream-5-0-lite」逐字命中 canonical 的 officialName「Seedream 5.0 Lite」 → bytedance/seedream-5-0-lite。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「seedream-5-0-lite」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「seedream-5-0-lite」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "seedream-5-0-pro",
+      "providerModelName": "seedream-5-0-pro",
+      "canonicalId": "bytedance/seedream-5-0-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.045,
+          "effective": 0.036
+        },
+        "1K": {
+          "list": 0.0365625,
+          "effective": 0.02925
+        },
+        "1K-layer": {
+          "list": 0.01828125,
+          "effective": 0.014625
+        },
+        "2K": {
+          "list": 0.073125,
+          "effective": 0.0585
+        },
+        "2K-layer": {
+          "list": 0.0365625,
+          "effective": 0.02925
+        }
+      },
+      "source": "官方 name「seedream-5-0-pro」逐字命中 canonical 的 officialName「Seedream 5.0 Pro」 → bytedance/seedream-5-0-pro。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「seedream-5-0-pro」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「seedream-5-0-pro」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "wan2.7-image",
+      "providerModelName": "wan2.7-image",
+      "canonicalId": "alibaba/wan-2-7-image",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.027,
+          "effective": 0.0216
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「wan2.7-image」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「wan2.7-image」。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "wan2.7-image-pro",
+      "providerModelName": "wan2.7-image-pro",
+      "canonicalId": "alibaba/wan-2-7-image-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.068,
+          "effective": 0.0544
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「wan2.7-image-pro」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「wan2.7-image-pro」。2026-10-15 新增绑定：canonicalId = `alibaba/wan-2-7-image-pro`。⚠️ 依据分层说明：官方 id `wan2.7-image-pro` 与 canonical 的 `officialModelIds`（`wan-2-7-image-pro`）**不是逐字相等**（点 vs 连字符）；本绑定按用户 2026-10-15 本轮指令执行 —— 该 canonical 条目来自用户已取证清单 `_r128-canonical-new.tsv`（canonicalId / 官方名 / 官方 id 由该清单给定，**不是本表自行猜测**）；**这不属于本表 `_readme` 定义的「① id 命中 / ② name 命中」**，故在此显式登记。**vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/wan-2-7-image-pro 的 JSON-LD `Product.brand.name` —— 详情页逐字 `Product.brand.name=\"Alibaba\"`；该字段是真厂商来源，**不是**用户口头确认。绑定后本行不再带 `displayNameOverride`。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "z-image-turbo",
+      "providerModelName": "z-image-turbo",
+      "canonicalId": "alibaba/z-image-turbo",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "specification": "image",
+      "unit": "usd_per_image",
+      "prices": {
+        "default": {
+          "list": 0.0125,
+          "effective": 0.01
+        },
+        "prompt_extend": {
+          "list": 0.025,
+          "effective": 0.02
+        }
+      },
+      "source": "canonical 归属判定分**两类**：① **id 命中** —— 官方 `id` 与某个 canonical 的 `officialModelIds` 逐字相等；② **name / alias 命中** —— 官方 `name` / `alias` 与某个 canonical 的 `officialName` 逐字或归一后相等；两类冲突时 **② 优先于 ①**，且 alias 与 officialName 自相矛盾时以 officialName 为准。本行有 `canonicalId` 即命中，没有即两类都未命中（零猜测不绑）。出处：https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）；官方 id「z-image-turbo」。价格来源：apimart 厂商定价页（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）。官方 name 逐字「z-image-turbo」。2026-10-15 新增绑定：canonicalId = `alibaba/z-image-turbo`（canonical 的 `officialModelIds` 含官方 id `z-image-turbo` 逐字）。⚠️ 依据分层说明：本行是**官方行**却带 `matchStatus: unverified`，绑定后按官方行契约改为 `verified`；canonical 条目来自用户已取证清单 `_r128-canonical-new.tsv`。**vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/z-image-turbo 的 JSON-LD `Product.brand.name` —— 详情页逐字 `Product.brand.name=\"Alibaba\"`；该字段是真厂商来源，**不是**用户口头确认。绑定后本行不再带 `displayNameOverride`。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "claude-opus-4-7",
+      "canonicalId": "anthropic/claude-opus-4-7",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `anthropic/claude-opus-4-7`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "claude-sonnet-4-6",
+      "canonicalId": "anthropic/claude-sonnet-4-6",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `anthropic/claude-sonnet-4-6`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "deepseek-v4-pro",
+      "canonicalId": "deepseek/deepseek-v4-pro",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `deepseek/deepseek-v4-pro`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedance-1-0-pro-fast",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedance-1-0-pro-quality",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedance-1-5-pro",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedance-2.0",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedance-2.0-fast",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedance-2.0-mini",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedance-2.5",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedream-4.0",
+      "canonicalId": "bytedance/seedream-4-0",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `bytedance/seedream-4-0`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedream-4.5",
+      "canonicalId": "bytedance/seedream-4-5",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `bytedance/seedream-4-5`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "doubao-seedream-5.0-lite",
+      "canonicalId": "bytedance/seedream-5-0-lite",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `bytedance/seedream-5-0-lite`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "flowmusic",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-3.1-pro-preview",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-3.5-flash",
+      "canonicalId": "google/gemini-3-5-flash",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `google/gemini-3-5-flash`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-omni-1.1-flash",
+      "canonicalId": "google/gemini-omni-1-1-flash",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `google/gemini-omni-1-1-flash`（本轮按「凡是依据成立的，保留绑定并标 unverified」新增，超出原列出的 10 条，**请复核**）。⇒ 身份成立，只是名字未经官方 apimart 清单核对。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-omni-1.1-flash-ext",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gemini-omni-flash-preview",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "glm-5.1",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-4o",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-4o-mini-tts",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-5",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-5.2",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "gpt-5.4",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "grok-imagine-1.0-apimart",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "kimi-k2-instruct",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "kimi-k2.5",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "kling-v3",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "MiniMax-H3",
+      "canonicalId": "minimax/minimax-h3",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `minimax/minimax-h3`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "MiniMax-H3-Context-IR",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "MiniMax-H3-Regeneration",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "MiniMax-Hailuo-2.3",
+      "canonicalId": "minimax/hailuo-2-3",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `minimax/hailuo-2-3`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "minimax-m2.5",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "skyreels-v4-std",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "sora-2",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "veo3.1-quality",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "viduq3-pro",
+      "canonicalId": "vidu/vidu-q3",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "① 不在官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z；该清单只含 image 43 + token 4 段，无 text/video 段）。② canonicalId 依据：providerModelId 与 canonical `officialModelIds` 逐字相等 ⇒ `vidu/vidu-q3`。⇒ 身份成立，只是名字未经官方 apimart 清单核对，故 matchStatus=unverified（unverified 只描述「不在官方清单」，**不表示**没有 canonicalId）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "providerId": "apimart",
+      "providerModelId": "wan2.7",
+      "matchStatus": "unverified",
+      "source": "官方 apimart 清单（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z）中不存在 ⇒ 登记为未核实。本条无 canonical 可绑 ⇒ 显示原始平台 id，绝不美化。",
+      "updatedAt": "2026-10-15"
+    }
+  ]
+}

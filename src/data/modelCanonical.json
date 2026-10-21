@@ -1,0 +1,2557 @@
+{
+  "_readme": [
+    "Canonical Model Registry —— 官方模型身份表（内部稳定标识）。",
+    "规则：canonicalId 一律小写 vendor/slug；它不等于展示名、也不等于任何 Provider 的调用 id。",
+    "改名只改 officialName；只有模型实体确实变化时才新增 canonicalId。",
+    "异步/批量等规格后缀**不新建** canonicalId —— 用 executionMode + displayName 后缀表达。",
+    "数据来源：official-image-models.json（官方 80 条的 29 个具名条目）+ official-model-meta.json（111 条具名）逐字；",
+    "canonicalId 的 vendor 取自官方表自身的 icon 绑定 / provider 字段，slug 由 officialName 生成（首版），此后冻结。",
+    "⚠️ 2026-10-15 用户裁决：**取消上句的「此后冻结」**。用户原话逐字：「canonicalId 别冻结 一切改了 疑似品牌化 officialName 不要」。⇒ 第 8 行「…slug 由 officialName 生成（首版），此后冻结」**按此裁决作废其效力**（原句保留在此，不静默删除）；现在允许改 `canonicalId` / `officialName`、也允许新增条目。",
+    "    ⇒ 但改动必须逐条列出依据（旧→新 + 证据出处）并同步全部引用点，保证**零悬空引用**；vendor 仍必须来自真实厂商归属，**不许发明**；拿不准的留档不改。",
+    "⚠️ 2026-10-15 用户第二条裁决：**品牌化的 officialName 不要** —— TapNow 把第三方模型名品牌化了，已证实实例（live-assets-r100/index-BFQAZgBP.js i18n 逐字）：opus5→`TapNow O-5`、fable5→`TapNow F-5`、opus48→`TapNow O-4.8`、opus47→`TapNow O-4.7`、opus46→`TapNow O-4`，另有 `Nano Banana 2.1`→`Tap Nano 2.1`。",
+    "    ⇒ 模型名不再无条件采信 TapNow 官方产物；**以 apimart 官方清单 `https://apimart.ai/en/pricing`（extracted_at 2026-10-15T07:06:29Z）的 `name` 逐字为准**。本轮据此改的 3 条 officialName：`google/banana` Banana→`Nano Banana`、`google/banana-2` Banana 2→`Nano Banana 2`、`google/banana-pro` Banana Pro→`Nano Banana Pro`（canonicalId 均不变）。",
+    "    ⇒ 本轮新增的 officialName 一律取 apimart 官方 `name` 逐字（`source` 里写明 URL + extracted_at）。",
+    "    ⇒ **已裁决保留的已知例外**（测试白名单里显式列出）：`tapnow/tapnow-flash`（`TapNow Flash`）、`tapnow/world-edit`（`世界编辑`）—— 疑似 TapNow 造名，真实厂商**未取证**，改名即猜测。",
+    "    ⇒ 同样留档待取证、本轮**不改**：`anthropic/claude-fable-5` / `anthropic/claude-fable-5-1`（`Fable` 不是 Anthropic 真实产品名，但真实名无证据）。",
+    "    ⇒ 另留档：`google/banana-pro` 的 `officialModelIds` 里那条 `nano-banana-2` 按 apimart 命名应属 `google/banana-2`，与本条新名不一致 —— 本轮未动 `officialModelIds`。"
+  ],
+  "canonicalModels": [
+    {
+      "canonicalId": "alibaba/happyhorse-1-0",
+      "officialName": "HappyHorse 1.0",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "happyhorse-1.0"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.ALIBABA"
+    },
+    {
+      "canonicalId": "alibaba/happyhorse-1-0-edit",
+      "officialName": "HappyHorse 1.0 视频编辑",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "happyhorse-1.0-edit"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.ALIBABA"
+    },
+    {
+      "canonicalId": "alibaba/happyhorse-1-1",
+      "officialName": "HappyHorse 1.1",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "happyhorse-1.1"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.ALIBABA"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-2",
+      "officialName": "Wan 2.2",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wanxiang-plus"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-2-flash",
+      "officialName": "Wan 2.2 Flash",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wanxiang-i2v-flash"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-5",
+      "officialName": "Wan 2.5",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wanxiang-preview"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-6",
+      "officialName": "Wan 2.6",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wanxiang-v2-6"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG"
+    },
+    {
+      "canonicalId": "alibaba/wan-3-0",
+      "officialName": "Wan 3.0",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan3.0-video"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG"
+    },
+    {
+      "canonicalId": "anthropic/claude-fable-5",
+      "officialName": "Claude Fable 5",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "anthropic.claude-fable-5",
+        "claude-fable-5"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "官方名来自官方 textModels 注册表 `anthropic.claude-fable-5` → `textModels.name.claudeFable5` = 「Claude Fable 5」（live-assets-new/vendor-packages-DRvCmDjR.js charIdx 1479233，zh 文案 charIdx 527093）。另追加官方**模型清单**用的同名 id `claude-fable-5`（同一实体；官方清单行标签走 labels.fable5=「Fable 5」，本表按仓库惯例取官方产品目录名）。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "anthropic/claude-fable-5-1",
+      "officialName": "Claude Fable 5.1",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "anthropic.claude-fable-5-1",
+        "claude-fable-5-1"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "此前 Registry 缺条目 ⇒ 界面回落到原始 id。官方 textModels 注册表 `anthropic.claude-fable-5-1` → `textModels.name.claudeFable51` = 「Claude Fable 5.1」（live-assets-new/vendor-packages-DRvCmDjR.js charIdx 1479233，zh 文案 charIdx 527093）；官方模型清单行标签 `labels.fable51` = 「Fable 5.1」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305683）。本表取产品目录名。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "anthropic/claude-opus-4-6",
+      "officialName": "Opus 4.6",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "claude-opus-4-6"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.opus46` = 「Opus 4.6」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4306029）；官方 id 见同文件官方推荐顺序表 `Tbe=[…]`（charIdx 52341）。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "anthropic/claude-opus-4-7",
+      "officialName": "Opus 4.7",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "claude-opus-4-7"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.opus47` = 「Opus 4.7」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305989）；官方 id 见同文件官方推荐顺序表 `Tbe=[…]`（charIdx 52341）。⚠️ 本仓 apimart.json 原来手写的策划名是「Claude Opus 4.7」，与官方逐字不同，本轮已改为官方名。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "anthropic/claude-opus-4-8",
+      "officialName": "Opus 4.8",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "claude-opus-4-8"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.opus48` = 「Opus 4.8」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4306009）；官方 id 见同文件官方推荐顺序表 `Tbe=[…]`（charIdx 52341）。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "anthropic/claude-opus-5",
+      "officialName": "Claude Opus 5",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "anthropic.claude-opus-5",
+        "claude-opus-5"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "官方名来自官方 textModels 注册表 `anthropic.claude-opus-5` → `textModels.name.claudeOpus5` = 「Claude Opus 5」（live-assets-new/vendor-packages-DRvCmDjR.js charIdx 1479233，zh 文案 charIdx 527093）。另追加官方**模型清单**用的同名 id `claude-opus-5`（同一实体；官方清单行标签走 labels.opus5=「Opus 5」，本表按仓库惯例取官方产品目录名）。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "anthropic/claude-opus-5-5",
+      "officialName": "Opus 5.5",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "claude-opus-5-5"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.opus55` = 「Opus 5.5」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305952）；官方 id 见同文件官方推荐顺序表 `Tbe=[…]`（charIdx 52341）。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "anthropic/claude-sonnet-4-6",
+      "officialName": "Sonnet 4.6",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "claude-sonnet-4-6"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.sonnet46` = 「Sonnet 4.6」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305928）；官方 id 见同文件官方推荐顺序表 `Tbe=[…]`（charIdx 52341）与 needles 表 `$be` 首条（逐字：`［claude-sonnet-4-6 ／ sonnet 4.6］`，charIdx 59906）。⚠️ 本仓 apimart.json 原来手写的策划名是「Claude Sonnet 4.6」，与官方逐字不同，本轮已改为官方名。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "anthropic/claude-sonnet-5",
+      "officialName": "Sonnet 5",
+      "officialVendor": "Anthropic",
+      "officialModelIds": [
+        "claude-sonnet-5"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.CLAUDE",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.sonnet5` = 「Sonnet 5」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305539）；官方 id 见同文件官方推荐顺序表 `Tbe=[…]`（charIdx 52341）、needles 表 `$be` 首条（charIdx 59850）与常量 `nbe=` 后的 `claude-sonnet-5`（charIdx 49738）。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "bfl/flux",
+      "officialName": "Flux",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-kontext-pro"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL"
+    },
+    {
+      "canonicalId": "bfl/flux-2-pro",
+      "officialName": "Flux 2 Pro",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-2-pro"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL"
+    },
+    {
+      "canonicalId": "bfl/flux-3",
+      "officialName": "FLUX 3",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-3"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL"
+    },
+    {
+      "canonicalId": "bfl/flux-max",
+      "officialName": "Flux Max",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-kontext-max"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL"
+    },
+    {
+      "canonicalId": "bytedance/seed-audio-1-0",
+      "officialName": "Seed audio 1.0",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "seed-audio-1-0"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedance-1-0-lite",
+      "officialName": "Seedance 1.0 Lite",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "doubao-seedance-lite"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedance-1-0-pro",
+      "officialName": "Seedance 1.0 Pro",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "doubao-seedance-pro"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedance-2-0",
+      "officialName": "Seedance 2.0",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "seedance-2.0"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedance-2-0-fast",
+      "officialName": "Seedance 2.0 Fast",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "seedance-2.0-fast"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedance-2-0-mini",
+      "officialName": "Seedance 2.0 Mini",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "seedance-2.0-mini"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedance-2-5",
+      "officialName": "Seedance 2.5",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "seedance-2.5"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedream-4-0",
+      "officialName": "Seedream 4.0",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "doubao-seedream-4.0"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedream-4-5",
+      "officialName": "Seedream 4.5",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "doubao-seedream-4.5"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedream-5-0-lite",
+      "officialName": "Seedream 5.0 Lite",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "doubao-seedream-5.0-lite"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "bytedance/seedream-5-0-pro",
+      "officialName": "Seedream 5.0 Pro",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "doubao-seedream-5.0-pro"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE"
+    },
+    {
+      "canonicalId": "byteplus/omnihuman-1-5",
+      "officialName": "OmniHuman 1.5",
+      "officialVendor": "BytePlus",
+      "officialModelIds": [
+        "omnihuman-1.5"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.BYTEPLUS"
+    },
+    {
+      "canonicalId": "byteplus/seedance-1-5-pro",
+      "officialName": "Seedance 1.5 Pro",
+      "officialVendor": "BytePlus",
+      "officialModelIds": [
+        "seedance-1.5-pro"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.BYTEPLUS"
+    },
+    {
+      "canonicalId": "deepseek/deepseek-v4-pro",
+      "officialName": "DeepSeek V4 Pro",
+      "officialVendor": "DeepSeek",
+      "officialModelIds": [
+        "deepseek-v4-pro"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.DEEPSEEK"
+    },
+    {
+      "canonicalId": "deepseek/deepseek-flash",
+      "officialName": "Deepseek V4.1 Flash",
+      "officialVendor": "DeepSeek",
+      "officialModelIds": [
+        "deepseek-flash"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.DEEPSEEK",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.deepseekFlash` = 「Deepseek V4.1 Flash」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305501），且官方行标签构造函数里对 id `deepseek-flash` **硬编码**同一字面量（`Dbe`/`pD`：`pD(e) ? \"Deepseek V4.1 Flash\" : vK(t)`，charIdx 56000 邻域；`Hbe=new Map([[ri,bs.auto],[\"deepseek-flash\",bs.deepseekFlash]])` @59815）。官方 id 另见 `tbe=new Set([\"gemini-3.7-flash\",\"gemini-3.8-flash\",\"deepseek-flash\"])`（charIdx 49668）。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "elevenlabs/11lab-v3",
+      "officialName": "11Lab V3",
+      "officialVendor": "ElevenLabs",
+      "officialModelIds": [
+        "elevenlabs-v3"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "iconKey": "da.ELEVENLAB"
+    },
+    {
+      "canonicalId": "google/banana",
+      "officialName": "Nano Banana",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "nano-banana"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BANANA",
+      "source": "2026-10-15 用户裁决「疑似品牌化 officialName 不要」：原名 `Banana` 是 TapNow 的简写，不是 Google 真实名 ⇒ 按 apimart 官方清单 `name` 逐字改为 `Nano Banana`（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z，对应官方 id `gemini-2.5-flash-image-preview`）。**仅改 officialName，canonicalId 不变**。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/banana-2",
+      "officialName": "Nano Banana 2",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "nano-banana-flash"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BANANA",
+      "source": "2026-10-15 用户裁决「疑似品牌化 officialName 不要」：原名 `Banana 2` 是 TapNow 的简写 ⇒ 按 apimart 官方清单 `name` 逐字改为 `Nano Banana 2`（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z，对应官方 id `gemini-3.1-flash-image-preview`）。**仅改 officialName，canonicalId 不变**。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/banana-pro",
+      "officialName": "Nano Banana Pro",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "nano-banana-2",
+        "tamar-google-gemini-pro"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BANANA",
+      "source": "2026-10-15 用户裁决「疑似品牌化 officialName 不要」：原名 `Banana Pro` 是 TapNow 的简写 ⇒ 按 apimart 官方清单 `name` 逐字改为 `Nano Banana Pro`（https://apimart.ai/en/pricing，extracted_at 2026-10-15T07:06:29Z，对应官方 id `gemini-3-pro-image-preview`）。**仅改 officialName，canonicalId 不变**。⚠️ 登记（交叉绑定修正）：本条的官方 id 列表里那条 `nano-banana-2` 与 apimart 官方 alias「nano-banana-2」**同名** ⇒ 该 alias 命中被按 **name 优先**覆盖，改绑 `google/banana-2`（因 alias 与本条 officialName「Nano Banana Pro」自相矛盾）；grsai.json 的 `nano-banana-2` 同样按 name 优先改绑 `google/banana-2`。该 `officialModelIds` 条目属 Registry 数据错误，本轮**未动** `officialModelIds`，登记待裁决。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/gemini-2-5-flash",
+      "officialName": "Gemini 2.5 Flash",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-2.5-flash"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID"
+    },
+    {
+      "canonicalId": "google/gemini-2-5-pro",
+      "officialName": "Gemini 2.5 Pro",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-2.5-pro"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID"
+    },
+    {
+      "canonicalId": "google/gemini-3-1-flash-lite",
+      "officialName": "Gemini 3.1 Flash Lite",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3.1-flash-lite"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID"
+    },
+    {
+      "canonicalId": "google/gemini-3-1-pro",
+      "officialName": "Gemini 3.1 Pro",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3.1-pro"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID"
+    },
+    {
+      "canonicalId": "google/gemini-3-5-flash",
+      "officialName": "Gemini 3.5 Flash",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3.5-flash"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID"
+    },
+    {
+      "canonicalId": "google/gemini-3-6-flash",
+      "officialName": "Gemini 3.6 Flash",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3.6-flash"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID"
+    },
+    {
+      "canonicalId": "google/gemini-3-7-flash",
+      "officialName": "Gemini 3.7 Flash",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3.7-flash"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.gemini37` = 「Gemini 3.7 Flash」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305560 / en charIdx 3619066 邻域），needles 表 `$be` 里 `[\"gemini-3.7\",\"gemini 3.7\"]`（charIdx 60684）；官方 id 见官方推荐顺序表 `Tbe=[…]`（charIdx 52341）与 `tbe=new Set([…])`（charIdx 49668）。该模型不在 official-model-meta.json 的 textModels 段里（官方产品目录未收），但官方确实给了它 display_name。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "google/gemini-3-8-flash",
+      "officialName": "Gemini 3.8 Flash",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3.8-flash"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID",
+      "source": "官方产物逐字（此前 Registry 缺失，故界面回落到原始 id）：live-assets-new/vendor-pkg-canvas-CvbAwZyy.js 的官方默认模型清单 `{id:\"gemini-3.8-flash\",display_name:\"Gemini 3.8 Flash\",is_default:!0}`（对象起于 charIdx 92394，display_name 的值起于 charIdx 92417）；同文件官方 i18n `chatAdapter.modelOptions.labels.gemini38` = 「Gemini 3.8 Flash」（zh charIdx 4305590 / en 3619125）。该模型不在 official-model-meta.json 的 textModels 段里（官方产品目录只收 gemini-3.5/3.6-flash、gemini-3.1-pro…），但官方确实给了它 display_name。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "google/gemini-3-flash",
+      "officialName": "Gemini 3 Flash",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3-flash"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID"
+    },
+    {
+      "canonicalId": "google/gemini-3-pro",
+      "officialName": "Gemini 3 Pro",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3-pro"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI_SOLID"
+    },
+    {
+      "canonicalId": "google/gemini-omni-1-1-flash",
+      "officialName": "Gemini Omni 1.1 Flash",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-omni-1.1-flash"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/gemini-omni-flash",
+      "officialName": "Gemini Omni Flash",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-omni-flash"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/imagen-4-0",
+      "officialName": "IMAGEN 4.0",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "imagen-4.0"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/lyria-3-clip",
+      "officialName": "Lyria 3 Clip",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "lyria-3-clip"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "iconKey": "da.GOOGLE"
+    },
+    {
+      "canonicalId": "google/lyria-3-pro",
+      "officialName": "Lyria 3 Pro",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "lyria-3-pro"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "iconKey": "da.GOOGLE"
+    },
+    {
+      "canonicalId": "google/nano-banana-2-lite",
+      "officialName": "Nano Banana 2 Lite",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "nano-banana-flash-lite"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BANANA"
+    },
+    {
+      "canonicalId": "google/veo2",
+      "officialName": "VEO2",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "veo2"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/veo3",
+      "officialName": "VEO3",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "veo3"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/veo3-1",
+      "officialName": "VEO3.1",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "veo3.1"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/veo3-1-fast",
+      "officialName": "VEO3.1-Fast",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "veo3.1-fast"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/veo3-1-lite",
+      "officialName": "VEO3.1-Lite",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "veo3.1-lite"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/veo3-1-lite-extend",
+      "officialName": "VEO3.1-Lite 视频延长",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "veo3.1-lite-extend"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "google/veo3-fast",
+      "officialName": "VEO3-Fast",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "veo3-fast"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI"
+    },
+    {
+      "canonicalId": "kuaishou/kling-2-1",
+      "officialName": "Kling 2.1",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-2-5",
+      "officialName": "Kling 2.5",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-v2-5-turbo-pro"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-2-6",
+      "officialName": "Kling 2.6",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-v2-6"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-3-0",
+      "officialName": "Kling 3.0",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-v3-pro"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-3-0-omni",
+      "officialName": "Kling 3.0 Omni",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-video-o3"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-motion-control",
+      "officialName": "Kling 2.6 动作迁移",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-motion-control"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-o1",
+      "officialName": "Kling O1",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-video-o1"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-o3-video-edit",
+      "officialName": "Kling 3.0 Omni 视频编辑",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-o3-video-edit"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-video-o1-edit",
+      "officialName": "Kling O1 视频编辑",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-video-o1-edit"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "kuaishou/kling-video-o3-edit",
+      "officialName": "Kling 3.0 Omni 视频编辑",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-video-o3-edit"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING"
+    },
+    {
+      "canonicalId": "midjourney/mj-niji7",
+      "officialName": "MJ Niji7",
+      "officialVendor": "Midjourney",
+      "officialModelIds": [
+        "midjourney-niji7"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.MIDJOURNEY"
+    },
+    {
+      "canonicalId": "midjourney/mj-v7",
+      "officialName": "MJ V7",
+      "officialVendor": "Midjourney",
+      "officialModelIds": [
+        "midjourney-v7"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.MIDJOURNEY"
+    },
+    {
+      "canonicalId": "midjourney/mj-v8-1",
+      "officialName": "MJ V8.1",
+      "officialVendor": "Midjourney",
+      "officialModelIds": [
+        "midjourney-v8.1"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.MIDJOURNEY"
+    },
+    {
+      "canonicalId": "midjourney/mj-v8-2",
+      "officialName": "MJ V8.2",
+      "officialVendor": "Midjourney",
+      "officialModelIds": [
+        "midjourney-v8.2"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.MIDJOURNEY"
+    },
+    {
+      "canonicalId": "midjourney/mj-video",
+      "officialName": "MJ Video",
+      "officialVendor": "Midjourney",
+      "officialModelIds": [
+        "midjourney-video"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.MIDJOURNEY"
+    },
+    {
+      "canonicalId": "minimax/hailuo-02",
+      "officialName": "Hailuo-02",
+      "officialVendor": "MiniMax",
+      "officialModelIds": [
+        "minimax"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.MINIMAX"
+    },
+    {
+      "canonicalId": "minimax/hailuo-2-3",
+      "officialName": "Hailuo-2.3",
+      "officialVendor": "MiniMax",
+      "officialModelIds": [
+        "MiniMax-Hailuo-2.3"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.MINIMAX"
+    },
+    {
+      "canonicalId": "minimax/hailuo-2-3-fast",
+      "officialName": "Hailuo-2.3 Fast",
+      "officialVendor": "MiniMax",
+      "officialModelIds": [
+        "MiniMax-Hailuo-2.3-Fast"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.MINIMAX"
+    },
+    {
+      "canonicalId": "minimax/minimax-h3",
+      "officialName": "MiniMax H3",
+      "officialVendor": "MiniMax",
+      "officialModelIds": [
+        "MiniMax-H3"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.MINIMAX"
+    },
+    {
+      "canonicalId": "minimax/minimax-h3-max",
+      "officialName": "MiniMax H3 Max",
+      "officialVendor": "MiniMax",
+      "officialModelIds": [
+        "MiniMax-H3-Max"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.MINIMAX"
+    },
+    {
+      "canonicalId": "minimax/minimax-music-2-6",
+      "officialName": "MiniMax Music 2.6",
+      "officialVendor": "MiniMax",
+      "officialModelIds": [
+        "minimax-music-26"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "iconKey": "da.MINIMAX"
+    },
+    {
+      "canonicalId": "moonshot/kimi-k2-6",
+      "officialName": "Kimi 2.6",
+      "officialVendor": "Moonshot",
+      "officialModelIds": [
+        "kimi-k2.6"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.KIMI",
+      "source": "此前 Registry 缺条目。官方字面量：官方信息面板 `chatAdapter.modelOptions.info.models.kimi26.version` = 「Kimi 2.6」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4307721）；官方默认清单 `RK.items` 里 `{id:\"kimi-k2.6\",display_name:\"Kimi K2.6\"}`（charIdx 92312 起的 RK 对象内），官方渲染前会过 `vK()`（`Ibe`：`\\bKimi[\\s_-]*K?(\\d+\\.\\d+)(?:[\\s_-]*Code)?\\b` → `Kimi $1`，charIdx 53089 邻域）⇒ 最终就是「Kimi 2.6」。needles 表 `[\"k2.6\",\"kimi 2.6\"]`（charIdx 60011）。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "moonshot/kimi-k2-7",
+      "officialName": "Kimi 2.7",
+      "officialVendor": "Moonshot",
+      "officialModelIds": [
+        "kimi-k2.7-code"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.KIMI",
+      "source": "此前 Registry 缺条目。官方字面量：官方信息面板 `chatAdapter.modelOptions.info.models.kimi27.version` = 「Kimi 2.7」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4306401）；官方默认清单 `RK.items` 里 `{id:\"kimi-k2.7-code\",display_name:\"Kimi K2.7 Code\",is_default:!0}`（charIdx 92312 起的 RK 对象内），官方渲染前会过 `vK()`（`Ibe` 把 `Kimi K2.7 Code` → `Kimi 2.7`，charIdx 53089 邻域）⇒ 最终就是「Kimi 2.7」。官方 id 见官方推荐顺序表 `Tbe=[…]`（charIdx 52341）。⚠️ `display_name` 原文是「Kimi K2.7 Code」，与官方**最终渲染名**不同；本表取官方最终渲染名。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "mureka/mureka-o2",
+      "officialName": "Mureka O2",
+      "officialVendor": "Mureka",
+      "officialModelIds": [
+        "mureka-o2"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "iconKey": "da.MUREKA"
+    },
+    {
+      "canonicalId": "mureka/mureka-v8",
+      "officialName": "Mureka V8",
+      "officialVendor": "Mureka",
+      "officialModelIds": [
+        "mureka-v8"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "iconKey": "da.MUREKA"
+    },
+    {
+      "canonicalId": "openai/gpt-5-5",
+      "officialName": "GPT-5.5",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-5.5"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.gpt55` = 「GPT-5.5」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305910 / en charIdx 3619445），needles 表 `$be` 里 `[\"gpt-5.5\",\"gpt 5.5\"]`（charIdx 60439）；官方信息面板同字面量 `info.models.gpt55.version`（zh charIdx 4307987）。⚠️ 本仓 cccapi.json / grsai.json 原来手写的策划名也是「GPT-5.5」（逐字一致），本轮改为正式 canonical 映射。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "openai/gpt-5-6-luna",
+      "officialName": "GPT-5.6 Luna",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-5.6-luna"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI"
+    },
+    {
+      "canonicalId": "openai/gpt-5-6-sol",
+      "officialName": "GPT-5.6 Sol",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-5.6-sol"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI"
+    },
+    {
+      "canonicalId": "openai/gpt-5-6-terra",
+      "officialName": "GPT-5.6 Terra",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-5.6-terra"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI"
+    },
+    {
+      "canonicalId": "openai/gpt-6-astra",
+      "officialName": "GPT-6 Astra",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-6-astra"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI"
+    },
+    {
+      "canonicalId": "openai/gpt-6-luna",
+      "officialName": "GPT 6 Luna",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-6-luna"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.gpt6Luna` = 「GPT 6 Luna」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305799 / en charIdx 3619334 邻域），needles 表 `$be` 里 `[\"gpt-6-luna\",\"gpt 6 luna\"]`（charIdx 60208）；官方 id 见官方推荐顺序表 `Tbe=[…]`（charIdx 52341）。⚠️ 官方这里是**空格**写法（「GPT 6 Luna」），与同族产品目录名「GPT-5.6 Luna」的**连字符**写法不同，两处都是官方逐字，本表不统一。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "openai/gpt-6-sol",
+      "officialName": "GPT 6 Sol",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-6-sol"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "此前 Registry 缺条目。官方模型清单行标签 `chatAdapter.modelOptions.labels.gpt6Sol` = 「GPT 6 Sol」（vendor-pkg-canvas-CvbAwZyy.js zh charIdx 4305777 / en charIdx 3619312 邻域），needles 表 `$be` 里 `[\"gpt-6-sol\",\"gpt 6 sol\"]`（charIdx 60157）；官方 id 见官方推荐顺序表 `Tbe=[…]`（charIdx 52341）。⚠️ 空格写法为官方逐字，不做连字符美化。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "canonicalId": "openai/gpt-image",
+      "officialName": "GPT Image",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-1"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI"
+    },
+    {
+      "canonicalId": "openai/gpt-image-2-5-flare",
+      "officialName": "GPT Image 2.5 Flare",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-2.5-flare"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI"
+    },
+    {
+      "canonicalId": "openai/gpt-image-2-5-sunburst",
+      "officialName": "GPT Image 2.5 Sunburst",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-2.5-sunburst"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI"
+    },
+    {
+      "canonicalId": "openai/gpt-image2",
+      "officialName": "GPT Image2",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-2"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI"
+    },
+    {
+      "canonicalId": "openai/sora-2",
+      "officialName": "Sora 2",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "sora-2-standard"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SORA"
+    },
+    {
+      "canonicalId": "openai/sora-2-pro",
+      "officialName": "Sora 2 Pro",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "sora-2-pro"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SORA"
+    },
+    {
+      "canonicalId": "pixverse/pixverse-5-0",
+      "officialName": "PixVerse 5.0",
+      "officialVendor": "PixVerse",
+      "officialModelIds": [
+        "pixverse-v5"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.PIXVERSE"
+    },
+    {
+      "canonicalId": "pixverse/pixverse-5-5",
+      "officialName": "PixVerse 5.5",
+      "officialVendor": "PixVerse",
+      "officialModelIds": [
+        "pixverse-v5.5"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.PIXVERSE"
+    },
+    {
+      "canonicalId": "recraft/fal-recraft-v4-vector",
+      "officialName": "Recraft V4 矢量版",
+      "officialVendor": "Recraft",
+      "officialModelIds": [
+        "fal-recraft-v4-vector"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.RECRAFT"
+    },
+    {
+      "canonicalId": "recraft/recraft-v4",
+      "officialName": "Recraft V4",
+      "officialVendor": "Recraft",
+      "officialModelIds": [
+        "fal-recraft-v4"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.RECRAFT"
+    },
+    {
+      "canonicalId": "reve/reve-2-1",
+      "officialName": "Reve 2.1",
+      "officialVendor": "Reve",
+      "officialModelIds": [
+        "reve-2.1"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.REVE"
+    },
+    {
+      "canonicalId": "sonilo/sonilo-music",
+      "officialName": "Sonilo Music",
+      "officialVendor": "Sonilo",
+      "officialModelIds": [
+        "sonilo-music"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "iconKey": "da.SONILO"
+    },
+    {
+      "canonicalId": "tapnow/tapnow-flash",
+      "officialName": "TapNow Flash",
+      "officialVendor": "TapNow",
+      "officialModelIds": [
+        "tapnow-image-turbo"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.TAPNOW",
+      "source": "⚠️ 疑似 TapNow 造名，**真实厂商未取证** —— 2026-10-15 裁决：保留不改（改名即猜测）。本条是品牌化白名单例外之一（另见 `tapnow/world-edit`）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "tapnow/world-edit",
+      "officialName": "世界编辑",
+      "officialVendor": "TapNow",
+      "officialModelIds": [
+        "world-edit"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.TAPNOW",
+      "source": "⚠️ 疑似 TapNow 造名，**真实厂商未取证** —— 2026-10-15 裁决：保留不改（改名即猜测）。本条是品牌化白名单例外之一（另见 `tapnow/tapnow-flash`）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "tripo/tripo-h3",
+      "officialName": "Tripo H3",
+      "officialVendor": "Tripo",
+      "officialModelIds": [
+        "tripo-h3"
+      ],
+      "capabilities": [
+        "threeD"
+      ],
+      "status": "active",
+      "iconKey": "da.TRIPO"
+    },
+    {
+      "canonicalId": "tripo/tripo-image-to-model-h3",
+      "officialName": "Tripo H3 图生",
+      "officialVendor": "Tripo",
+      "officialModelIds": [
+        "tripo-image-to-model-h3"
+      ],
+      "capabilities": [
+        "threeD"
+      ],
+      "status": "active",
+      "iconKey": "da.TRIPO"
+    },
+    {
+      "canonicalId": "tripo/tripo-text-to-model-h3",
+      "officialName": "Tripo H3 文生",
+      "officialVendor": "Tripo",
+      "officialModelIds": [
+        "tripo-text-to-model-h3"
+      ],
+      "capabilities": [
+        "threeD"
+      ],
+      "status": "active",
+      "iconKey": "da.TRIPO"
+    },
+    {
+      "canonicalId": "vidu/vidu-q1",
+      "officialName": "Vidu-Q1",
+      "officialVendor": "Vidu",
+      "officialModelIds": [
+        "viduq1"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.VIDU"
+    },
+    {
+      "canonicalId": "vidu/vidu-q2",
+      "officialName": "Vidu Q2",
+      "officialVendor": "Vidu",
+      "officialModelIds": [
+        "viduq2"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.VIDU"
+    },
+    {
+      "canonicalId": "vidu/vidu-q2-pro",
+      "officialName": "Vidu Q2 Pro",
+      "officialVendor": "Vidu",
+      "officialModelIds": [
+        "viduq2-pro"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.VIDU"
+    },
+    {
+      "canonicalId": "vidu/vidu-q2-turbo",
+      "officialName": "Vidu Q2 Turbo",
+      "officialVendor": "Vidu",
+      "officialModelIds": [
+        "viduq2-turbo"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.VIDU"
+    },
+    {
+      "canonicalId": "vidu/vidu-q3",
+      "officialName": "Vidu Q3",
+      "officialVendor": "Vidu",
+      "officialModelIds": [
+        "viduq3-pro"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.VIDU"
+    },
+    {
+      "canonicalId": "worldlabs/marble-1-1",
+      "officialName": "Marble 1.1",
+      "officialVendor": "World Labs",
+      "officialModelIds": [
+        "worldlabs-marble-1.1"
+      ],
+      "capabilities": [
+        "threeD"
+      ],
+      "status": "active",
+      "iconKey": "da.WORLDLABS"
+    },
+    {
+      "canonicalId": "worldlabs/marble-1-1-plus",
+      "officialName": "Marble 1.1 Plus",
+      "officialVendor": "World Labs",
+      "officialModelIds": [
+        "worldlabs-marble-1.1-plus"
+      ],
+      "capabilities": [
+        "threeD"
+      ],
+      "status": "active",
+      "iconKey": "da.WORLDLABS"
+    },
+    {
+      "canonicalId": "xai/grok-4-6",
+      "officialName": "Grok 4.6",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-4.6"
+      ],
+      "capabilities": [
+        "text"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI"
+    },
+    {
+      "canonicalId": "xai/grok-imagine",
+      "officialName": "Grok Imagine",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-image",
+        "grok-imagine-video"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI"
+    },
+    {
+      "canonicalId": "xai/grok-imagine-1-5",
+      "officialName": "Grok Imagine 1.5",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-video-1.5"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI"
+    },
+    {
+      "canonicalId": "xai/grok-imagine-quality",
+      "officialName": "Grok Imagine Quality",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-image-quality"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI"
+    },
+    {
+      "canonicalId": "xai/grok2-image",
+      "officialName": "Grok2 Image",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-2-image"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI"
+    },
+    {
+      "canonicalId": "openai/dall-e-3",
+      "officialName": "DALL-E 3",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "dall-e-3"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "2026-10-15 新增（用户裁决解除「此后冻结」后放行）：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）有官方 id `dall-e-3`、官方 name 逐字 `DALL-E 3`，Registry 原先无对应条目 ⇒ 新增。vendor 取真实厂商 OpenAI；slug 由 officialName 生成。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/nano-banana-2-1",
+      "officialName": "Nano Banana 2.1",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-nano-banana-2.1"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BANANA",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id `gemini-nano-banana-2.1`、官方 name 逐字 `Nano Banana 2.1`（用户点名的写法；TapNow 把它品牌化成 `Tap Nano 2.1` —— 本表**不采用**品牌名）。vendor = Google。⚠️ 2026-10-15 补记（vendor 分层取证）：本页 `/model/nano-banana-2-1` 是 JSON-LD `Service`，**无** `brand` 字段，也没有 vendor icon ⇒ 本页产物**给不出**厂商证据；vendor = Google 是**同族页** https://apimart.ai/model/nano-banana-2-api 的 JSON-LD `Product.brand.name=\"Google\"` 补齐的，**不是本页的直接证据**。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bfl/flux-2-flex",
+      "officialName": "flux-2-flex",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-2-flex"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `flux-2-flex`。vendor 取真实厂商 Black Forest Labs（与既有 `bfl/*` 一致）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bfl/flux-2-max",
+      "officialName": "flux-2-max",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-2-max"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `flux-2-max`。vendor = Black Forest Labs。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bfl/flux-3-image",
+      "officialName": "flux-3-image",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-3-image"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `flux-3-image`。vendor = Black Forest Labs。⚠️ 与既有 `bfl/flux-3`（官方 id `flux-3`，capabilities video）**不是**同一条目：apimart 这条按 image 计价。⚠️ 2026-10-15 补记（vendor 分层取证）：本页 `/model/flux-3-image` 是 JSON-LD `Service`，**无** `brand` 字段，也没有 vendor icon ⇒ 本页产物**给不出**厂商证据；vendor = Black Forest Labs 是**同族页** https://apimart.ai/model/flux-3-video 的 JSON-LD `Product.brand.name=\"Black Forest Labs\"` 补齐的，**不是本页的直接证据**（只报告证据分层，不改本页既有的 vendor 结论）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/gemini-3-pro-image-preview-official",
+      "officialName": "gemini-3-pro-image-preview-official",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3-pro-image-preview-official"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BANANA",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `gemini-3-pro-image-preview-official`。vendor = Google。⚠️ 与 `google/banana-pro`（apimart 的 `gemini-3-pro-image-preview` 路径）疑似同一模型的不同计价路径，**是否合并待裁决**；本轮按 apimart 官方 id 逐条登记。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/gemini-3-1-flash-lite-image-ext",
+      "officialName": "gemini-3.1-flash-lite-image-ext",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-3.1-flash-lite-image-ext"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BANANA",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `gemini-3.1-flash-lite-image-ext`。vendor = Google。⚠️ 与 `google/nano-banana-2-lite` 疑似同一模型的 ext 路径，合并待裁决。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/gemini-nano-banana-2-1-ext",
+      "officialName": "gemini-nano-banana-2.1-ext",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-nano-banana-2.1-ext"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BANANA",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `gemini-nano-banana-2.1-ext`。vendor = Google。⚠️ 与 `google/nano-banana-2-1` 疑似同一模型的 ext 路径，合并待裁决。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "openai/gpt-image-1-official",
+      "officialName": "gpt-image-1-official",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-1-official"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `gpt-image-1-official`。vendor = OpenAI。⚠️ 与既有 `openai/gpt-image`（官方 id `gpt-image-1`）是同一模型的 official 计价路径 —— **疑似重复实体，合并待裁决**。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "openai/gpt-image-1-5-official",
+      "officialName": "gpt-image-1.5-official",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-1.5-official"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `gpt-image-1.5-official`。vendor = OpenAI。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "openai/gpt-image-2-official",
+      "officialName": "gpt-image-2-official",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-2-official"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `gpt-image-2-official`。vendor = OpenAI。⚠️ 与既有 `openai/gpt-image2`（官方 id `gpt-image-2`）疑似重复实体，合并待裁决。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "openai/gpt-image-2-5-ext",
+      "officialName": "gpt-image-2.5-ext",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-2.5-ext"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `gpt-image-2.5-ext`（覆盖 flare@/sunburst@ 两族计价档）。vendor = OpenAI。⚠️ 与 `openai/gpt-image-2-5-flare` / `-sunburst` 的关系待裁决。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "xai/grok-imagine-1-5-apimart",
+      "officialName": "grok-imagine-1.5-apimart",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-1.5-apimart"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `grok-imagine-1.5-apimart`。vendor = xAI（与既有 `xai/*` 一致）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "xai/grok-imagine-1-5-edit-apimart",
+      "officialName": "grok-imagine-1.5-ext\u00ef\u00bc\u0088grok-imagine-1.5-apimart\u00ef\u00bc\u0089",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-1.5-edit-apimart"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id `grok-imagine-1.5-edit-apimart`；官方 name **逐字**为 mojibake（`grok-imagine-1.5-ext` + U+00EF U+00BC U+0088 + `grok-imagine-1.5-apimart` + 同尾，上游 UTF-8 被按 Latin-1 解码的产物）—— 按用户 2026-10-15 裁决**原样保留、不\"修好\"**。vendor = xAI。⚠️ slug 取官方 **id**（官方 name 是乱码，slug 化只产出乱码）—— 对 `_readme` slug 规则的一次显式偏离。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "xai/grok-imagine-2-0-ext",
+      "officialName": "grok-imagine-2.0-ext",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-2.0-ext"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `grok-imagine-2.0-ext`。vendor = xAI。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "xai/grok-imagine-image-2-0",
+      "officialName": "grok-imagine-image-2.0",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-image-2.0"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `grok-imagine-image-2.0`。vendor = xAI。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/qwen-image-2-0",
+      "officialName": "qwen-image-2.0",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "qwen-image-2.0"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `qwen-image-2.0`。vendor 取真实厂商 Alibaba（Qwen 归属；与既有 `alibaba/*` 一致）。**未写 `iconKey`** —— Registry 里没有可逐字沿用的 qwen 图标键，不发明。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/qwen-image-3-0",
+      "officialName": "qwen-image-3.0",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "qwen-image-3.0"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `qwen-image-3.0`。vendor = Alibaba。未写 `iconKey`（同上，不发明）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/qwen-image-3-0-pro",
+      "officialName": "qwen-image-3.0-pro",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "qwen-image-3.0-pro"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `qwen-image-3.0-pro`。vendor = Alibaba。未写 `iconKey`（同上，不发明）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bytedance/seedream-5-0-flash",
+      "officialName": "seedream-5-0-flash",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "seedream-5-0-flash"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `seedream-5-0-flash`。vendor = ByteDance（与既有 `bytedance/seedream-*` 一致）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-7-image",
+      "officialName": "wan2.7-image",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan2.7-image"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG",
+      "source": "2026-10-15 新增：apimart 官方清单 https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）官方 id/name 逐字 `wan2.7-image`。vendor = Alibaba（Wan / 通义万相归属，与既有 `alibaba/wan-*` 一致）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "microsoft/mai-image-2-6",
+      "officialName": "mai-image-2.6",
+      "officialVendor": "Microsoft",
+      "officialModelIds": [
+        "mai-image-2.6"
+      ],
+      "capabilities": [
+        "image",
+        "image.edit"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds`（`mai-image-2.6`）取自 apimart **定价页** https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）逐字 —— 该层字段只有 id/name/alias/specification/unit/prices，**不含 vendor**；② **vendor = Microsoft 来自 apimart 模型详情页**（用户 2026-10-15 提供截图取证；无误导地写 URL —— 用户名与路径未逐字确认，故记作「apimart 模型详情页」而不编 URL）：页面逐字「**微软 MAI-Image-2.6** 支持文生图、参考图编辑和多图合成。每次生成一张 PNG，按实际文字输入、参考图输入与图片输出 Token 结算。」，左上角 Microsoft 四色方块 logo，标签「文生图 / 最多 5 张参考图 / 1K / 2K / Bing 联网增强 / Token 计费」；③ 详情页给的可用规格记在此处（Registry 没有分辨率 / 参考图数量 / 联网增强的专用字段，**不发明字段**）：支持 1K / 2K、最多 5 张参考图、Bing 联网增强、输出 PNG、按 Token 计费；`capabilities` 按页面「文生图 + 参考图编辑」记 `image` + `image.edit`（`image.edit` 是 types.ts 既有词表取值）。slug 由 `officialName` 生成。未写 `iconKey`：Registry 里没有可逐字沿用的 Microsoft 图标键，**不发明**。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "microsoft/mai-image-2-6-flash",
+      "officialName": "mai-image-2.6-flash",
+      "officialVendor": "Microsoft",
+      "officialModelIds": [
+        "mai-image-2.6-flash"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds`（`mai-image-2.6-flash`）取自 apimart **定价页** https://apimart.ai/en/pricing（extracted_at 2026-10-15T07:06:29Z）逐字 —— 该层**不含 vendor**；② **vendor = Microsoft**：证据是 apimart **模型详情页**上 `微软 MAI-Image-2.6` 那条（用户 2026-10-15 提供截图取证，含 Microsoft 四色方块 logo + 桌面文案「支持文生图、参考图编辑和多图合成」）；本 `-flash` 变体自己的详情页**未取证**，按同族命名与同一厂商条目沿用 `Microsoft`（**这是同族推断，不是本变体的页面证据**）；③ 本变体的分辨率 / 参考图数量 / 联网增强等可用规格**未取证** ⇒ 不写、`capabilities` 保守记为 `image`。slug 由 `officialName` 生成。未写 `iconKey`（同上，不发明）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bfl/flux-3-video",
+      "officialName": "FLUX 3 Video",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-3-video"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/flux-3-video 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/wan-3-0-prime",
+      "officialName": "Wan 3.0 Prime",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan-3-0-prime"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.ALIBABA",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/wan-3-0-prime 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/omni-flash-ext",
+      "officialName": "Gemini Omni 1.1 Flash Ext",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "omni-flash-ext"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/omni-flash-ext 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "google/gemini-omni-flash-preview",
+      "officialName": "Gemini Omni Flash Preview",
+      "officialVendor": "Google",
+      "officialModelIds": [
+        "gemini-omni-flash-preview"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.GEMINI",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/gemini-omni-flash-preview 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "pixverse/pixverse-v6",
+      "officialName": "PixVerse V6",
+      "officialVendor": "PixVerse",
+      "officialModelIds": [
+        "pixverse-v6"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.PIXVERSE",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/pixverse-v6 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "kuaishou/kling-3-0-turbo",
+      "officialName": "Kling 3.0 Turbo",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-3-0-turbo"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/kling-3-0-turbo 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "kuaishou/kling-v2-6-motion-control",
+      "officialName": "Kling Motion Control 2.6",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-v2-6-motion-control"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/kling-v2-6-motion-control 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "kuaishou/kling-v3-motion-control",
+      "officialName": "Kling 3.0 Motion Control",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-v3-motion-control"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/kling-v3-motion-control 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "minimax/minimax-hailuo-02",
+      "officialName": "MiniMax Hailuo 02",
+      "officialVendor": "MiniMax",
+      "officialModelIds": [
+        "minimax-hailuo-02"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.MINIMAX",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/minimax-hailuo-02 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "vidu/viduq3-turbo",
+      "officialName": "Vidu Q3 Turbo",
+      "officialVendor": "Vidu",
+      "officialModelIds": [
+        "viduq3-turbo"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.VIDU",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/viduq3-turbo 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。详情页 `brand.name` 逐字为 `Shengshu`（Vidu 的运营主体盛树），与既有 `vidu/*` 条目同源 ⇒ 本表 `officialVendor` 按既有条目写 `Vidu`。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "vidu/viduq3-mix",
+      "officialName": "Vidu Q3 Mix",
+      "officialVendor": "Vidu",
+      "officialModelIds": [
+        "viduq3-mix"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.VIDU",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/viduq3-mix 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。详情页 `brand.name` 逐字为 `Shengshu`（Vidu 的运营主体盛树），与既有 `vidu/*` 条目同源 ⇒ 本表 `officialVendor` 按既有条目写 `Vidu`。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "vidu/vidu-q4",
+      "officialName": "Vidu Q4 Preview",
+      "officialVendor": "Vidu",
+      "officialModelIds": [
+        "vidu-q4"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.VIDU",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/vidu-q4 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。详情页 `brand.name` 逐字为 `ShengShu`（该页自身大小写如此；与 `Shengshu` 是**同一实体的自报名不一致**，只报告不统一）⇒ 本表 `officialVendor` 按既有条目写 `Vidu`。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-6-i2v",
+      "officialName": "Wan 2.6 I2V",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan-2-6-i2v"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/wan-2-6-i2v 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-6-i2v-flash",
+      "officialName": "Wan 2.6 I2V Flash",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan-2-6-i2v-flash"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/wan-2-6-i2v-flash 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-7",
+      "officialName": "Wan 2.7",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan-2-7"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/wan-2-7 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-7-r2v",
+      "officialName": "Wan 2.7 R2V",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan-2-7-r2v"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/wan-2-7-r2v 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-7-videoedit",
+      "officialName": "Wan 2.7 Video Edit",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan-2-7-videoedit"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/wan-2-7-videoedit 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "xai/grok-video",
+      "officialName": "Grok Imagine Video",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-video"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/grok-video 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。⚠️ 2026-10-15 登记（**厂商名冲突，只报告不统一**）：本行 `officialName`（`Grok Imagine Video`）与既有 canonical `xai/grok-imagine` 的 `officialName` 归一后相同；平台侧 `xai.json` 的 `grok-imagine-video` 行原先绑 `xai/grok-imagine`，本行按用户 2026-10-15 取证清单的 canonicalId 新增 ⇒ 同一名称对应两个 canonicalId。**本轮不做合并 / 改绑 / 改名**，既有绑定保留，登记待另轮统一。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "skywork/skyreels-v4",
+      "officialName": "SkyReels V4 Std",
+      "officialVendor": "Skywork AI",
+      "officialModelIds": [
+        "skyreels-v4"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/skyreels-v4 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "skywork/skyreels-v4-fast",
+      "officialName": "SkyReels V4 Fast",
+      "officialVendor": "Skywork AI",
+      "officialModelIds": [
+        "skyreels-v4-fast"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/skyreels-v4-fast 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bytedance/doubao-seedance-1-0-pro",
+      "officialName": "Seedance 1.0 Pro Quality",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "doubao-seedance-1-0-pro"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/doubao-seedance-1-0-pro 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bytedance/doubao-seedance-1-0-pro-fast",
+      "officialName": "Seedance 1.0 Pro Fast",
+      "officialVendor": "ByteDance",
+      "officialModelIds": [
+        "doubao-seedance-1-0-pro-fast"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.SEEDANCE",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/doubao-seedance-1-0-pro-fast 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "openai/gpt-image-1-5",
+      "officialName": "GPT Image 1.5",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-1-5"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：该详情页是 JSON-LD `Service`、**无** `brand` 字段 ⇒ 用页面 vendor icon 文件名 （`https://apimart.ai/supplier/openai.svg`）作为厂商依据，与同厂商其它行的 brand 一致。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "openai/gpt-image-2-5",
+      "officialName": "GPT Image 2.5",
+      "officialVendor": "OpenAI",
+      "officialModelIds": [
+        "gpt-image-2-5"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.OPENAI",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：该详情页是 JSON-LD `Service`、**无** `brand` 字段 ⇒ 用页面 vendor icon 文件名 （`https://apimart.ai/supplier/openai.svg`）作为厂商依据，与同厂商其它行的 brand 一致。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "xai/grok-image",
+      "officialName": "Grok Imagine Image",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-image"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/grok-image 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。⚠️ 2026-10-15 登记（**厂商名冲突，只报告不统一**）：apimart 详情页 `/model/grok-image` 的官方名逐字是 `Grok Imagine Image`，与**既有** canonical `xai/grok-imagine` 的 `officialName` **逐字相同**；apimart 定价行 `grok-imagine-image` 原先按定价 id 绑 `xai/grok-imagine`，本行按用户 2026-10-15 取证清单的 canonicalId 新增 ⇒ 同一官方名对应两个 canonicalId。**本轮不做任何合并 / 改绑**（既有 `xai.json` 的绑定不动、本行 canonicalId 也不改），登记待另轮统一。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "xai/grok-imagine-1-5-ext",
+      "officialName": "Grok Imagine 1.5 Ext",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-1-5-ext"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/grok-imagine-1-5-ext 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。⚠️ 2026-10-15 登记（**厂商名冲突，只报告不统一**）：本行 `officialName`（`Grok Imagine 1.5 Ext`）与 apimart 定价行 `grok-imagine-1.5-apimart` 的**官方 alias**（`grok-imagine-1.5-ext`）归一后相同；该定价行原先按 id 绑 `xai/grok-imagine-1-5-apimart`（另一实体 `grok-imagine-video-1.5` 则绑 `xai/grok-imagine-1-5`）⇒ 同一名称对应不同 canonicalId。**本轮不做合并 / 改绑 / 改名**，既有绑定保留，登记待另轮统一。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "xai/grok-imagine-2-0",
+      "officialName": "Grok Imagine 2.0",
+      "officialVendor": "xAI",
+      "officialModelIds": [
+        "grok-imagine-2-0"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.XAI",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/grok-imagine-2-0 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bfl/flux-2",
+      "officialName": "FLUX.2",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-2"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/flux-2 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "bfl/flux-kontext",
+      "officialName": "FLUX.1 Kontext",
+      "officialVendor": "Black Forest Labs",
+      "officialModelIds": [
+        "flux-kontext"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.BFL",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/flux-kontext 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/qwen-image-2-0-pro",
+      "officialName": "Qwen Image 2.0 Pro",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "qwen-image-2-0-pro"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/qwen-image-2-0-pro 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/z-image-turbo",
+      "officialName": "Z Image Turbo",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "z-image-turbo"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/z-image-turbo 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "alibaba/wan-2-7-image-pro",
+      "officialName": "Wan 2.7 Image Pro",
+      "officialVendor": "Alibaba",
+      "officialModelIds": [
+        "wan-2-7-image-pro"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.WANXIANG",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/wan-2-7-image-pro 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "midjourney/midjourney",
+      "officialName": "Midjourney",
+      "officialVendor": "Midjourney",
+      "officialModelIds": [
+        "midjourney"
+      ],
+      "capabilities": [
+        "image"
+      ],
+      "status": "active",
+      "iconKey": "da.MIDJOURNEY",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/midjourney 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "suno/suno",
+      "officialName": "Suno",
+      "officialVendor": "Suno",
+      "officialModelIds": [
+        "suno"
+      ],
+      "capabilities": [
+        "audio"
+      ],
+      "status": "active",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：vendor 来自 apimart **模型详情页** https://apimart.ai/model/suno 的 JSON-LD `Product.brand.name`（该字段是真厂商来源；本次 88 页里 77 页有该字段，其余 11 页是 `Service` 无 brand）。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "kuaishou/kling-4-0",
+      "officialName": "Kling 4.0",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-4-0"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：该详情页是 JSON-LD `Service`、**无** `brand` 字段 ⇒ 用页面 vendor icon 文件名 （`https://apimart.ai/supplier/kling.svg`）作为厂商依据，与同厂商其它行的 brand 一致。",
+      "updatedAt": "2026-10-15"
+    },
+    {
+      "canonicalId": "kuaishou/kling-4-0-flash",
+      "officialName": "Kling 4.0 Flash",
+      "officialVendor": "Kuaishou",
+      "officialModelIds": [
+        "kling-4-0-flash"
+      ],
+      "capabilities": [
+        "video"
+      ],
+      "status": "active",
+      "iconKey": "da.KLING",
+      "source": "2026-10-15 新增。**分层取证**：① `officialName` / `officialModelIds` 取自 apimart 模型清单（https://apimart.ai/en/pricing 的 id/name 体系 + apimart 模型库，extracted_at 2026-10-15T07:06:29Z）逐字；该层**不含 vendor**；② **vendor 分层取证**：该详情页是 JSON-LD `Service`、**无** `brand` 字段 ⇒ 用页面 vendor icon 文件名 （`https://apimart.ai/supplier/kling.svg`）作为厂商依据，与同厂商其它行的 brand 一致。",
+      "updatedAt": "2026-10-15"
+    }
+  ]
+}

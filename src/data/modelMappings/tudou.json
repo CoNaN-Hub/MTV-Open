@@ -1,0 +1,193 @@
+{
+  "_readme": [
+    "土豆中转站（api.ai-tudou.net）的模型映射表。",
+    "★ 这个平台是「providerModelId 与官方名完全不相似」的典型：调用 id 是 gemini-3-pro-image-preview，官方产品名是 Banana Pro。",
+    "同步与异步是**两条独立模型**（两个 providerModelId），canonicalId 相同、executionMode 不同；",
+    "出站请求一律原样发 providerModelId（含 -async），本文件不参与出站 id 计算。",
+    "新增映射：只往 mappings 里加一条，source 写清依据（官方文档/实测），updatedAt 写日期。",
+    "⚠️ `-preview` **不是**平台规格后缀：本文件的 suffixSpec 只声明 async。带 `-preview` 的上游 id 一律**逐条**登记（例：gemini-3.1-pro-preview → google/gemini-3-1-pro），",
+    "   否则 gemini-3-pro-image-preview 这类已映射的 id 会被拼成「Banana Pro preview」而改坏展示名。",
+    "官方没有的模型（例：glm-4.6v / glm-4.6v-flash）写一条 **不带 canonicalId** 的 unverified 行做**登记**：显示仍为原始平台 id，绝不美化。"
+  ],
+  "providerId": "tudou",
+  "suffixSpec": {
+    "separator": "-",
+    "suffixes": ["async"],
+    "executionMode": { "async": "async" }
+  },
+  "mappings": [
+    {
+      "providerId": "tudou",
+      "providerModelId": "gemini-3-pro-image-preview",
+      "canonicalId": "google/banana-pro",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "用户提供的已验证映射（官方产品名 Banana Pro；调用 id 保留 gemini-3-pro-image-preview）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gemini-3-pro-image-preview-async",
+      "canonicalId": "google/banana-pro",
+      "executionMode": "async",
+      "providerSuffix": "async",
+      "matchStatus": "verified",
+      "source": "用户提供的已验证映射：异步端点版本，展示名 = Banana Pro + ' async'",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gpt-image-2.5-flare",
+      "canonicalId": "openai/gpt-image-2-5-flare",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-image-2.5-flare（同步端点 /v1/images/generations）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gpt-image-2.5-flare-async",
+      "canonicalId": "openai/gpt-image-2-5-flare",
+      "executionMode": "async",
+      "providerSuffix": "async",
+      "matchStatus": "verified",
+      "source": "异步端点 /v1/images/generations/async + 轮询；与同步版是两条独立模型",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gpt-image-2.5-sunburst",
+      "canonicalId": "openai/gpt-image-2-5-sunburst",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "官方表精确匹配：gpt-image-2.5-sunburst（同步端点）",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gpt-image-2.5-sunburst-async",
+      "canonicalId": "openai/gpt-image-2-5-sunburst",
+      "executionMode": "async",
+      "providerSuffix": "async",
+      "matchStatus": "verified",
+      "source": "异步端点 /v1/images/generations/async + 轮询；与同步版是两条独立模型",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gemini-3.1-flash-image-preview",
+      "canonicalId": "google/banana-2",
+      "executionMode": "sync",
+      "matchStatus": "manual-review",
+      "source": "上游 id 与官方 id 完全不同名。依据：仓库既有现场实测记录（services/ai/mediaModelCapabilities.ts 的 IMAGE_MODEL_ID_ALIASES 与 utils/imageModelCapabilities.ts 的注释：上游 gemini-3.1-flash-image-preview = 官方 nano-banana-flash=Banana 2）。待人工作者复核后改 verified。",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gpt-image-2-all",
+      "executionMode": "async",
+      "matchStatus": "unverified",
+      "source": "平台把该 id 本身注册成异步（没有 -async 孪生 id）—— 用户 2026 实测；用户定稿「就写成 gpt-image-2-all」，不做官方名映射",
+      "updatedAt": "2026-10-12"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gemini-3.1-pro-preview",
+      "canonicalId": "google/gemini-3-1-pro",
+      "executionMode": "sync",
+      "matchStatus": "manual-review",
+      "source": "上游 id 带 Google 原生 `-preview` 预览尾巴，官方表用的 id 是 `gemini-3.1-pro`：官方 textModels 注册表里 Gemini 3.1 Pro 只有这一条（live-assets-new/vendor-packages-DRvCmDjR.js charIdx 1479729，name 键 textModels.name.gemini31Pro），官方名逐字「Gemini 3.1 Pro」（同文件 zh charIdx 584036 / en charIdx 527131）；全部官方产物里搜不到 `gemini-3.1-pro-preview` 这个 id，也没有第二个 Gemini 3.1 Pro。本仓 apimart.json 对同一个上游 id 也已内置同一个名字。⚠️ 这属于「上游 id ≠ 官方 id」的身份判定，没有人工核对记录 ⇒ 只标 manual-review，不标 verified。**没有**把 `-preview` 加成平台后缀：tudou 只声明 async，若把 preview 也当后缀，`gemini-3-pro-image-preview` 会被拼成「Banana Pro preview」而改坏。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "glm-4.6v",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：官方产物（live-assets-new 全部 8 个 chunk + 仓库 5 份 official-*.json）里搜不到任何 GLM / glm-4.6v 条目 ⇒ 官方无此模型、无官方显示名。按规则保留原始平台 id 显示；本行只是把「确认过没有官方名」这件事登记下来，避免以后被误判成漏配。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "glm-4.6v-flash",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：同 glm-4.6v —— 官方产物里没有 GLM 任何条目 ⇒ 官方无此模型、无官方显示名，保留原始平台 id。⚠️ 也**不要**把结尾的 `-flash` 当成平台规格后缀（tudou 只声明 async）：那样会去匹配官方同名模型，把第三方的 GLM 名字换掉。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gpt-5.5",
+      "canonicalId": "openai/gpt-5-5",
+      "executionMode": "sync",
+      "matchStatus": "verified",
+      "source": "上游 id 与官方 id 完全一致 ⇒ 官方表精确命中。官方显示名逐字「GPT-5.5」（live-assets-new/vendor-pkg-canvas-CvbAwZyy.js 的 chatAdapter.modelOptions.labels.gpt55，zh charIdx 4305910；官方信息面板 info.models.gpt55.version zh charIdx 4307987 同字面量）。此前 Registry 缺条目 ⇒ 界面回落到原始 id。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "glm-5.3",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：官方产物（live-assets-new 全部 8 个 chunk + 仓库 5 份 official-*.json）搜不到 `glm-5.3` ⇒ 官方无此模型、无官方显示名，保留原始平台 id。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "glm-5.3-flash",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：同 glm-5.3 —— 官方产物里搜不到 ⇒ 官方无此模型、无官方显示名，保留原始平台 id。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "grok-4.5",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：官方只有 `grok-4.6`（textModels 注册表 @ vendor-packages-DRvCmDjR.js charIdx 1479233），没有 `grok-4.5` ⇒ 官方无此模型、无官方显示名，保留原始平台 id。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "minimax-h3-2k",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：官方产物搜不到 `minimax-h3-2k` ⇒ 官方无此模型、无官方显示名，保留原始平台 id。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "wan3.0",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：官方用过的 id 是 `wan3.0-video`（官方产物 vendor-packages-DRvCmDjR.js charIdx 1107712 的 `WAN_3_0=\"wan3.0-video\"`），没有裸 `wan3.0` ⇒ 官方无此模型、无官方显示名，保留原始平台 id。（`wan3.0-video` 已有 canonical `alibaba/wan-3-0` = 「Wan 3.0」。）",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "wan3.0-fast",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：官方产物搜不到 `wan3.0-fast` ⇒ 官方无此模型、无官方显示名，保留原始平台 id。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gpt-image-2-pro",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：官方产物搜不到 `gpt-image-2-pro` ⇒ 官方无此模型、无官方显示名，保留原始平台 id。",
+      "updatedAt": "2026-10-14"
+    },
+    {
+      "providerId": "tudou",
+      "providerModelId": "gemini-nano-banana-2.1",
+      "executionMode": "sync",
+      "matchStatus": "unverified",
+      "source": "登记（不改名）：官方产物搜不到 `gemini-nano-banana-2.1` ⇒ 官方无此模型、无官方显示名，保留原始平台 id。",
+      "updatedAt": "2026-10-14"
+    }
+  ],
+  "aliases": []
+}

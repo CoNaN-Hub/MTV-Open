@@ -1,0 +1,988 @@
+[
+ {
+  "name": "GPT Image 2",
+  "provider": "openai",
+  "kind": "image",
+  "aliases": [
+   "gpt-image-2",
+   "gptimage2",
+   "GPT Image 2"
+  ],
+  "resolutions": [
+   "2K",
+   "4K"
+  ],
+  "maxReferenceInputs": 8,
+  "description": "OpenAI's state-of-the-art image generation and editing model supporting arbitrary resolutions up to 3840 px per edge, three quality tiers, inpainting and transparent backgrounds.",
+  "bestFor": "Fast high-quality generation and editing, custom aspect ratios up to 4K, inpainting and partial edits, and transparent-background assets.",
+  "speed": 3,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "OpenAI 当前最强的图像生成与编辑模型，支持多图参考与精确的尺寸控制。",
+   "bestFor": "成品级出图、文字排版与需要稳定一致性的生产流程。"
+  }
+ },
+ {
+  "name": "GPT Image 2.5 Flare",
+  "provider": "openai",
+  "kind": "image",
+  "aliases": [
+   "gpt-image-2.5-flare",
+   "GPT Image 2.5 Flare"
+  ],
+  "resolutions": [
+   "1K",
+   "2K",
+   "4K"
+  ],
+  "maxReferenceInputs": 16,
+  "description": "Image generation and editing with up to 16 reference images and 1K, 2K or 4K size options.",
+  "bestFor": "Everyday image creation and editing.",
+  "speed": 3,
+  "quality": 5,
+  "cost": "Low",
+  "zh": {
+   "description": "支持图像生成与编辑，最多使用 16 张参考图，可选 1K、2K 或 4K 尺寸档位。",
+   "bestFor": "日常图像创作与编辑。"
+  }
+ },
+ {
+  "name": "GPT Image 2.5 Sunburst",
+  "provider": "openai",
+  "kind": "image",
+  "aliases": [
+   "gpt-image-2.5-sunburst",
+   "GPT Image 2.5 Sunburst"
+  ],
+  "resolutions": [
+   "1K",
+   "2K",
+   "4K"
+  ],
+  "maxReferenceInputs": 16,
+  "description": "Image generation and detailed editing with up to 16 reference images and 1K, 2K or 4K size options.",
+  "bestFor": "Detailed edits and image refinement.",
+  "speed": 3,
+  "quality": 5,
+  "cost": "Low",
+  "zh": {
+   "description": "支持图像生成与精细编辑，最多使用 16 张参考图，可选 1K、2K 或 4K 尺寸档位。",
+   "bestFor": "精细编辑与图像细节调整。"
+  }
+ },
+ {
+  "name": "FLUX.2 [max]",
+  "provider": "blackforest",
+  "kind": "video",
+  "aliases": [
+   "FLUX.2 [max]"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Black Forest Labs' FLUX.2 [max], the highest-quality tier of the megapixel-priced FLUX.2 image family, adding grounding search for generation and editing from $0.07 per image.",
+  "bestFor": "Typography-heavy layouts, photoreal product rendering, and production API pipelines where image quality leads.",
+  "speed": 2,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "Black Forest Labs 的 FLUX.2 最高画质档，面向百万像素计价，加入检索接地能力，支持生成与编辑。",
+   "bestFor": "文字密集的版式、照片级产品渲染，以及以画质优先的生产级 API 流水线。"
+  }
+ },
+ {
+  "name": "Nano Banana 2.1",
+  "provider": "google",
+  "kind": "image",
+  "aliases": [
+   "nano-banana-2.1",
+   "Nano Banana 2.1"
+  ],
+  "resolutions": [
+   "1k",
+   "2k",
+   "4k"
+  ],
+  "maxReferenceInputs": 14,
+  "description": "Google's updated image model delivers up to 4K visuals with more realistic detail, clearer text and infographic layouts, and stronger character and product consistency.",
+  "bestFor": "Product campaigns, text-rich posters, infographics, and consistent character edits.",
+  "speed": 4,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "Google 的升级版图像模型，最高 4K 输出，支持多图参考与稳定的中英文文字渲染。",
+   "bestFor": "电商图、品牌物料、需要准确文字与多图参考的日常出图。"
+  }
+ },
+ {
+  "name": "Nano Banana Lite",
+  "provider": "google",
+  "kind": "image",
+  "aliases": [
+   "nano-banana-lite",
+   "nanobanana-lite",
+   "Nano Banana Lite"
+  ],
+  "resolutions": [
+   "1k"
+  ],
+  "maxReferenceInputs": 8,
+  "description": "Google's cheapest and fastest image model (Nano Banana 2 Lite, gemini-3.1-flash-lite-image) targeting sub-2-second latency at 1K resolution for high-volume interactive use.",
+  "bestFor": "Real-time consumer apps, high-volume generation, thumbnails and stickers, and fast multi-turn local edits.",
+  "speed": 5,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "Google 的轻量图像模型，出图更快、单张成本更低。",
+   "bestFor": "批量试稿、灵感草稿与对成本敏感的日常出图。"
+  }
+ },
+ {
+  "name": "Nano Banana",
+  "provider": "google",
+  "kind": "image",
+  "aliases": [
+   "Nano Banana"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Google's original Nano Banana image model (gemini-2.5-flash-image) for fast 1024×1024 generation and editing; legacy and scheduled to shut down on October 2, 2026.",
+  "bestFor": "Legacy integrations only; new work should use Nano Banana 2 Lite or Nano Banana 2.",
+  "speed": 4,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "Google 的图像编辑模型，擅长局部改图与风格迁移，支持多图参考。",
+   "bestFor": "精细修图、风格统一与图像编辑类任务。"
+  }
+ },
+ {
+  "name": "Seedream 5.0 Lite",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedream 5.0 Lite"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Seedream 5.0 Lite is ByteDance's thinking-enabled image model (February 2026) with optional live web search, multi-step visual reasoning and up to 4K output at $0.035 per image.",
+  "bestFor": "Time-sensitive and trend-aware creatives, infographics and diagrams, Chinese/English text rendering, and cost-efficient reasoning-driven generation.",
+  "speed": 3,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "字节跳动 Seedream 5.0 的轻量档，出图快、成本低，支持中英文文字渲染。",
+   "bestFor": "大批量素材、社媒配图与快速试稿。"
+  }
+ },
+ {
+  "name": "Seedream 5.0 Pro",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedream 5.0 Pro"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "ByteDance's July 2026 flagship image model combining advanced reasoning with interactive point/lasso/sketch editing and up-to-16-layer decomposition, outputting a single image at up to 2K.",
+  "bestFor": "High-density infographics, brand key visuals, photographic realism and portrait texture, layered design assets, and multilingual campaigns; not for 4K or batch sets.",
+  "speed": 2,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "字节跳动 Seedream 5.0 的专业档，画质与细节更强，适合成品级输出。",
+   "bestFor": "商业海报、产品图与需要高细节的成品创作。"
+  }
+ },
+ {
+  "name": "HappyHorse 1.1",
+  "provider": "alibaba",
+  "kind": "video",
+  "aliases": [
+   "HappyHorse 1.1"
+  ],
+  "resolutions": [
+   "720p",
+   "1080p"
+  ],
+  "maxReferenceInputs": 15,
+  "description": "Alibaba's recommended primary text-to-video family: 24fps audio-visual generation tuned for cinematic motion and character consistency at up to 1080p and 15 seconds, with up to 9 reference images.",
+  "bestFor": "Hero-shot cinematic quality, character-consistent reference-to-video, and leaderboard-grade fidelity for ads and shorts.",
+  "speed": 3,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "HappyHorse 1.1 的视频模型，支持文生视频、图生视频与参考图生视频，720P/1080P、3–15 秒。",
+   "bestFor": "短视频素材、广告短片与快速动态预演。"
+  }
+ },
+ {
+  "name": "Gemini Omni Flash",
+  "provider": "google",
+  "kind": "video",
+  "aliases": [
+   "Gemini Omni Flash"
+  ],
+  "resolutions": [
+   "720p"
+  ],
+  "maxReferenceInputs": 8,
+  "description": "Google's natively multimodal video model (gemini-omni-1.1-flash) turning text, image, audio and video references into 3–10 second clips with synchronized sound and multi-turn conversational re-editing; 1080p/4K are upscaled from native 720p.",
+  "bestFor": "Iterative conversational video editing, reference-driven scenes, character-consistent storytelling, scene extension up to 40 seconds, and cheap 360p drafts.",
+  "speed": 4,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "Google 的多模态视频模型，支持文本、图像、视频参考输入，原生同步音频。",
+   "bestFor": "多模态驱动的短视频、图文转视频与批量内容生产。"
+  }
+ },
+ {
+  "name": "Suno v6",
+  "provider": "suno",
+  "kind": "video",
+  "aliases": [
+   "Suno v6"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Generate songs from a description or custom lyrics, with instrumental music support.",
+  "bestFor": "Complete songs with vocals, custom lyrics, and instrumental background music.",
+  "speed": 5,
+  "quality": 5,
+  "cost": "Low",
+  "zh": {
+   "description": "根据描述或自定义歌词生成歌曲，支持纯音乐伴奏。",
+   "bestFor": "带人声的完整歌曲、自定义歌词与纯音乐背景。"
+  }
+ },
+ {
+  "name": "Wan 2.7",
+  "provider": "alibaba",
+  "kind": "video",
+  "aliases": [
+   "Wan 2.7"
+  ],
+  "resolutions": [
+   "720p",
+   "1080p"
+  ],
+  "maxReferenceInputs": 4,
+  "description": "Alibaba's Wan 2.7 family generates 2–15 second 1080p video with native audio across text-to-video, first/last-frame image-to-video, multi-reference and instruction-based editing modes, with multi-shot narrative control.",
+  "bestFor": "Multi-shot storytelling, instruction-based video editing and effect replication, camera-move transfer, and audio-driven image-to-video.",
+  "speed": 3,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "阿里 Wan 2.7 家族，生成 2–15 秒 1080p 带原生音频的视频，支持文生视频、首尾帧、多参考与指令式编辑，具备多镜头叙事控制。",
+   "bestFor": "多镜头叙事、指令式视频编辑与特效复刻、运镜迁移、音频驱动图生视频。"
+  }
+ },
+ {
+  "name": "Wan 3",
+  "provider": "alibaba",
+  "kind": "video",
+  "aliases": [
+   "Wan 3"
+  ],
+  "resolutions": [
+   "720p",
+   "1080p"
+  ],
+  "maxReferenceInputs": 10,
+  "description": "Alibaba's all-in-one reference video model combines native audio-visual generation, videos up to 30 seconds, 1080p quality, and multimodal guidance from text, images, video, audio, and documents.",
+  "bestFor": "Long-form 30s narratives, document or deck to brand film, all-reference pipelines, adaptive aspect ratio, and character or scene continuity.",
+  "speed": 3,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "阿里全能参考视频模型，原生音画同步生成，最长 30 秒、1080p，可由文本、图像、视频、音频与文档多模态引导。",
+   "bestFor": "30 秒长叙事、文档或 PPT 转品牌片、全参考流水线、自适应画幅、角色与场景连贯。"
+  }
+ },
+ {
+  "name": "MiniMax H3",
+  "provider": "minimax",
+  "kind": "video",
+  "aliases": [
+   "MiniMax H3"
+  ],
+  "resolutions": [
+   "2k",
+   "768p"
+  ],
+  "maxReferenceInputs": 0,
+  "description": "MiniMax's open-weight omni-modal video model unifying text, image, video and audio context to generate 4–15 second clips at up to 2K with native 32 kHz stereo sound.",
+  "bestFor": "Reference-driven character and motion continuity, advertising and e-commerce video, video-to-video motion transfer, on-screen text and logos, and 2K delivery.",
+  "speed": 2,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "MiniMax 的开源全模态视频模型，统一文本、图像、视频与音频上下文，生成 4–15 秒、最高 2K、原生 32 kHz 立体声的片段。",
+   "bestFor": "参考驱动的角色与运动连贯、广告与电商视频、视频转视频运镜迁移、画面文字与标识、2K 交付。"
+  }
+ },
+ {
+  "name": "MiniMax H3 Max",
+  "provider": "minimax",
+  "kind": "video",
+  "aliases": [
+   "MiniMax H3 Max"
+  ],
+  "resolutions": [
+   "768p"
+  ],
+  "maxReferenceInputs": 9,
+  "description": "fal.ai's speed-optimized post-train of MiniMax H3 generating a 5-second 480p/768p clip with synchronized audio in about 3 seconds — roughly 35× the throughput of the official H3 endpoint.",
+  "bestFor": "High-volume ad-variant batches, near-real-time product features, storyboard and previs iteration, first/last-frame keyframe animation, and cost-sensitive social clips.",
+  "speed": 5,
+  "quality": 4,
+  "cost": "Low",
+  "zh": {
+   "description": "fal.ai 对 MiniMax H3 做的速度优化版，约 3 秒生成 5 秒 480p/768p 带同步音频的片段，吞吐约为官方 H3 的 35 倍。",
+   "bestFor": "大批量广告变体、准实时产品功能、分镜与预演迭代、首尾帧动画、成本敏感的社媒短片。"
+  }
+ },
+ {
+  "name": "Kling 2.5 Turbo",
+  "provider": "kuaishou",
+  "kind": "video",
+  "aliases": [
+   "Kling 2.5 Turbo"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Kuaishou's September 2025 throughput-optimized value model producing silent 5- or 10-second clips at 720p or 1080p for $0.042–$0.07 per second.",
+  "bestFor": "Cheapest large-batch drafts, prompt and motion testing, and silent b-roll or background plates.",
+  "speed": 4,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "快手 2025 年 9 月的吞吐优化性价比档，生成 5 秒或 10 秒 720p/1080p 无声片段。",
+   "bestFor": "最低成本的大批量草稿、提示词与运镜测试、无声空镜或背景板。"
+  }
+ },
+ {
+  "name": "Kling 2.1",
+  "provider": "kuaishou",
+  "kind": "video",
+  "aliases": [
+   "Kling 2.1"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "The 1080p tier of Kuaishou's May 2025 Kling 2.1 silent video model, retiring from the Kling API on September 15, 2026.",
+  "bestFor": "Legacy-pipeline parity only; migrate new work to Kling 2.6 or 3.0 before the September 15, 2026 retirement.",
+  "speed": 4,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "快手 2025 年 5 月 Kling 2.1 的 1080p 档，无声视频模型，将于 2026 年 9 月 15 日下线。",
+   "bestFor": "仅用于旧流程对齐；新项目请迁移到 Kling 2.6 或 3.0。"
+  }
+ },
+ {
+  "name": "Seedance 2.5",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "seedance-2.5",
+   "seedance2.5",
+   "Seedance 2.5"
+  ],
+  "resolutions": [
+   "480p",
+   "720p",
+   "1080p"
+  ],
+  "maxReferenceInputs": 50,
+  "description": "ByteDance's flagship video model generates up to 30 seconds of 1080p video with synchronized native audio in a single pass, driven by up to 50 image, video, and audio references.",
+  "bestFor": "One-take 15–30s narrative shots, reference-heavy character and set consistency, timestamp-level video editing and extension, and multilingual audio-visual content.",
+  "speed": 1,
+  "quality": 5,
+  "cost": "High",
+  "zh": {
+   "description": "专业电影级视频模型，单次生成最长 30 秒带同步音频的成片，支持最多 50 个多模态参考素材，并支持视频编辑与延长。",
+   "bestFor": "多镜头叙事、广告与品牌片、参考驱动的场景与角色连贯、视频改拍与延长。"
+  }
+ },
+ {
+  "name": "Seedance 2.5 Draft Mode",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "seedance-2.5-draft",
+   "Seedance 2.5 Draft Mode"
+  ],
+  "resolutions": [
+   "480p"
+  ],
+  "maxReferenceInputs": 50,
+  "description": "Explore ideas at lower cost with Seedance 2.5 in 480p. Once you're happy with the draft, generate a 1080p final that faithfully preserves the approved look and motion.",
+  "bestFor": "Low-cost visual and motion testing, rapid draft iteration, and faithful 1080p delivery once the result is approved.",
+  "speed": 1,
+  "quality": 5,
+  "cost": "High",
+  "zh": {
+   "description": "用 Seedance 2.5 以 480p 低成本试想法；满意后可生成 1080p 成片，并忠实保留已确认的画面与运动。",
+   "bestFor": "低成本画面与运动测试、快速草稿迭代，以及确认后直接交付 1080p。"
+  }
+ },
+ {
+  "name": "Nano Banana Pro",
+  "provider": "google",
+  "kind": "image",
+  "aliases": [
+   "nano-banana-pro",
+   "gemini-3-pro-image-preview",
+   "Nano Banana Pro",
+   "Nano Banana Pro Upscale"
+  ],
+  "resolutions": [
+   "2K",
+   "4K"
+  ],
+  "maxReferenceInputs": 8,
+  "description": "Google's premium reasoning-driven image model (gemini-3-pro-image) delivering up to 4K output with accurate text rendering, Google Search grounding and precise brand and character consistency.",
+  "bestFor": "Complex graphic design, high-fidelity product mockups, infographics, factual data visualization, and brand-critical localized collateral.",
+  "speed": 2,
+  "quality": 5,
+  "cost": "High",
+  "zh": {
+   "description": "Google 的高端推理驱动图像模型（gemini-3-pro-image），最高 4K 输出，文字渲染精准，支持 Google 搜索接地与精确的品牌/角色一致性。",
+   "bestFor": "复杂平面设计、高保真产品样机、信息图、事实型数据可视化，以及品牌关键的本地化物料。"
+  }
+ },
+ {
+  "name": "Nano Banana 2",
+  "provider": "google",
+  "kind": "image",
+  "aliases": [
+   "nano-banana-2",
+   "Nano Banana 2"
+  ],
+  "resolutions": [
+   "2K",
+   "4K"
+  ],
+  "maxReferenceInputs": 8,
+  "description": "Google's generalist Flash-tier image model (gemini-3.1-flash-image) combining 4K output, image-and-text search grounding, up to 14 reference images and reliable multilingual text rendering.",
+  "bestFor": "Default image generation, marketing and social asset volume, product photography, in-image typography, and storyboards with up to 5 consistent characters.",
+  "speed": 4,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "Google 的通用 Flash 档图像模型（gemini-3.1-flash-image），4K 输出、图文检索接地、最多 14 张参考图，多语言文字渲染稳定。",
+   "bestFor": "默认出图、营销与社媒素材量产、产品摄影、画面内文字排版、最多 5 个角色的分镜。"
+  }
+ },
+ {
+  "name": "Midjourney v8.2",
+  "provider": "midjourney",
+  "kind": "image",
+  "aliases": [
+   "midjourney",
+   "Midjourney",
+   "Midjourney v8.2",
+   "midjourney-v8.2",
+   "Midjourney v7",
+   "midjourney-v7"
+  ],
+  "resolutions": [
+   "1K",
+   "2K"
+  ],
+  "maxReferenceInputs": 5,
+  "description": "Midjourney's current default V8.2 (July 2026) pairs a unified Edit Model with native 2K HD output, moodboards and deep personalization profiles, available only via subscription.",
+  "bestFor": "Stylized hero imagery, moodboard-driven brand looks, 2K poster art, and editorial or creative-direction work.",
+  "speed": 4,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "Midjourney 当前默认的 V8.2（2026 年 7 月），统一编辑模型加原生 2K HD 输出、情绪板与深度个性化档案，仅订阅可用。",
+   "bestFor": "风格化主视觉、情绪板驱动的品牌调性、2K 海报、编辑与创意指导类工作。"
+  }
+ },
+ {
+  "name": "Seedream 4.0",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedream 4.0"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "ByteDance Seed's unified image generation and editing model (September 2025): native 1K–4K output, 2–14 reference images and batch generation of up to 15 images at the family's lowest price.",
+  "bestFor": "High-volume drafts and variations, fast 4K output, budget text-to-image, and multi-reference batch sets.",
+  "speed": 4,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "字节跳动 Seedream 4.0，图像生成与编辑一体，指令跟随与文字渲染表现均衡。",
+   "bestFor": "通用出图、图文海报与需要稳定指令跟随的编辑任务。"
+  }
+ },
+ {
+  "name": "Seedream 4.5",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedream 4.5"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "A scaled-up Seedream 4.0 checkpoint (late 2025) improving multi-image fusion, small-text and small-face rendering and subject identity retention, at a flat price up to 4K (1K not supported).",
+  "bestFor": "E-commerce product and lifestyle imagery, typography-heavy posters, multi-reference fusion with identity retention, and budget 4K delivery.",
+  "speed": 3,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "Seedream 4.0 的放大版检查点（较新），细节与一致性更强。",
+   "bestFor": "需要更高细节与一致性的商业图与系列化创作。"
+  }
+ },
+ {
+  "name": "Qwen Image",
+  "provider": "alibaba",
+  "kind": "video",
+  "aliases": [
+   "Qwen Image"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Alibaba's Qwen-Image family, now at 3.0/3.0-Pro, is the reference for complex bilingual Chinese/English text rendering with 10px-legible type in 12 languages and native 2K output.",
+  "bestFor": "Infographics, posters, e-commerce cards, UI mockups, documents with dense legible type, and Chinese-language typography.",
+  "speed": 4,
+  "quality": 4,
+  "cost": "Low",
+  "zh": {
+   "description": "阿里通义万相图像模型，擅长中文语义理解与画面内中文字渲染。",
+   "bestFor": "中文提示词出图、海报与电商图中文字排版。"
+  }
+ },
+ {
+  "name": "Veo 3.1 Fast",
+  "provider": "google",
+  "kind": "video",
+  "aliases": [
+   "Veo 3.1 Fast"
+  ],
+  "resolutions": [
+   "720p",
+   "1080p"
+  ],
+  "maxReferenceInputs": 1,
+  "description": "The speed- and cost-optimized tier of Veo 3.1, generating 4–8 second clips at 720p, 1080p or 4K with natively synced audio at about a quarter of the standard price.",
+  "bestFor": "Rapid iteration, ad-variant testing, prototyping, and high-volume social content where throughput beats maximum fidelity.",
+  "speed": 3,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "Veo 3.1 的速度与成本优化档，生成 4–8 秒 720p、1080p 或 4K 片段，原生同步音频，价格约为标准档的四分之一。",
+   "bestFor": "快速迭代、广告变体测试、原型验证与高吞吐社媒内容。"
+  }
+ },
+ {
+  "name": "Veo 3.1",
+  "provider": "google",
+  "kind": "video",
+  "aliases": [
+   "Veo 3.1"
+  ],
+  "resolutions": [
+   "720p",
+   "1080p"
+  ],
+  "maxReferenceInputs": 3,
+  "description": "Google DeepMind's flagship cinematic video model generating 4-, 6- or 8-second clips at 720p, 1080p or native 4K with natively generated dialogue, sound effects and music.",
+  "bestFor": "Hero and brand films, 4K deliverables, dialogue scenes with lip sync, first/last-frame control, and up to three reference images.",
+  "speed": 2,
+  "quality": 5,
+  "cost": "High",
+  "zh": {
+   "description": "Google DeepMind 的旗舰电影级视频模型，原生同步音频，支持多语言对话与精准运镜控制。",
+   "bestFor": "品牌片、电影感叙事、带对白与音效的成片级短片。"
+  }
+ },
+ {
+  "name": "Sora2",
+  "provider": "openai",
+  "kind": "image",
+  "aliases": [
+   "Sora2"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "OpenAI's speed-optimized video model producing up to 20-second 720p clips with synchronized audio; OpenAI API access ends September 24, 2026.",
+  "bestFor": "Social shorts, concepting and rough cuts while available; migrate new pipelines before the September 2026 API retirement.",
+  "speed": 4,
+  "quality": 3,
+  "cost": "Medium",
+  "zh": {
+   "description": "OpenAI 的视频生成模型，具备导演级叙事能力，一键产出完整短片。",
+   "bestFor": "概念短片、故事性镜头与创意验证。"
+  }
+ },
+ {
+  "name": "Sora2 Pro",
+  "provider": "openai",
+  "kind": "image",
+  "aliases": [
+   "Sora2 Pro"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "OpenAI's production-grade video model rendering up to 20-second clips at 720p, 1024p or 1080p with advanced synchronized audio; API access ends September 24, 2026.",
+  "bestFor": "1080p marketing assets and cinematic footage while available; plan migration before the September 2026 API retirement.",
+  "speed": 2,
+  "quality": 5,
+  "cost": "High",
+  "zh": {
+   "description": "Sora 2 的专业档，清晰度更高，达到商用级画质。",
+   "bestFor": "商用交付、需要高清晰度与稳定画质的成片。"
+  }
+ },
+ {
+  "name": "Seedance Pro",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedance Pro"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "ByteDance's 2025-generation silent video model producing multi-shot, physically coherent 1080p clips up to 12 seconds from text or first/last-frame images.",
+  "bestFor": "Fast silent b-roll and multi-shot sequences, storyboard previz, and budget 1080p image-to-video where no audio is needed.",
+  "speed": 4,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "Seedance 专业档视频模型，画面质感与运动稳定性更强。",
+   "bestFor": "商用短片、广告与需要稳定运动表现的镜头。"
+  }
+ },
+ {
+  "name": "Hailuo 02",
+  "provider": "minimax",
+  "kind": "video",
+  "aliases": [
+   "Hailuo 02"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "MiniMax's June 2025 Hailuo-generation model with NCR architecture, native 1080p and strong physics realism at fixed 6- or 10-second durations, without native audio.",
+  "bestFor": "Low-cost physics-driven clips, 512p rapid prototyping, legacy-pipeline parity, and silent b-roll.",
+  "speed": 3,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "MiniMax 2025 年 6 月的海螺视频模型，复杂运动与镜头语言表现好。",
+   "bestFor": "复杂动作、运动镜头与创意短片。"
+  }
+ },
+ {
+  "name": "Vidu Q2 Pro",
+  "provider": "shengshu",
+  "kind": "video",
+  "aliases": [
+   "Vidu Q2 Pro"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "ShengShu's production-tier video model generating 2–8 second 1080p clips with up to seven reference images, motion-amplitude control and nuanced facial performance.",
+  "bestFor": "Precise-length social ads, product loops, character-consistent reference-to-video, and 2D/anime motion.",
+  "speed": 4,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "生数科技 Vidu Q2 专业档，擅长参考驱动的角色一致与多镜头连贯。",
+   "bestFor": "角色一致性要求高的系列短片与动漫风内容。"
+  }
+ },
+ {
+  "name": "Seedance 1.5 Pro",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedance 1.5 Pro"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "A dual-branch diffusion transformer that generates video and synchronized audio in one pass, with multilingual lip-sync and cinematic camera control up to 1080p and 12 seconds.",
+  "bestFor": "Dialogue-driven clips needing accurate multilingual lip-sync, talking-head and character performance shots, and low-cost audio-video output.",
+  "speed": 4,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "Seedance 1.5 专业档，支持原生音频的高质量视频生成。",
+   "bestFor": "带声音的成片级短片与广告素材。"
+  }
+ },
+ {
+  "name": "Seedance 1.0 Pro",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedance 1.0 Pro"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "ByteDance's 2025-generation silent video model producing multi-shot, physically coherent 1080p clips up to 12 seconds from text or first/last-frame images.",
+  "bestFor": "Fast silent b-roll and multi-shot sequences, storyboard previz, and budget 1080p image-to-video where no audio is needed.",
+  "speed": 4,
+  "quality": 3,
+  "cost": "Low",
+  "zh": {
+   "description": "字节跳动 Seedance 1.0 专业档，稳定的视频生成基线模型。",
+   "bestFor": "通用视频生成与旧流程延续。"
+  }
+ },
+ {
+  "name": "Kling 2.6",
+  "provider": "kuaishou",
+  "kind": "video",
+  "aliases": [
+   "Kling 2.6"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Kuaishou's December 2025 model, the first Kling to generate visuals and native Chinese/English audio in a single pass, at 3–10 seconds and up to 1080p.",
+  "bestFor": "Budget audio-synced social clips, motion-control performance transfer, and stylized cinematic b-roll.",
+  "speed": 3,
+  "quality": 4,
+  "cost": "Low",
+  "zh": {
+   "description": "快手 Kling 2.6，首个支持原生音频的版本，音效与对白同步生成。",
+   "bestFor": "带声音的短片、口播与音效同步场景。"
+  }
+ },
+ {
+  "name": "Hailuo 2.3",
+  "provider": "minimax",
+  "kind": "video",
+  "aliases": [
+   "Hailuo 2.3"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "MiniMax's October 2025 Hailuo upgrade adding complex body motion, anime/ink-wash/game-CG stylization and character micro-expressions at Hailuo 02's price, without native audio.",
+  "bestFor": "Stylized and anime-leaning video, action and full-body motion, e-commerce product motion, and budget 1080p at 6 seconds.",
+  "speed": 3,
+  "quality": 4,
+  "cost": "Low",
+  "zh": {
+   "description": "MiniMax 海螺 2.3，新一代高质量视频生成模型。",
+   "bestFor": "高质量短片、复杂运动与创意表达。"
+  }
+ },
+ {
+  "name": "Kling O1",
+  "provider": "kuaishou",
+  "kind": "video",
+  "aliases": [
+   "Kling O1"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Kuaishou's December 2025 unified multimodal video engine folding reference generation, first/last-frame, in-painting, style re-rendering and shot extension into one instruction-driven 3–10 second model.",
+  "bestFor": "Conversational video editing such as removing passersby, multi-subject consistency, style transfer, shot extension, and product-swap ads.",
+  "speed": 2,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "快手 Kling O1，统一编辑、视频参考与主体一致性，一个模型完成整体视觉控制。",
+   "bestFor": "视频改拍、参考驱动的一致性与多镜头编辑。"
+  }
+ },
+ {
+  "name": "Kling 3.0",
+  "provider": "kuaishou",
+  "kind": "video",
+  "aliases": [
+   "Kling 3.0"
+  ],
+  "resolutions": [
+   "720p",
+   "1080p"
+  ],
+  "maxReferenceInputs": 1,
+  "description": "Kuaishou's February 2026 flagship video model generating 3–15 second clips at up to native 4K with multi-shot storyboarding, element referencing and multilingual native audio.",
+  "bestFor": "Cinematic dialogue scenes, multi-shot narrative in one generation, on-screen brand text and logos, photorealistic ad previs, and 4K delivery.",
+  "speed": 2,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "快手 Kling 3.0，统一文本、图像、参考图与参考视频输入的视频模型，480P/720P/1080P、2–30 秒或自动时长，默认开启音频。",
+   "bestFor": "一站式视频创作、长时长镜头与带音频的成片。"
+  }
+ },
+ {
+  "name": "Kling 3.0 Omni",
+  "provider": "kuaishou",
+  "kind": "video",
+  "aliases": [
+   "Kling 3.0 Omni"
+  ],
+  "resolutions": [
+   "720p",
+   "1080p",
+   "4k"
+  ],
+  "maxReferenceInputs": 7,
+  "description": "Kuaishou's reference-first upgrade of Kling O1 accepting text, image and video elements to lock character appearance and voice across 3–15 second multi-shot clips at up to 4K.",
+  "bestFor": "Recurring characters and brand mascots, video-element and voice cloning, custom multi-shot storyboards, and e-commerce consistency.",
+  "speed": 2,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "Kling 3.0 的全能档，支持多模态参考、主体一致性与指令式编辑。",
+   "bestFor": "复杂多镜头、主体一致性与编辑混合的任务。"
+  }
+ },
+ {
+  "name": "Kling Avatar",
+  "provider": "kuaishou",
+  "kind": "video",
+  "aliases": [
+   "Kling Avatar"
+  ],
+  "resolutions": [
+   "720p"
+  ],
+  "maxReferenceInputs": 2,
+  "description": "Kuaishou's audio-driven avatar model turning one character image plus a voice track into a lip-synced performance of up to about five minutes, for humans, animals, cartoons or stylized characters.",
+  "bestFor": "Digital spokespeople and presenters, UGC-style ads, explainers and product demos, and singing or dancing avatar performances.",
+  "speed": 4,
+  "quality": 4,
+  "cost": "Low",
+  "zh": {
+   "description": "快手数字人模型，用一张人像加音频生成口型同步的说话视频。",
+   "bestFor": "口播视频、数字人播报与多语言配音成片。"
+  }
+ },
+ {
+  "name": "Seedance 2.0 Fast",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedance 2.0 Fast"
+  ],
+  "resolutions": [
+   "480p",
+   "720p"
+  ],
+  "maxReferenceInputs": 9,
+  "description": "A speed- and cost-optimized variant of Seedance 2.0 that keeps the full multimodal reference, editing, and native-audio feature set at up to 720p, roughly 2× faster and about a third cheaper per generation.",
+  "bestFor": "Prompt iteration and previz, high-volume content pipelines, and drafts before promoting to Seedance 2.0.",
+  "speed": 3,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "Seedance 2.0 的速度优化版，在保留画面质量的前提下缩短出片时间。",
+   "bestFor": "批量出片、时效优先的社媒内容与草稿迭代。"
+  }
+ },
+ {
+  "name": "Seedance 2.0",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedance 2.0"
+  ],
+  "resolutions": [
+   "480p",
+   "720p",
+   "1080p",
+   "4k"
+  ],
+  "maxReferenceInputs": 9,
+  "description": "ByteDance's unified multimodal audio-video model accepts text, image, video, and audio inputs, generating up to 15 seconds at up to 4K with dual-channel native sound.",
+  "bestFor": "1080p/4K hero deliverables, complex multi-subject motion, director-level camera control, and video editing and continuation.",
+  "speed": 2,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "专业电影级视频模型，支持多镜头与多模态参考生成。",
+   "bestFor": "多镜头叙事、广告片与参考驱动的场景生成。"
+  }
+ },
+ {
+  "name": "Seedance 2.0 Mini",
+  "provider": "bytedance",
+  "kind": "video",
+  "aliases": [
+   "Seedance 2.0 Mini"
+  ],
+  "resolutions": [
+   "480p",
+   "720p"
+  ],
+  "maxReferenceInputs": 9,
+  "description": "The budget tier of the Seedance 2.0 family, generating 4–15 second 480p/720p clips with native audio at about half the cost of Seedance 2.0 and roughly twice the speed of Seedance 2.0 Fast.",
+  "bestFor": "High-volume short-form social, e-commerce and UGC assets, batch generation, and lowest-cost drafts.",
+  "speed": 4,
+  "quality": 4,
+  "cost": "Low",
+  "zh": {
+   "description": "Seedance 2.0 家族的预算档：以约 Seedance 2.0 一半的成本、约 Seedance 2.0 Fast 两倍的速度，生成 4–15 秒、480p/720p 带原生音频的片段。",
+   "bestFor": "大批量短视频社交素材、电商与 UGC 资产、批量生成，以及最低成本草稿。"
+  }
+ },
+ {
+  "name": "mureka",
+  "provider": "mureka",
+  "kind": "video",
+  "aliases": [
+   "mureka"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Mureka's MusiCoT music models (V8 through V9.5) generate full songs, BGM and individual instrument tracks from lyrics or prompts, with stem and MIDI export and vocal cloning.",
+  "bestFor": "API-integrated song generation at low unit cost, lyrics-first songwriting, image/video-to-soundtrack scoring, and DAW-ready stem export.",
+  "speed": 4,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "Mureka 音乐生成模型，可按描述生成完整歌曲与人声。",
+   "bestFor": "背景音乐、歌曲草稿与配乐素材。"
+  }
+ },
+ {
+  "name": "eleven_labs",
+  "provider": "elevenlabs",
+  "kind": "video",
+  "aliases": [
+   "eleven_labs"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "ElevenLabs' flagship eleven_v3 text-to-speech model delivers emotionally rich, multi-speaker dialogue across 70+ languages at $0.10 per 1,000 characters.",
+  "bestFor": "Audiobooks and long-form narration, multi-character dialogue and drama, expressive marketing voiceover, and 70+ language localization.",
+  "speed": 5,
+  "quality": 5,
+  "cost": "Medium",
+  "zh": {
+   "description": "ElevenLabs 语音合成模型，音色自然、支持多语言与情绪控制。",
+   "bestFor": "配音、旁白与多语言口播。"
+  }
+ },
+ {
+  "name": "Meshy 6",
+  "provider": "meshy",
+  "kind": "video",
+  "aliases": [
+   "Meshy 6"
+  ],
+  "resolutions": [],
+  "maxReferenceInputs": 0,
+  "description": "Meshy 6 is Meshy's Text-to-3D workhorse producing textured 3D assets in about a minute with 8K textures and eight export formats; Meshy 7 (Aug 2026) supersedes it for image-to-3D.",
+  "bestFor": "Concept sculpting, game asset prototyping, 3D-print prep with auto split, and DCC pipelines via FBX/GLB/USDZ/BLEND export.",
+  "speed": 4,
+  "quality": 4,
+  "cost": "Medium",
+  "zh": {
+   "description": "Meshy 6 三维生成模型，可由文本或图像生成 3D 资产。",
+   "bestFor": "游戏与电商 3D 资产、原型与场景摆件。"
+  }
+ }
+]
